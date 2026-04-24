@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>attune-gui</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --fg: #1a1a1a;
+    --fg-dim: #666;
+    --bg: #fafafa;
+    --panel: #fff;
+    --border: #e4e4e4;
+    --accent: #3d5afe;
+    --accent-hover: #2239f0;
+    --error: #d32f2f;
+    --hit-score: #0a7d3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg: #e8e8e8;
+      --fg-dim: #999;
+      --bg: #121212;
+      --panel: #1e1e1e;
+      --border: #333;
+      --accent: #7986ff;
+      --accent-hover: #98a2ff;
+      --error: #ff6b6b;
+      --hit-score: #6bcf9a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    line-height: 1.5;
+  }
+  header {
+    padding: 1.2rem 2rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+  header .subtitle { color: var(--fg-dim); font-size: 0.85rem; margin-top: 0.2rem; }
+
+  main { max-width: 900px; margin: 0 auto; padding: 2rem; }
+
+  .query-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--fg);
+    font-size: 0.95rem;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  button {
+    padding: 0.7rem 1.2rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .knobs { display: flex; gap: 1rem; font-size: 0.85rem; color: var(--fg-dim); margin-bottom: 1.5rem; }
+  .knobs label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+
+  #status { font-size: 0.85rem; color: var(--fg-dim); margin-bottom: 1rem; min-height: 1.2rem; }
+  #status.error { color: var(--error); }
+
+  .hit {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.7rem;
+  }
+  .hit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 0.3rem;
+  }
+  .hit-path {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .hit-score { color: var(--hit-score); font-size: 0.8rem; font-weight: 600; }
+  .hit-category {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    margin-right: 0.5rem;
+    background: var(--border);
+    border-radius: 3px;
+    font-size: 0.7rem;
+    color: var(--fg-dim);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .hit-excerpt {
+    color: var(--fg-dim);
+    font-size: 0.82rem;
+    margin-top: 0.4rem;
+    padding: 0.5rem 0.7rem;
+    background: var(--bg);
+    border-left: 2px solid var(--border);
+    border-radius: 0 3px 3px 0;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    white-space: pre-wrap;
+    max-height: 8rem;
+    overflow-y: auto;
+  }
+
+  details#prompt {
+    margin-top: 2rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+  }
+  details#prompt summary { cursor: pointer; font-size: 0.9rem; color: var(--fg-dim); }
+  details#prompt pre {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    max-height: 60vh;
+    overflow-y: auto;
+    margin: 0.8rem 0 0;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>attune-gui</h1>
+  <div class="subtitle">Local sidecar — one tool wired end-to-end (M1).</div>
+</header>
+
+<main>
+  <form id="query-form" class="query-row">
+    <input type="text" id="q" autofocus autocomplete="off"
+           placeholder="Ask the attune-help corpus — e.g. 'how do I run a security audit?'" />
+    <button type="submit" id="submit">Query</button>
+  </form>
+
+  <div class="knobs">
+    <label>k: <input type="number" id="k" min="1" max="20" value="3" style="width: 3rem;" /></label>
+  </div>
+
+  <div id="status"></div>
+
+  <div id="results"></div>
+
+  <details id="prompt" hidden>
+    <summary>Augmented prompt</summary>
+    <pre id="prompt-body"></pre>
+  </details>
+</main>
+
+<script>
+  const form = document.getElementById("query-form");
+  const submit = document.getElementById("submit");
+  const statusEl = document.getElementById("status");
+  const resultsEl = document.getElementById("results");
+  const promptDetails = document.getElementById("prompt");
+  const promptBody = document.getElementById("prompt-body");
+
+  let sessionToken = null;
+
+  async function loadToken() {
+    const res = await fetch("/api/session/token");
+    if (!res.ok) throw new Error(`/api/session/token failed: ${res.status}`);
+    const data = await res.json();
+    sessionToken = data.token;
+  }
+
+  function escapeHTML(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function renderHits(hits) {
+    if (!hits.length) {
+      resultsEl.innerHTML = `<div class="hit"><em>No hits for that query.</em></div>`;
+      return;
+    }
+    resultsEl.innerHTML = hits.map(h => `
+      <div class="hit">
+        <div class="hit-header">
+          <span>
+            <span class="hit-category">${escapeHTML(h.category || "?")}</span>
+            <span class="hit-path">${escapeHTML(h.path)}</span>
+          </span>
+          <span class="hit-score">${h.score.toFixed(3)}</span>
+        </div>
+        ${h.excerpt ? `<div class="hit-excerpt">${escapeHTML(h.excerpt)}</div>` : ""}
+      </div>
+    `).join("");
+  }
+
+  async function runQuery(q, k) {
+    statusEl.textContent = "Querying…";
+    statusEl.classList.remove("error");
+    submit.disabled = true;
+    resultsEl.innerHTML = "";
+    promptDetails.hidden = true;
+
+    try {
+      const res = await fetch("/api/rag/query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Attune-Client": sessionToken,
+        },
+        body: JSON.stringify({ query: q, k: k }),
+      });
+
+      if (!res.ok) {
+        let body;
+        try { body = await res.json(); } catch { body = { detail: await res.text() }; }
+        const msg = body.detail?.message || body.detail || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+      statusEl.textContent = `${data.total_hits} hit${data.total_hits === 1 ? "" : "s"} for "${data.query}" (k=${data.k}).`;
+      renderHits(data.hits);
+      if (data.augmented_prompt) {
+        promptBody.textContent = data.augmented_prompt;
+        promptDetails.hidden = false;
+      }
+    } catch (err) {
+      statusEl.classList.add("error");
+      statusEl.textContent = `Error: ${err.message}`;
+    } finally {
+      submit.disabled = false;
+    }
+  }
+
+  form.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const q = document.getElementById("q").value.trim();
+    if (!q) return;
+    const k = parseInt(document.getElementById("k").value, 10) || 3;
+    runQuery(q, k);
+  });
+
+  loadToken().catch(err => {
+    statusEl.classList.add("error");
+    statusEl.textContent = `Could not load session token: ${err.message}`;
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "attune-gui"
+version = "0.1.0"
+description = "Unified local GUI that drives attune-ai, attune-rag, and attune-author Python libraries via a FastAPI sidecar."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Patrick Roebuck", email = "admin@smartaimemory.com"}
+]
+keywords = ["attune", "gui", "developer-tools", "rag", "documentation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "fastapi>=0.110,<1.0",
+    "uvicorn[standard]>=0.27,<1.0",
+    "pydantic>=2.0,<3.0",
+    "structlog>=24.0,<26.0",
+    "attune-rag>=0.1.8,<0.2",
+    "attune-author>=0.5.0,<0.6",
+    # attune-ai is intentionally deferred to M3 — M1 and M2 don't
+    # import it. Add it to the install pin set once M3 lands so
+    # the per-release cap is reviewed at that time rather than now.
+]
+
+[project.optional-dependencies]
+ai = [
+    "attune-ai>=6.4.0,<7.0",
+]
+dev = [
+    "pytest>=8.0,<10.0",
+    "pytest-asyncio>=0.23,<2.0",
+    "httpx>=0.27,<1.0",
+    "ruff>=0.5,<1.0",
+]
+
+[project.scripts]
+attune-gui = "attune_gui.main:main"
+
+[project.urls]
+Homepage = "https://github.com/Smart-AI-Memory/attune-gui"
+Repository = "https://github.com/Smart-AI-Memory/attune-gui"
+Issues = "https://github.com/Smart-AI-Memory/attune-gui/issues"
+
+[tool.setuptools.packages.find]
+where = ["sidecar"]
+include = ["attune_gui*"]
+
+[tool.setuptools.package-data]
+attune_gui = ["static/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "S", "BLE001"]
+ignore = [
+    "S101",  # assert used (fine in tests)
+]
+
+[tool.pytest.ini_options]
+testpaths = ["sidecar/tests"]
+asyncio_mode = "auto"
