@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "attune-gui"
-version = "0.1.1"
-description = "Unified local GUI that drives attune-ai, attune-rag, and attune-author Python libraries via a FastAPI sidecar."
+version = "0.2.0"
+description = "Local Living Docs dashboard for the attune-rag / attune-help / attune-author family. FastAPI sidecar + React UI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -32,15 +32,9 @@ dependencies = [
     "attune-rag>=0.1.8,<0.2",
     "attune-author>=0.5.0,<0.6",
     "attune-help>=0.9.0,<1.0",
-    # attune-ai is intentionally deferred to M3 — M1 and M2 don't
-    # import it. Add it to the install pin set once M3 lands so
-    # the per-release cap is reviewed at that time rather than now.
 ]
 
 [project.optional-dependencies]
-ai = [
-    "attune-ai>=6.4.0,<7.0",
-]
 dev = [
     "pytest>=8.0,<10.0",
     "pytest-asyncio>=0.23,<2.0",

@@ -1,22 +1,28 @@
 # attune-gui
 
-Unified local GUI that drives the `attune-*` Python libraries (`attune-ai`,
-`attune-rag`, `attune-author`, `attune-help`) through a FastAPI sidecar and a
-React + Vite UI. Designed so you don't have to remember CLI flags, MCP tool
-names, or sub-command paths to run common developer-workflow tasks.
+Local **Living Docs** dashboard for the `attune-*` documentation family
+(`attune-rag`, `attune-help`, `attune-author`). FastAPI sidecar +
+React + Vite UI. Designed so you don't have to remember CLI flags or
+sub-command paths to author, query, and maintain your project's docs.
 
 ## What it does
 
-- **Commands mode** — run any of the 24 registered commands (RAG queries,
-  doc generation, security audits, code reviews, memory recall/capture,
-  release prep, …) from a 3-column form-driven UI. Async jobs with live
+- **Commands mode** — run the 10 registered commands (RAG queries,
+  template generation, staleness checks, doc maintenance, help lookup
+  / search, …) from a 3-column form-driven UI. Async jobs with live
   status, structured results, and re-run with one click.
-- **Living Docs mode** — proactively tracks documentation quality across
-  three consumer personas (End User, Developer, Support). Scans your
-  workspace, surfaces stale or low-quality docs, and gates releases on
-  RAG faithfulness / accuracy thresholds.
-- **Profiles** — Developer, Author, or Support. Each filters the command
-  list to what's relevant for that role.
+- **Living Docs mode** — proactively tracks documentation quality
+  across three consumer personas (End User, Developer, Support).
+  Scans your workspace, surfaces stale or low-quality docs, and gates
+  releases on RAG faithfulness / accuracy thresholds.
+- **Profiles** — Developer, Author, or Support. Each filters the
+  command list to what's relevant for that role.
+
+> Looking for AI dev workflows (code review, security audits, refactor
+> planning, multi-agent orchestration)? Those live in
+> [`attune-ai`](https://pypi.org/project/attune-ai/) — a separate
+> product with its own CLI/plugin/MCP entry points. attune-gui is
+> deliberately scoped to the documentation lifecycle.
 
 ## Quickstart
 
@@ -54,15 +60,15 @@ cd ui && npm install && cd ..
 │  ├─ commands.py registry │
 │  ├─ jobs.py              │
 │  └─ routes/              │
-│     rag, ai, author,     │
-│     help, profile,       │
+│     rag, help, author,   │
+│     profile, jobs,       │
 │     living_docs          │
 └──────────┬───────────────┘
            │
 ┌──────────▼───────────────┐
-│  attune-rag, attune-ai,  │
-│  attune-author,          │
-│  attune-help             │
+│  attune-rag,             │
+│  attune-help,            │
+│  attune-author           │
 └──────────────────────────┘
 ```
 
@@ -81,7 +87,7 @@ deployment, not hardened against a motivated attacker on the same machine.
 - [`attune-rag`](https://pypi.org/project/attune-rag/) — RAG pipeline
 - [`attune-help`](https://pypi.org/project/attune-help/) — help runtime
 - [`attune-author`](https://pypi.org/project/attune-author/) — doc authoring
-- `attune-ai` — workflow engine (install via `attune-gui[ai]`)
+- [`attune-ai`](https://pypi.org/project/attune-ai/) — separate AI dev workflow product (not used by attune-gui)
 
 ## License
 

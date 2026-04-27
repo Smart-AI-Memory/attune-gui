@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from attune_gui import __version__
-from attune_gui.routes import ai, help, jobs, living_docs, profile, rag, system  # noqa: F401
+from attune_gui.routes import help, jobs, living_docs, profile, rag, system  # noqa: F401
 from attune_gui.security import origin_guard
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="attune-gui sidecar",
         version=__version__,
-        description="Local FastAPI bridge to attune-rag / attune-author / attune-ai.",
+        description="Local FastAPI bridge to attune-rag / attune-author / attune-help (Living Docs).",
         dependencies=[Depends(origin_guard)],
     )
 
@@ -40,7 +40,6 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     app.include_router(rag.router)
     app.include_router(jobs.router)
-    app.include_router(ai.router)
     app.include_router(help.router)
     app.include_router(profile.router)
     app.include_router(living_docs.router)
