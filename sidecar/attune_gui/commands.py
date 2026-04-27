@@ -28,19 +28,40 @@ from attune_gui.jobs import JobContext
 logger = logging.getLogger(__name__)
 
 
+def _require_absolute(field: str, raw: str) -> None:
+    """Reject relative paths up-front so users see a clear error.
+
+    Without this, ``Path('foo').resolve()`` silently joins ``foo`` to the
+    sidecar's cwd, producing confusing doubled paths in downstream errors
+    (e.g. /Users/.../attune-gui/Users/.../attune-ai/.help).
+    """
+    if raw.startswith("/") or raw.startswith("~"):
+        return
+    raise ValueError(
+        f"{field} must be an absolute path (e.g. /Users/you/project) "
+        f"or start with ~ (e.g. ~/project), got: {raw!r}",
+    )
+
+
 def _resolve_project_paths(args: dict[str, Any]) -> tuple[Path, Path]:
     """Return (project_root, help_dir) from args.
 
     Accepts either a single ``project_path`` convenience key or the legacy
     ``project_root`` / ``help_dir`` pair.  ``project_path`` wins when set.
+    Relative paths are rejected with a clear error.
     """
     project_path_raw = str(args.get("project_path", "")).strip()
     if project_path_raw:
+        _require_absolute("project_path", project_path_raw)
         project_root = Path(project_path_raw).expanduser().resolve()
         help_dir = project_root / ".help"
     else:
         help_dir_raw = str(args.get("help_dir", "")).strip() or ".help"
         project_root_raw = str(args.get("project_root", "")).strip() or "."
+        if project_root_raw != ".":
+            _require_absolute("project_root", project_root_raw)
+        if help_dir_raw != ".help":
+            _require_absolute("help_dir", help_dir_raw)
         help_dir = Path(help_dir_raw).expanduser().resolve()
         project_root = Path(project_root_raw).expanduser().resolve()
     return project_root, help_dir

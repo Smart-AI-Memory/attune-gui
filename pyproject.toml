@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "attune-gui"
-version = "0.1.0"
+version = "0.1.1"
 description = "Unified local GUI that drives attune-ai, attune-rag, and attune-author Python libraries via a FastAPI sidecar."
 readme = "README.md"
 requires-python = ">=3.10"
