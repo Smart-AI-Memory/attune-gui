@@ -18,9 +18,9 @@ router = APIRouter(prefix="/api/rag", tags=["rag"])
 @lru_cache(maxsize=1)
 def _get_pipeline():
     """One RagPipeline per sidecar lifetime. Lazy so import errors surface on first call."""
-    from attune_rag import RagPipeline  # noqa: PLC0415 — intentional lazy import
+    from attune_rag import QueryExpander, RagPipeline  # noqa: PLC0415 — intentional lazy import
 
-    return RagPipeline()
+    return RagPipeline(expander=QueryExpander())
 
 
 @router.post(
