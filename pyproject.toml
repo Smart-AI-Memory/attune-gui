@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "attune-gui"
@@ -56,12 +56,29 @@ Homepage = "https://github.com/Smart-AI-Memory/attune-gui"
 Repository = "https://github.com/Smart-AI-Memory/attune-gui"
 Issues = "https://github.com/Smart-AI-Memory/attune-gui/issues"
 
-[tool.setuptools.packages.find]
-where = ["sidecar"]
-include = ["attune_gui*"]
+[tool.hatch.build.targets.wheel]
+packages = ["sidecar/attune_gui"]
 
-[tool.setuptools.package-data]
-attune_gui = ["static/*"]
+[tool.hatch.build.targets.sdist]
+include = [
+    "sidecar/attune_gui",
+    "ui/src",
+    "ui/index.html",
+    "ui/package.json",
+    "ui/package-lock.json",
+    "ui/vite.config.js",
+    "scripts",
+    "build_hooks.py",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "build_hooks.py"
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+path = "build_hooks.py"
 
 [tool.ruff]
 line-length = 100
