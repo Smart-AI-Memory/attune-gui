@@ -28,6 +28,13 @@ htmlcov/
 # Local env
 .env
 .env.local
+.pypirc
 
 # uv
 uv.lock.backup
+
+# Node
+ui/node_modules/
+
+# Local planning artifacts
+.claude/
