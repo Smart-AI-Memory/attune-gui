@@ -480,6 +480,86 @@ COMMANDS["author.maintain"] = CommandSpec(
 
 
 # ---------------------------------------------------------------------------
+# Author: regen (one feature or all)
+# ---------------------------------------------------------------------------
+
+
+async def _exec_author_regen(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
+    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
+    from attune_author.manifest import load_manifest  # noqa: PLC0415
+
+    project_root, help_dir = _resolve_project_paths(args)
+    feature_name = str(args.get("feature", "")).strip()
+    overwrite = bool(args.get("overwrite", True))
+
+    ctx.log(f"Loading manifest from {help_dir}…")
+    manifest = await asyncio.to_thread(load_manifest, help_dir)
+
+    if feature_name:
+        if feature_name not in manifest.features:
+            available = ", ".join(sorted(manifest.features)) or "(none)"
+            raise ValueError(f"Feature {feature_name!r} not in manifest. Available: {available}")
+        targets = [manifest.features[feature_name]]
+    else:
+        targets = list(manifest.features.values())
+
+    ctx.log(f"Regenerating {len(targets)} feature(s)…")
+    generated: list[dict[str, Any]] = []
+    failed: list[str] = []
+    for feat in targets:
+        try:
+            result = await asyncio.to_thread(
+                generate_feature_templates,
+                feature=feat,
+                help_dir=help_dir,
+                project_root=project_root,
+                depths=None,
+                overwrite=overwrite,
+            )
+            ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
+            generated.append({"feature": feat.name, "templates": len(result.templates)})
+        except Exception as exc:
+            ctx.log(f"  {feat.name}: FAILED — {exc}")
+            failed.append(feat.name)
+
+    ctx.log(f"Done — {len(generated)} generated, {len(failed)} failed")
+    return {"generated": generated, "failed": failed}
+
+
+COMMANDS["author.regen"] = CommandSpec(
+    name="author.regen",
+    title="Regenerate templates",
+    domain="author",
+    description="Regenerate help templates for one feature or all features in a project.",
+    args_schema={
+        "type": "object",
+        "properties": {
+            "project_path": {
+                "type": "string",
+                "title": "Project path",
+                "description": "Root of the project.",
+                "ui:widget": "path",
+            },
+            "feature": {
+                "type": "string",
+                "title": "Feature (leave blank for all)",
+                "default": "",
+                "description": "Feature name from the manifest. Leave blank to regenerate all.",
+            },
+            "overwrite": {
+                "type": "boolean",
+                "title": "Overwrite existing templates",
+                "default": True,
+            },
+        },
+        "required": ["project_path"],
+    },
+    executor=_exec_author_regen,
+    profiles=("developer", "author"),
+)
+
+
+# ---------------------------------------------------------------------------
 # Author: lookup
 # ---------------------------------------------------------------------------
 
@@ -742,6 +822,90 @@ COMMANDS["help.list"] = CommandSpec(
     },
     executor=_exec_help_list,
     cancellable=False,
+    profiles=("developer", "author"),
+)
+
+
+# ---------------------------------------------------------------------------
+# Author: setup (init + generate all templates in one step)
+# ---------------------------------------------------------------------------
+
+
+async def _exec_author_setup(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
+    from attune_author.bootstrap import proposals_to_manifest, scan_project  # noqa: PLC0415
+    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
+    from attune_author.manifest import load_manifest, save_manifest  # noqa: PLC0415
+
+    project_root, help_dir = _resolve_project_paths(args)
+    overwrite = bool(args.get("overwrite", False))
+
+    manifest_path = help_dir / "features.yaml"
+    if manifest_path.exists():
+        ctx.log("Manifest exists — skipping init")
+    else:
+        ctx.log(f"Scanning {project_root} for features…")
+        proposals = await asyncio.to_thread(scan_project, project_root)
+        ctx.log(f"Discovered {len(proposals)} feature(s)")
+        if not proposals:
+            return {"discovered": 0, "message": "No features discovered in project."}
+        manifest = proposals_to_manifest(proposals)
+        await asyncio.to_thread(save_manifest, manifest, help_dir)
+        ctx.log(f"Wrote manifest to {manifest_path}")
+
+    manifest = await asyncio.to_thread(load_manifest, help_dir)
+    features = list(manifest.features.values())
+    ctx.log(f"Generating templates for {len(features)} feature(s)…")
+
+    generated: list[dict[str, Any]] = []
+    failed: list[str] = []
+    for feat in features:
+        try:
+            result = await asyncio.to_thread(
+                generate_feature_templates,
+                feature=feat,
+                help_dir=help_dir,
+                project_root=project_root,
+                depths=None,
+                overwrite=overwrite,
+            )
+            ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
+            generated.append({"feature": feat.name, "templates": len(result.templates)})
+        except Exception as exc:
+            ctx.log(f"  {feat.name}: FAILED — {exc}")
+            failed.append(feat.name)
+
+    ctx.log(f"Done — {len(generated)} generated, {len(failed)} failed")
+    return {
+        "manifest_path": str(manifest_path),
+        "features_total": len(features),
+        "generated": generated,
+        "failed": failed,
+    }
+
+
+COMMANDS["author.setup"] = CommandSpec(
+    name="author.setup",
+    title="Setup help",
+    domain="author",
+    description="Init .help/ (if needed) and generate all help templates for a project in one step.",
+    args_schema={
+        "type": "object",
+        "properties": {
+            "project_path": {
+                "type": "string",
+                "title": "Project path",
+                "description": "Root of the project to set up help for.",
+                "ui:widget": "path",
+            },
+            "overwrite": {
+                "type": "boolean",
+                "title": "Overwrite existing templates",
+                "default": False,
+            },
+        },
+        "required": ["project_path"],
+    },
+    executor=_exec_author_setup,
     profiles=("developer", "author"),
 )
 

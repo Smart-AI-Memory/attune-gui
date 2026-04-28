@@ -12,7 +12,8 @@ export async function api(path, opts = {}) {
   const res = await fetch(path, { ...opts, headers })
   if (!res.ok) {
     let body
-    try { body = await res.json() } catch { body = { detail: await res.text() } }
+    const text = await res.text()
+    try { body = JSON.parse(text) } catch { body = { detail: text } }
     const msg = body?.detail?.message || body?.detail || `HTTP ${res.status}`
     const err = new Error(msg)
     err.status = res.status
