@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
+import PathField from './PathField'
 
 function buildDefaults(schema) {
   const props = schema?.properties || {}
@@ -98,6 +99,19 @@ export default function FormPanel({ cmd, onJobStarted, bootError }) {
           />
           {desc && <div className="field-desc">{desc}</div>}
         </div>
+      )
+    }
+    if (prop['ui:widget'] === 'path') {
+      return (
+        <PathField
+          key={key}
+          id={`f_${key}`}
+          value={val}
+          label={label}
+          isRequired={isReq}
+          description={desc}
+          onChange={v => set(key, v)}
+        />
       )
     }
     if (prop['ui:widget'] === 'textarea') {

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "attune-gui"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local Living Docs dashboard for the attune-rag / attune-help / attune-author family. FastAPI sidecar + React UI."
 readme = "README.md"
 requires-python = ">=3.10"

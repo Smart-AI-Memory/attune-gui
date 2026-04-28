@@ -1,3 +1,9 @@
+const DOMAIN_LABELS = {
+  rag: 'Search & Query',
+  author: 'Author Docs',
+  help: 'Help Lookup',
+}
+
 export default function CommandsPanel({ commands, selected, onSelect }) {
   const byDomain = {}
   for (const c of commands) {
@@ -10,7 +16,7 @@ export default function CommandsPanel({ commands, selected, onSelect }) {
       <div className="col-body">
         {Object.entries(byDomain).map(([domain, cmds]) => (
           <div key={domain} className="cmd-domain">
-            <div className="cmd-domain-label">{domain}</div>
+            <div className="cmd-domain-label">{DOMAIN_LABELS[domain] ?? domain}</div>
             {cmds.map(c => (
               <button
                 key={c.name}

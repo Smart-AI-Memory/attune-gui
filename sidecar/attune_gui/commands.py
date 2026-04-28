@@ -226,11 +226,13 @@ COMMANDS: dict[str, CommandSpec] = {
                     "type": "string",
                     "title": ".help/ path",
                     "default": ".help",
+                    "ui:widget": "path",
                 },
                 "project_root": {
                     "type": "string",
                     "title": "Project root",
                     "default": ".",
+                    "ui:widget": "path",
                 },
                 "all_kinds": {
                     "type": "boolean",
@@ -334,6 +336,7 @@ COMMANDS["author.init"] = CommandSpec(
                 "title": "Project root",
                 "default": ".",
                 "description": "Root of the project to scan.",
+                "ui:widget": "path",
             },
         },
     },
@@ -379,16 +382,23 @@ COMMANDS["author.status"] = CommandSpec(
     args_schema={
         "type": "object",
         "properties": {
-            "project_path": {"type": "string", "title": "Project path", "default": ""},
+            "project_path": {
+                "type": "string",
+                "title": "Project path",
+                "default": "",
+                "ui:widget": "path",
+            },
             "help_dir": {
                 "type": "string",
                 "title": ".help/ path (overrides project_path)",
                 "default": "",
+                "ui:widget": "path",
             },
             "project_root": {
                 "type": "string",
                 "title": "Project root (overrides project_path)",
                 "default": "",
+                "ui:widget": "path",
             },
         },
     },
@@ -437,16 +447,23 @@ COMMANDS["author.maintain"] = CommandSpec(
     args_schema={
         "type": "object",
         "properties": {
-            "project_path": {"type": "string", "title": "Project path", "default": ""},
+            "project_path": {
+                "type": "string",
+                "title": "Project path",
+                "default": "",
+                "ui:widget": "path",
+            },
             "help_dir": {
                 "type": "string",
                 "title": ".help/ path (overrides project_path)",
                 "default": "",
+                "ui:widget": "path",
             },
             "project_root": {
                 "type": "string",
                 "title": "Project root (overrides project_path)",
                 "default": "",
+                "ui:widget": "path",
             },
             "features": {
                 "type": "string",
@@ -521,7 +538,12 @@ COMMANDS["author.lookup"] = CommandSpec(
                 "default": "concept",
                 "description": "concept | task | reference",
             },
-            "help_dir": {"type": "string", "title": ".help/ path", "default": ".help"},
+            "help_dir": {
+                "type": "string",
+                "title": ".help/ path",
+                "default": ".help",
+                "ui:widget": "path",
+            },
         },
         "required": ["query"],
     },
@@ -529,8 +551,6 @@ COMMANDS["author.lookup"] = CommandSpec(
     cancellable=False,
     profiles=("developer", "author"),
 )
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -604,6 +624,7 @@ COMMANDS["help.lookup"] = CommandSpec(
                 "title": "Template dir",
                 "default": "",
                 "description": "Path to .help/templates/ directory. Leave blank to use bundled templates.",
+                "ui:widget": "path",
             },
         },
         "required": ["topic"],
@@ -663,6 +684,7 @@ COMMANDS["help.search"] = CommandSpec(
                 "title": "Template dir",
                 "default": "",
                 "description": "Path to .help/templates/ directory. Leave blank to use bundled templates.",
+                "ui:widget": "path",
             },
         },
         "required": ["query"],
@@ -714,6 +736,7 @@ COMMANDS["help.list"] = CommandSpec(
                 "title": "Template dir",
                 "default": "",
                 "description": "Path to .help/templates/ directory. Leave blank to use bundled templates.",
+                "ui:widget": "path",
             },
         },
     },

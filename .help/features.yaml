@@ -1,0 +1,20 @@
+version: 1
+features:
+  attune_gui-entry:
+    description: 'Entry point: sidecar/attune_gui/app.py'
+    files:
+    - sidecar/attune_gui/app.py
+    tags:
+    - entry-point
+  scripts:
+    description: Scripts
+    files:
+    - scripts/**
+  sidecar:
+    description: Sidecar
+    files:
+    - sidecar/**
+  ui:
+    description: Ui
+    files:
+    - ui/**
