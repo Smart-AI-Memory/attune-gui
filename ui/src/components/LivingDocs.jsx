@@ -244,6 +244,7 @@ function DocRegistryPanel({ docs, onRegenerate, profile }) {
                 <th>Depth</th>
                 <th>Persona</th>
                 <th>Status</th>
+                <th>Reason</th>
                 <th>Modified</th>
                 <th />
               </tr>
@@ -255,6 +256,9 @@ function DocRegistryPanel({ docs, onRegenerate, profile }) {
                   <td className="ld-mono">{doc.depth}</td>
                   <td>{personaLabel(doc.persona)}</td>
                   <td><StatusBadge status={doc.status} /></td>
+                  <td className="ld-dim ld-reason">
+                    {doc.reason || '—'}
+                  </td>
                   <td className="ld-dim">
                     {doc.last_modified
                       ? new Date(doc.last_modified).toLocaleDateString()
@@ -365,19 +369,22 @@ export default function LivingDocs({ profile }) {
     } catch { /* quiet */ }
   }, [])
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (signal = undefined) => {
     try {
+      const opts = signal ? { signal } : {}
       const [h, d, q] = await Promise.all([
-        api('/api/living-docs/health'),
-        api('/api/living-docs/docs'),
-        api('/api/living-docs/queue'),
+        api('/api/living-docs/health', opts),
+        api('/api/living-docs/docs', opts),
+        api('/api/living-docs/queue', opts),
       ])
+      if (signal?.aborted) return
       setHealth(h)
       setDocs(d.docs ?? [])
       setQueue(q.queue ?? [])
       setScanning(h.scanning ?? false)
       if (h.workspace) setWorkspace(h.workspace)
     } catch (e) {
+      if (e.name === 'AbortError') return
       setError(e.message)
     }
   }, [])
@@ -385,8 +392,10 @@ export default function LivingDocs({ profile }) {
   useEffect(() => { fetchConfig(); fetchAll() }, [fetchConfig, fetchAll])
 
   useEffect(() => {
-    const id = setInterval(fetchAll, 3000)
-    return () => clearInterval(id)
+    const controller = new AbortController()
+    const tick = () => { if (!document.hidden) fetchAll(controller.signal) }
+    const id = setInterval(tick, 3000)
+    return () => { clearInterval(id); controller.abort() }
   }, [fetchAll])
 
   const handleSaveWorkspace = useCallback(async (newPath) => {
