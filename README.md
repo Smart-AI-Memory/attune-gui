@@ -62,7 +62,7 @@ cd ui && npm install && cd ..
 │  └─ routes/              │
 │     rag, help, author,   │
 │     profile, jobs,       │
-│     living_docs          │
+│     living_docs, search  │
 └──────────┬───────────────┘
            │
 ┌──────────▼───────────────┐
@@ -71,6 +71,11 @@ cd ui && npm install && cd ..
 │  attune-author           │
 └──────────────────────────┘
 ```
+
+Workspace state (the project directory the sidecar watches) is
+persisted at `~/.attune-gui/config.json` so it survives restarts.
+Set it once via **Settings → Workspace** in the UI; the sidecar picks
+it up immediately without a reload.
 
 ## Security notes
 
