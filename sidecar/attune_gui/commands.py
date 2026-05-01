@@ -46,25 +46,43 @@ def _require_absolute(field: str, raw: str) -> None:
 def _resolve_project_paths(args: dict[str, Any]) -> tuple[Path, Path]:
     """Return (project_root, help_dir) from args.
 
-    Accepts either a single ``project_path`` convenience key or the legacy
-    ``project_root`` / ``help_dir`` pair.  ``project_path`` wins when set.
+    Priority:
+      1. ``project_path`` — convenience key, derives help_dir as <root>/.help
+      2. ``project_root`` / ``help_dir`` legacy pair, when explicitly non-empty
+      3. Configured workspace (from ~/.attune-gui/config.json)
+    Raises ValueError when no path is provided and no workspace is configured.
     Relative paths are rejected with a clear error.
     """
     project_path_raw = str(args.get("project_path", "")).strip()
     if project_path_raw:
         _require_absolute("project_path", project_path_raw)
         project_root = Path(project_path_raw).expanduser().resolve()
-        help_dir = project_root / ".help"
-    else:
-        help_dir_raw = str(args.get("help_dir", "")).strip() or ".help"
-        project_root_raw = str(args.get("project_root", "")).strip() or "."
-        if project_root_raw != ".":
-            _require_absolute("project_root", project_root_raw)
-        if help_dir_raw != ".help":
-            _require_absolute("help_dir", help_dir_raw)
-        help_dir = Path(help_dir_raw).expanduser().resolve()
-        project_root = Path(project_root_raw).expanduser().resolve()
-    return project_root, help_dir
+        return project_root, project_root / ".help"
+
+    project_root_raw = str(args.get("project_root", "")).strip()
+    help_dir_raw = str(args.get("help_dir", "")).strip()
+
+    if not project_root_raw and not help_dir_raw:
+        from attune_gui.workspace import get_workspace  # noqa: PLC0415
+
+        ws = get_workspace()
+        if ws is None:
+            raise ValueError(
+                "No project_path provided and no workspace configured. "
+                "Set a workspace via PUT /api/living-docs/config."
+            )
+        return ws, ws / ".help"
+
+    project_root_raw = project_root_raw or "."
+    help_dir_raw = help_dir_raw or ".help"
+    if project_root_raw != ".":
+        _require_absolute("project_root", project_root_raw)
+    if help_dir_raw != ".help":
+        _require_absolute("help_dir", help_dir_raw)
+    return (
+        Path(project_root_raw).expanduser().resolve(),
+        Path(help_dir_raw).expanduser().resolve(),
+    )
 
 
 ExecutorFn = Callable[[dict[str, Any], JobContext], Awaitable[Any]]
@@ -92,9 +110,14 @@ async def _exec_rag_query(args: dict[str, Any], ctx: JobContext) -> dict[str, An
     k = int(args.get("k", 3))
     ctx.log(f"retrieving top-{k} for: {query!r}")
 
-    from attune_gui.routes.rag import _get_pipeline  # noqa: PLC0415 — reuse the cached pipeline
+    from attune_gui.routes.rag import _get_pipeline  # noqa: PLC0415
+    from attune_gui.workspace import get_workspace  # noqa: PLC0415
 
-    pipeline = _get_pipeline()
+    project_path_raw = str(args.get("project_path", "")).strip()
+    workspace = (
+        Path(project_path_raw).expanduser().resolve() if project_path_raw else get_workspace()
+    )
+    pipeline = _get_pipeline(workspace)
 
     result = await asyncio.to_thread(pipeline.run, query, k=k)
     hits = [
@@ -202,6 +225,13 @@ COMMANDS: dict[str, CommandSpec] = {
                     "minimum": 1,
                     "maximum": 20,
                 },
+                "project_path": {
+                    "type": "string",
+                    "title": "Project path",
+                    "default": "",
+                    "description": "Root of the project to search. Leave blank to use the configured workspace.",
+                    "ui:widget": "path",
+                },
             },
             "required": ["query"],
         },
@@ -260,8 +290,13 @@ COMMANDS: dict[str, CommandSpec] = {
 
 async def _exec_rag_corpus_info(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
     from attune_gui.routes.rag import _get_pipeline  # noqa: PLC0415
+    from attune_gui.workspace import get_workspace  # noqa: PLC0415
 
-    pipeline = _get_pipeline()
+    project_path_raw = str(args.get("project_path", "")).strip()
+    workspace = (
+        Path(project_path_raw).expanduser().resolve() if project_path_raw else get_workspace()
+    )
+    pipeline = _get_pipeline(workspace)
     entries = await asyncio.to_thread(list, pipeline.corpus.entries())
     kinds = sorted({e.path.split("/")[0] for e in entries if "/" in e.path})
     ctx.log(f"{len(entries)} entries across {len(kinds)} kind(s)")
@@ -277,7 +312,18 @@ COMMANDS["rag.corpus-info"] = CommandSpec(
     title="Corpus info",
     domain="rag",
     description="Show entry count and category breakdown for the loaded attune-rag corpus.",
-    args_schema={"type": "object", "properties": {}},
+    args_schema={
+        "type": "object",
+        "properties": {
+            "project_path": {
+                "type": "string",
+                "title": "Project path",
+                "default": "",
+                "description": "Root of the project whose corpus to inspect. Leave blank to use the configured workspace.",
+                "ui:widget": "path",
+            },
+        },
+    },
     executor=_exec_rag_corpus_info,
     cancellable=False,
     profiles=("developer", "author"),
@@ -475,86 +521,6 @@ COMMANDS["author.maintain"] = CommandSpec(
         },
     },
     executor=_exec_author_maintain,
-    profiles=("developer", "author"),
-)
-
-
-# ---------------------------------------------------------------------------
-# Author: regen (one feature or all)
-# ---------------------------------------------------------------------------
-
-
-async def _exec_author_regen(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
-    from attune_author.manifest import load_manifest  # noqa: PLC0415
-
-    project_root, help_dir = _resolve_project_paths(args)
-    feature_name = str(args.get("feature", "")).strip()
-    overwrite = bool(args.get("overwrite", True))
-
-    ctx.log(f"Loading manifest from {help_dir}…")
-    manifest = await asyncio.to_thread(load_manifest, help_dir)
-
-    if feature_name:
-        if feature_name not in manifest.features:
-            available = ", ".join(sorted(manifest.features)) or "(none)"
-            raise ValueError(f"Feature {feature_name!r} not in manifest. Available: {available}")
-        targets = [manifest.features[feature_name]]
-    else:
-        targets = list(manifest.features.values())
-
-    ctx.log(f"Regenerating {len(targets)} feature(s)…")
-    generated: list[dict[str, Any]] = []
-    failed: list[str] = []
-    for feat in targets:
-        try:
-            result = await asyncio.to_thread(
-                generate_feature_templates,
-                feature=feat,
-                help_dir=help_dir,
-                project_root=project_root,
-                depths=None,
-                overwrite=overwrite,
-            )
-            ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
-            generated.append({"feature": feat.name, "templates": len(result.templates)})
-        except Exception as exc:
-            ctx.log(f"  {feat.name}: FAILED — {exc}")
-            failed.append(feat.name)
-
-    ctx.log(f"Done — {len(generated)} generated, {len(failed)} failed")
-    return {"generated": generated, "failed": failed}
-
-
-COMMANDS["author.regen"] = CommandSpec(
-    name="author.regen",
-    title="Regenerate templates",
-    domain="author",
-    description="Regenerate help templates for one feature or all features in a project.",
-    args_schema={
-        "type": "object",
-        "properties": {
-            "project_path": {
-                "type": "string",
-                "title": "Project path",
-                "description": "Root of the project.",
-                "ui:widget": "path",
-            },
-            "feature": {
-                "type": "string",
-                "title": "Feature (leave blank for all)",
-                "default": "",
-                "description": "Feature name from the manifest. Leave blank to regenerate all.",
-            },
-            "overwrite": {
-                "type": "boolean",
-                "title": "Overwrite existing templates",
-                "default": True,
-            },
-        },
-        "required": ["project_path"],
-    },
-    executor=_exec_author_regen,
     profiles=("developer", "author"),
 )
 
@@ -827,6 +793,89 @@ COMMANDS["help.list"] = CommandSpec(
 
 
 # ---------------------------------------------------------------------------
+# Author: regen
+# ---------------------------------------------------------------------------
+
+
+async def _exec_author_regen(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
+    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
+    from attune_author.manifest import load_manifest  # noqa: PLC0415
+
+    project_root, help_dir = _resolve_project_paths(args)
+    feature_name = str(args.get("feature", "")).strip()
+    overwrite = bool(args.get("overwrite", True))
+
+    ctx.log(f"Loading manifest from {help_dir}…")
+    manifest = await asyncio.to_thread(load_manifest, help_dir)
+
+    if feature_name:
+        if feature_name not in manifest.features:
+            available = ", ".join(sorted(manifest.features)) or "(none)"
+            raise ValueError(f"Feature {feature_name!r} not in manifest. Available: {available}")
+        targets = [manifest.features[feature_name]]
+    else:
+        targets = list(manifest.features.values())
+
+    ctx.log(f"Regenerating {len(targets)} feature(s)…")
+    generated: list[dict[str, Any]] = []
+    failed: list[str] = []
+    for feat in targets:
+        try:
+            result = await asyncio.to_thread(
+                generate_feature_templates,
+                feature=feat,
+                help_dir=help_dir,
+                project_root=project_root,
+                depths=None,
+                overwrite=overwrite,
+            )
+            ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
+            generated.append({"feature": feat.name, "templates": len(result.templates)})
+        except Exception as exc:
+            ctx.log(f"  {feat.name}: FAILED — {exc}")
+            failed.append(feat.name)
+
+    from attune_gui.routes import rag  # noqa: PLC0415
+
+    rag.invalidate(project_root)
+    ctx.log(f"Done — {len(generated)} generated, {len(failed)} failed")
+    return {"generated": generated, "failed": failed}
+
+
+COMMANDS["author.regen"] = CommandSpec(
+    name="author.regen",
+    title="Regenerate templates",
+    domain="author",
+    description="Regenerate help templates for one feature or all features in a project.",
+    args_schema={
+        "type": "object",
+        "properties": {
+            "project_path": {
+                "type": "string",
+                "title": "Project path",
+                "default": "",
+                "description": "Root of the project. Leave blank to use the configured workspace.",
+                "ui:widget": "path",
+            },
+            "feature": {
+                "type": "string",
+                "title": "Feature (leave blank for all)",
+                "default": "",
+                "description": "Feature name from the manifest. Leave blank to regenerate all.",
+            },
+            "overwrite": {
+                "type": "boolean",
+                "title": "Overwrite existing templates",
+                "default": True,
+            },
+        },
+    },
+    executor=_exec_author_regen,
+    profiles=("developer", "author"),
+)
+
+
+# ---------------------------------------------------------------------------
 # Author: setup (init + generate all templates in one step)
 # ---------------------------------------------------------------------------
 
@@ -874,6 +923,9 @@ async def _exec_author_setup(args: dict[str, Any], ctx: JobContext) -> dict[str,
             ctx.log(f"  {feat.name}: FAILED — {exc}")
             failed.append(feat.name)
 
+    from attune_gui.routes import rag  # noqa: PLC0415
+
+    rag.invalidate(project_root)
     ctx.log(f"Done — {len(generated)} generated, {len(failed)} failed")
     return {
         "manifest_path": str(manifest_path),
@@ -894,7 +946,8 @@ COMMANDS["author.setup"] = CommandSpec(
             "project_path": {
                 "type": "string",
                 "title": "Project path",
-                "description": "Root of the project to set up help for.",
+                "default": "",
+                "description": "Root of the project to set up help for. Leave blank to use the configured workspace.",
                 "ui:widget": "path",
             },
             "overwrite": {
@@ -903,7 +956,6 @@ COMMANDS["author.setup"] = CommandSpec(
                 "default": False,
             },
         },
-        "required": ["project_path"],
     },
     executor=_exec_author_setup,
     profiles=("developer", "author"),

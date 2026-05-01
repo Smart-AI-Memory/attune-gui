@@ -16,7 +16,6 @@ POST /api/living-docs/webhook/git        — git post-commit hook trigger
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -26,13 +25,11 @@ from pydantic import BaseModel
 
 from attune_gui.living_docs_store import get_store
 from attune_gui.security import require_client_token
+from attune_gui.workspace import get_workspace, set_workspace
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/living-docs", tags=["living-docs"])
-
-_CONFIG_PATH = Path.home() / ".attune-gui" / "config.json"
-_FALLBACK_ROOT = Path.cwd()
 
 
 # ---------------------------------------------------------------------------
@@ -41,30 +38,12 @@ _FALLBACK_ROOT = Path.cwd()
 
 
 def _get_workspace() -> Path:
-    try:
-        data = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
-        ws = data.get("workspace", "")
-        if ws:
-            p = Path(ws).expanduser()
-            if p.is_dir():
-                return p
-    except Exception:
-        pass
-    return _FALLBACK_ROOT
+    """Return configured workspace, falling back to cwd for living-docs routes."""
+    return get_workspace() or Path.cwd()
 
 
 def _set_workspace(path: str) -> Path:
-    resolved = Path(path).expanduser().resolve()
-    if not resolved.is_dir():
-        raise ValueError(f"Not a directory: {resolved}")
-    _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        data = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        data = {}
-    data["workspace"] = str(resolved)
-    _CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    return resolved
+    return set_workspace(path)
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +107,11 @@ class ScanRequest(BaseModel):
 
 
 async def _run_scan(trigger: str) -> None:
-    await get_store().scan(_get_workspace(), trigger=trigger)
+    ws = _get_workspace()
+    await get_store().scan(ws, trigger=trigger)
+    from attune_gui.routes import rag  # noqa: PLC0415
+
+    rag.invalidate(ws)
 
 
 @router.post("/scan", dependencies=[Depends(require_client_token)])
@@ -178,6 +161,9 @@ async def _regenerate_doc(doc_id: str, trigger: str) -> None:
 
     await store.add_to_queue(doc_id, trigger=trigger, project_root=root)
     await store.scan(root, trigger=trigger)
+    from attune_gui.routes import rag  # noqa: PLC0415
+
+    rag.invalidate(root)
 
 
 @router.post("/docs/{doc_id:path}/regenerate", dependencies=[Depends(require_client_token)])

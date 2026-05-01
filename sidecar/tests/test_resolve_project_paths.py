@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -44,8 +43,26 @@ def test_legacy_relative_help_dir_rejected():
         )
 
 
-def test_legacy_defaults_pass_through():
-    """No project_path, no project_root, no help_dir → resolves to cwd-based defaults."""
+def test_no_paths_uses_workspace(tmp_path, monkeypatch):
+    """No project_path, no project_root, no help_dir → falls back to configured workspace."""
+    monkeypatch.setattr("attune_gui.workspace.get_workspace", lambda: tmp_path)
     root, help_dir = _resolve_project_paths({})
-    assert root == Path(os.getcwd()).resolve()
-    assert help_dir == Path(os.getcwd()).resolve() / ".help"
+    assert root == tmp_path
+    assert help_dir == tmp_path / ".help"
+
+
+def test_no_paths_no_workspace_raises(monkeypatch):
+    """No paths and no workspace configured → clear error."""
+    monkeypatch.setattr("attune_gui.workspace.get_workspace", lambda: None)
+    with pytest.raises(ValueError, match="no workspace configured"):
+        _resolve_project_paths({})
+
+
+def test_explicit_project_root_skips_workspace(tmp_path, monkeypatch):
+    """Explicit project_root / help_dir legacy args win over workspace."""
+    monkeypatch.setattr("attune_gui.workspace.get_workspace", lambda: None)
+    root, help_dir = _resolve_project_paths(
+        {"project_root": str(tmp_path), "help_dir": str(tmp_path / ".help")}
+    )
+    assert root == tmp_path
+    assert help_dir == tmp_path / ".help"

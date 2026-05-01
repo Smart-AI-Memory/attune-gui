@@ -3,24 +3,61 @@
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from attune_gui.models import RagHit, RagQueryRequest, RagQueryResponse
 from attune_gui.security import require_client_token
 
+if TYPE_CHECKING:
+    from attune_rag import RagPipeline
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
 
+# Workspace-keyed pipeline cache.  Key is the resolved workspace Path; a
+# separate sentinel (None key via _DEFAULT_KEY) holds the fallback pipeline
+# that uses the bundled AttuneHelpCorpus when no workspace is configured.
+_PIPELINES: dict[Path, RagPipeline] = {}
+_DEFAULT_KEY = Path()  # empty Path is an otherwise-invalid workspace sentinel
 
-@lru_cache(maxsize=1)
-def _get_pipeline():
-    """One RagPipeline per sidecar lifetime. Lazy so import errors surface on first call."""
-    from attune_rag import QueryExpander, RagPipeline  # noqa: PLC0415 — intentional lazy import
 
-    return RagPipeline(expander=QueryExpander())
+def _get_pipeline(workspace: Path | None = None) -> RagPipeline:
+    """Return a RagPipeline, scoped to ``workspace`` when provided.
+
+    When ``workspace/.help/templates/`` exists, uses ``DirectoryCorpus`` from
+    that path so queries retrieve from the project's own generated templates.
+    Falls back to the bundled ``AttuneHelpCorpus`` when workspace is None or
+    the templates directory has not been created yet.
+    """
+    from attune_rag import DirectoryCorpus, QueryExpander, RagPipeline  # noqa: PLC0415
+
+    key = workspace if workspace is not None else _DEFAULT_KEY
+
+    if key not in _PIPELINES:
+        corpus = None
+        if workspace is not None:
+            corpus_dir = workspace / ".help" / "templates"
+            if corpus_dir.is_dir():
+                corpus = DirectoryCorpus(corpus_dir)
+        _PIPELINES[key] = RagPipeline(corpus=corpus, expander=QueryExpander())
+
+    return _PIPELINES[key]
+
+
+def invalidate(workspace: Path) -> None:
+    """Drop the cached pipeline for a workspace so the next call rebuilds it."""
+    _PIPELINES.pop(workspace, None)
+
+
+def _workspace_from_request() -> Path | None:
+    """Resolve the current workspace for HTTP route handlers."""
+    from attune_gui.workspace import get_workspace  # noqa: PLC0415
+
+    return get_workspace()
 
 
 @router.post(
@@ -29,7 +66,7 @@ def _get_pipeline():
 async def query(req: RagQueryRequest) -> RagQueryResponse:
     """Run retrieval for a query and return hits + augmented prompt."""
     try:
-        pipeline = _get_pipeline()
+        pipeline = _get_pipeline(_workspace_from_request())
     except Exception as exc:
         logger.exception("RagPipeline construction failed")
         raise HTTPException(
@@ -74,9 +111,9 @@ async def query(req: RagQueryRequest) -> RagQueryResponse:
 
 @router.get("/corpus-info")
 async def corpus_info() -> dict:
-    """Stats about the default corpus."""
+    """Stats about the corpus for the current workspace."""
     try:
-        pipeline = _get_pipeline()
+        pipeline = _get_pipeline(_workspace_from_request())
         entries = list(pipeline.corpus.entries())
     except Exception as exc:
         raise HTTPException(

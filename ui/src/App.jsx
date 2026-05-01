@@ -60,9 +60,11 @@ export default function App() {
   }, [fetchJobs, fetchCommands])
 
   useEffect(() => {
-    const id = setInterval(fetchJobs, 1200)
+    if (mode !== 'commands') return
+    const tick = () => { if (!document.hidden) fetchJobs() }
+    const id = setInterval(tick, 1200)
     return () => clearInterval(id)
-  }, [fetchJobs])
+  }, [fetchJobs, mode])
 
   const handleProfileChange = useCallback(async (newProfile) => {
     try {

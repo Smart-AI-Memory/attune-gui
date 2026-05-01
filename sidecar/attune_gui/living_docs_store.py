@@ -56,6 +56,7 @@ class DocEntry:
     status: str  # current | stale | missing
     path: str | None  # relative to project root; None when missing
     last_modified: str | None  # ISO 8601
+    reason: str | None = None  # human-readable staleness reason (Phase 1.5+)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -66,6 +67,7 @@ class DocEntry:
             "status": self.status,
             "path": self.path,
             "last_modified": self.last_modified,
+            "reason": self.reason,
         }
 
 
@@ -132,6 +134,7 @@ class LivingDocsStore:
         known_features: list[str] = []
 
         # Load manifest for staleness info — graceful if not present.
+        stale_reasons: dict[str, str] = {}
         try:
             from attune_author.manifest import load_manifest
             from attune_author.staleness import check_staleness
@@ -141,6 +144,7 @@ class LivingDocsStore:
             try:
                 report = check_staleness(manifest, help_dir, project_root)
                 stale_features = set(report.stale_features)
+                stale_reasons = getattr(report, "stale_reasons", {})
             except Exception:
                 pass
         except Exception:
@@ -175,6 +179,7 @@ class LivingDocsStore:
                             status="stale" if feature_name in stale_features else "current",
                             path=str(md_file.relative_to(project_root)),
                             last_modified=mtime,
+                            reason=stale_reasons.get(feature_name),
                         )
                     )
                 except Exception:

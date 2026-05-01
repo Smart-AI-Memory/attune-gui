@@ -11,7 +11,16 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from attune_gui import __version__
-from attune_gui.routes import fs, help, jobs, living_docs, profile, rag, system  # noqa: F401
+from attune_gui.routes import (  # noqa: F401
+    fs,
+    help,
+    jobs,
+    living_docs,
+    profile,
+    rag,
+    search,
+    system,
+)
 from attune_gui.security import origin_guard
 
 logger = logging.getLogger(__name__)
@@ -42,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(rag.router)
     app.include_router(jobs.router)
     app.include_router(help.router)
+    app.include_router(search.router)
     app.include_router(profile.router)
     app.include_router(living_docs.router)
 

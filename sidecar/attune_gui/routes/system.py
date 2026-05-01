@@ -21,6 +21,15 @@ async def health() -> HealthResponse:
     )
 
 
+@router.get("/workspace")
+async def current_workspace() -> dict:
+    """Return the currently configured workspace path, or null if unset."""
+    from attune_gui.workspace import get_workspace  # noqa: PLC0415
+
+    ws = get_workspace()
+    return {"workspace": str(ws) if ws else None}
+
+
 @router.get("/session/token")
 async def session_token() -> dict:
     """Return the per-process client token the UI must echo on mutating requests.
