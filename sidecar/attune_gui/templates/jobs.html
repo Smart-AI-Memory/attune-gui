@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs{% endblock %}
+
+{% block actions %}
+  <button class="btn ghost" onclick="location.reload()">Refresh</button>
+{% endblock %}
+
+{% block content %}
+  {% if jobs %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Duration</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for j in jobs %}
+          <tr>
+            <td class="mono">{{ j.name }}</td>
+            <td>
+              {% set st = j.status %}
+              {% if st in ('completed','done','success') %}<span class="badge ok">{{ st }}</span>
+              {% elif st in ('running','pending') %}<span class="badge accent-soft">{{ st }}</span>
+              {% elif st in ('errored','failed','cancelled') %}<span class="badge danger">{{ st }}</span>
+              {% else %}<span class="badge dim">{{ st }}</span>{% endif %}
+            </td>
+            <td class="dim mono">{{ j.started_at or '—' }}</td>
+            <td class="dim">{{ j.duration_ms or 0 }} ms</td>
+            <td class="row-actions">
+              <a class="row-action" href="/api/jobs/{{ j.id }}">json</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No jobs yet. <a href="/dashboard/commands">Run a command</a> to start one.</p>
+  {% endif %}
+{% endblock %}

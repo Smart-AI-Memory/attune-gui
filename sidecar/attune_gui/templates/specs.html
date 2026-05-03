@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Specs{% endblock %}
+
+{% block content %}
+  {% if specs_root %}
+    <p class="meta-line">
+      Reading from <code class="mono">{{ specs_root }}</code>
+    </p>
+  {% endif %}
+
+  {% if specs %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Phase</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in specs %}
+          <tr>
+            <td>
+              {% if s.phase %}
+                <a href="/dashboard/preview?root=specs&path={{ (s.feature ~ '/' ~ s.phase)|urlencode }}" class="link">{{ s.feature }}</a>
+              {% else %}
+                <span>{{ s.feature }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if s.phase_label %}<span class="badge accent-soft">{{ s.phase_label }}</span>
+              {% else %}<span class="dim">—</span>{% endif %}
+            </td>
+            <td>
+              {% if s.status %}
+                {% set st = s.status|lower %}
+                {% if st in ('approved','complete','completed','done') %}
+                  <span class="badge ok">{{ s.status }}</span>
+                {% elif st in ('in-review','in_review','review') %}
+                  <span class="badge warn">{{ s.status }}</span>
+                {% elif st == 'draft' %}
+                  <span class="badge dim">{{ s.status }}</span>
+                {% else %}
+                  <span class="badge accent-soft">{{ s.status }}</span>
+                {% endif %}
+              {% else %}<span class="dim">—</span>{% endif %}
+            </td>
+            <td class="row-actions">
+              {% for f in s.files %}
+                <a href="/dashboard/preview?root=specs&path={{ (s.feature ~ '/' ~ f)|urlencode }}" class="row-action">{{ f }}</a>
+              {% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No specs found. Create features under <code>specs/&lt;feature-slug&gt;/</code>.</p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Living Docs{% endblock %}
+
+{% block actions %}
+  <button class="btn primary" id="scan-btn">Scan now</button>
+{% endblock %}
+
+{% block content %}
+  {% set summary = health.summary or {} %}
+  {% set quality = health.quality or {} %}
+
+  <section class="section">
+    <h2 class="section-title">Workspace</h2>
+    <div class="card">
+      <form id="ws-form" class="ws-form">
+        <input id="ws-input" class="text-input" type="text" name="workspace"
+               value="{{ config.workspace or '' }}" placeholder="/path/to/project" />
+        <button type="submit" class="btn primary">Set workspace</button>
+        {% if config.has_help_dir %}<span class="badge ok">.help ✓</span>
+        {% else %}<span class="badge warn">no .help</span>{% endif %}
+      </form>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Health</h2>
+    <div class="grid grid-4">
+      <article class="card stat">
+        <div class="stat-num">{{ summary.total or 0 }}</div>
+        <div class="stat-label">Total</div>
+      </article>
+      <article class="card stat ok">
+        <div class="stat-num">{{ summary.current or 0 }}</div>
+        <div class="stat-label">Current</div>
+      </article>
+      <article class="card stat warn">
+        <div class="stat-num">{{ summary.stale or 0 }}</div>
+        <div class="stat-label">Stale</div>
+      </article>
+      <article class="card stat danger">
+        <div class="stat-num">{{ summary.missing or 0 }}</div>
+        <div class="stat-label">Missing</div>
+      </article>
+    </div>
+
+    {% if quality.get('faithfulness') is not none %}
+      <div class="quality-bars">
+        <div class="qbar">
+          <div class="qbar-head">
+            <span>Faithfulness (End User)</span>
+            <span class="{% if quality.faithfulness >= 0.95 %}ok{% else %}danger{% endif %}">
+              {{ '%.0f' % (quality.faithfulness * 100) }}%
+            </span>
+          </div>
+          <div class="qbar-track">
+            <div class="qbar-fill {% if quality.faithfulness >= 0.95 %}ok{% else %}danger{% endif %}"
+                 style="width: {{ (quality.faithfulness * 100)|round }}%"></div>
+          </div>
+        </div>
+        <div class="qbar">
+          <div class="qbar-head">
+            <span>Strict Accuracy (Developer)</span>
+            <span class="{% if quality.strict_accuracy >= 0.85 %}ok{% else %}danger{% endif %}">
+              {{ '%.0f' % (quality.strict_accuracy * 100) }}%
+            </span>
+          </div>
+          <div class="qbar-track">
+            <div class="qbar-fill {% if quality.strict_accuracy >= 0.85 %}ok{% else %}danger{% endif %}"
+                 style="width: {{ (quality.strict_accuracy * 100)|round }}%"></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Documents <span class="dim small">({{ docs|length }})</span></h2>
+    {% if docs %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Depth</th>
+              <th>Persona</th>
+              <th>Status</th>
+              <th>Reason</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in docs %}
+            <tr>
+              <td class="mono">{{ d.feature }}</td>
+              <td class="mono">{{ d.depth }}</td>
+              <td>{{ d.persona }}</td>
+              <td>
+                {% if d.status == 'current' %}<span class="badge ok">current</span>
+                {% elif d.status == 'stale' %}<span class="badge warn">stale</span>
+                {% elif d.status == 'missing' %}<span class="badge danger">missing</span>
+                {% else %}<span class="badge dim">{{ d.status }}</span>{% endif %}
+              </td>
+              <td class="dim">{{ d.reason or '—' }}</td>
+              <td>
+                {% if d.status != 'current' %}
+                  <button class="btn ghost btn-regen" data-id="{{ d.id }}">Regenerate</button>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty">No documents found in the current workspace.</p>
+    {% endif %}
+  </section>
+
+  {% if queue %}
+  <section class="section">
+    <h2 class="section-title">Review queue <span class="dim small">({{ queue|length }})</span></h2>
+    {% for item in queue %}
+      <article class="queue-item{% if item.reviewed %} reviewed{% endif %}">
+        <header>
+          <code class="mono">{{ item.doc_id }}</code>
+          <span class="dim">{{ item.persona }}</span>
+          <span class="badge accent-soft">{{ item.trigger }}</span>
+        </header>
+        {% if item.diff_summary %}<pre class="diff">{{ item.diff_summary }}</pre>{% endif %}
+        {% if not item.reviewed %}
+          <div class="row-actions">
+            <button class="btn primary btn-approve" data-id="{{ item.id }}">Approve</button>
+            <button class="btn ghost btn-revert" data-id="{{ item.id }}">Revert</button>
+          </div>
+        {% else %}<span class="badge ok">reviewed</span>{% endif %}
+      </article>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('ws-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ws = document.getElementById('ws-input').value.trim();
+    if (!ws) return;
+    try {
+      await AttuneUI.api('/api/living-docs/config', {
+        method: 'PUT',
+        body: JSON.stringify({ workspace: ws }),
+      });
+      AttuneUI.toast('Workspace updated, scanning…', 'ok');
+      setTimeout(() => location.reload(), 600);
+    } catch (e) {
+      AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+    }
+  });
+
+  document.getElementById('scan-btn').addEventListener('click', async () => {
+    try {
+      await AttuneUI.api('/api/living-docs/scan', { method: 'POST', body: JSON.stringify({ trigger: 'manual' }) });
+      AttuneUI.toast('Scan queued.', 'ok');
+      setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+      AttuneUI.toast(`Scan failed: ${e.message}`, 'danger');
+    }
+  });
+
+  document.querySelectorAll('.btn-regen').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      try {
+        await AttuneUI.api(`/api/living-docs/docs/${encodeURIComponent(id)}/regenerate`, { method: 'POST', body: '{}' });
+        AttuneUI.toast('Regenerate queued.', 'ok');
+      } catch (e) {
+        AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+      }
+    });
+  });
+  document.querySelectorAll('.btn-approve').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      try {
+        await AttuneUI.api(`/api/living-docs/queue/${encodeURIComponent(id)}/approve`, { method: 'POST', body: '{}' });
+        AttuneUI.toast('Approved.', 'ok');
+        setTimeout(() => location.reload(), 400);
+      } catch (e) { AttuneUI.toast(`Failed: ${e.message}`, 'danger'); }
+    });
+  });
+  document.querySelectorAll('.btn-revert').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      try {
+        await AttuneUI.api(`/api/living-docs/queue/${encodeURIComponent(id)}/revert`, { method: 'POST', body: '{}' });
+        AttuneUI.toast('Reverted.', 'ok');
+        setTimeout(() => location.reload(), 400);
+      } catch (e) { AttuneUI.toast(`Failed: ${e.message}`, 'danger'); }
+    });
+  });
+</script>
+{% endblock %}

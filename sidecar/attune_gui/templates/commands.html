@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Commands{% endblock %}
+
+{% block actions %}
+  <div class="filter-group">
+    <a href="?profile=developer" class="chip{% if profile == 'developer' %} active{% endif %}">Developer</a>
+    <a href="?profile=author"    class="chip{% if profile == 'author'    %} active{% endif %}">Author</a>
+    <a href="?profile=support"   class="chip{% if profile == 'support'   %} active{% endif %}">Support</a>
+  </div>
+{% endblock %}
+
+{% block content %}
+  {% if commands %}
+    <div class="grid grid-3 cmd-grid">
+      {% for c in commands %}
+        <article class="card cmd-card">
+          <header>
+            <h3 class="cmd-name">{{ c.name }}</h3>
+            {% if c.domain %}<span class="badge accent-soft">{{ c.domain }}</span>{% endif %}
+          </header>
+          {% if c.description %}<p class="cmd-desc">{{ c.description }}</p>{% endif %}
+          <button class="btn primary cmd-run" data-name="{{ c.name }}">Run</button>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty">No commands available for the <strong>{{ profile }}</strong> profile.</p>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.cmd-run').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.getAttribute('data-name');
+      btn.disabled = true;
+      try {
+        const job = await AttuneUI.api('/api/jobs', {
+          method: 'POST',
+          body: JSON.stringify({ name, args: {} }),
+        });
+        AttuneUI.toast(`Started job ${job.id || name}`, 'ok');
+        setTimeout(() => location.assign('/dashboard/jobs'), 800);
+      } catch (e) {
+        AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+{% endblock %}

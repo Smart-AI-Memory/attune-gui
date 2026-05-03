@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}{{ path or 'Preview' }}{% endblock %}
+
+{% block actions %}
+  {% if file %}
+    <button class="btn ghost" id="tab-preview" data-tab="preview">Preview</button>
+    <button class="btn ghost" id="tab-edit" data-tab="edit">Edit</button>
+    <button class="btn primary" id="save-btn" hidden>Save</button>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {% if error %}
+    <p class="banner danger">{{ error }}</p>
+  {% endif %}
+
+  {% if file %}
+    <p class="meta-line">
+      <code class="mono">{{ file.root }}/{{ file.path }}</code>
+      {% if file.manual %}<span class="badge accent" style="margin-left:.5rem;">manually maintained</span>{% endif %}
+    </p>
+
+    <div id="pane-preview" class="pane">
+      <article class="markdown-body">
+        {{ rendered_html|safe }}
+      </article>
+    </div>
+
+    <div id="pane-edit" class="pane" hidden>
+      <textarea id="editor" class="editor" spellcheck="false">{{ file.content }}</textarea>
+    </div>
+  {% else %}
+    <p class="empty">Select a file from <a href="/dashboard/templates">Templates</a> or <a href="/dashboard/specs">Specs</a> to preview it.</p>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if file %}
+<script>
+  const root = {{ root|tojson }};
+  const path = {{ path|tojson }};
+  const tabPreview = document.getElementById('tab-preview');
+  const tabEdit = document.getElementById('tab-edit');
+  const panePreview = document.getElementById('pane-preview');
+  const paneEdit = document.getElementById('pane-edit');
+  const saveBtn = document.getElementById('save-btn');
+  const editor = document.getElementById('editor');
+
+  function setTab(name) {
+    const isPreview = name === 'preview';
+    panePreview.hidden = !isPreview;
+    paneEdit.hidden = isPreview;
+    saveBtn.hidden = isPreview;
+    tabPreview.classList.toggle('active', isPreview);
+    tabEdit.classList.toggle('active', !isPreview);
+  }
+  tabPreview.addEventListener('click', () => setTab('preview'));
+  tabEdit.addEventListener('click', () => setTab('edit'));
+  setTab('preview');
+
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    try {
+      await AttuneUI.api(`/api/cowork/files/raw/${root}/${encodeURIComponent(path)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ content: editor.value }),
+      });
+      AttuneUI.toast('Saved.', 'ok');
+      // Refresh preview HTML
+      const r = await AttuneUI.api(`/api/cowork/files/rendered/${root}/${encodeURIComponent(path)}`);
+      document.querySelector('.markdown-body').innerHTML = r.html;
+    } catch (e) {
+      AttuneUI.toast(`Save failed: ${e.message}`, 'danger');
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

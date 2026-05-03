@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Health{% endblock %}
+
+{% block actions %}
+  <button class="btn ghost" onclick="location.reload()">Refresh</button>
+{% endblock %}
+
+{% block content %}
+  <section class="section">
+    <h2 class="section-title">Layers</h2>
+    <div class="grid grid-4">
+      {% for slug, info in layers.items() %}
+        <article class="card layer-card {% if info.importable %}ok{% else %}danger{% endif %}">
+          <div class="card-head">
+            <span class="dot"></span>
+            <h3>attune-{{ slug }}</h3>
+          </div>
+          <div class="card-body">
+            {% if info.importable %}
+              <div class="kv"><span class="k">Version</span><span class="v">{{ info.version or "—" }}</span></div>
+              <div class="kv"><span class="k">Import</span><span class="v ok">ok</span></div>
+            {% else %}
+              <div class="kv"><span class="k">Status</span><span class="v danger">Not installed</span></div>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Corpus</h2>
+    {% if corpus.workspace %}
+      <div class="card corpus-card">
+        <div class="corpus-row">
+          <span class="k">Workspace</span>
+          <code class="v mono">{{ corpus.workspace }}</code>
+        </div>
+        <div class="corpus-row">
+          <span class="k">Help directory</span>
+          <span class="v">{% if corpus.has_help_dir %}<span class="badge ok">.help ✓</span>{% else %}<span class="badge warn">missing</span>{% endif %}</span>
+        </div>
+        <div class="corpus-row">
+          <span class="k">Templates</span>
+          <span class="v"><strong>{{ corpus.template_count }}</strong> markdown files</span>
+        </div>
+        <div class="corpus-row">
+          <span class="k">summaries.json</span>
+          <span class="v">{% if corpus.summaries_present %}<span class="badge ok">present</span>{% else %}<span class="badge dim">absent</span>{% endif %}</span>
+        </div>
+      </div>
+    {% else %}
+      <p class="empty">
+        No workspace configured.
+        Open the <a href="/dashboard/living-docs">Living Docs</a> tab to set one,
+        or set <code>ATTUNE_WORKSPACE</code> before launching the sidecar.
+      </p>
+    {% endif %}
+  </section>
+{% endblock %}

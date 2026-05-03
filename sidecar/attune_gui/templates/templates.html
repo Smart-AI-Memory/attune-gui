@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Templates{% endblock %}
+
+{% block actions %}
+  <div class="filter-group">
+    {% set f = active_filter %}
+    <a href="?filter=all" class="chip{% if f == 'all' %} active{% endif %}">All <span class="chip-count">{{ total }}</span></a>
+    <a href="?filter=generated" class="chip{% if f == 'generated' %} active{% endif %}">AI-generated</a>
+    <a href="?filter=manual" class="chip{% if f == 'manual' %} active{% endif %}">Manual</a>
+    <a href="?filter=stale" class="chip{% if f == 'stale' %} active{% endif %}">Stale</a>
+  </div>
+{% endblock %}
+
+{% block content %}
+  {% if templates_root %}
+    <p class="meta-line">
+      Reading from <code class="mono">{{ templates_root }}</code>
+    </p>
+  {% endif %}
+
+  {% if items %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Tags</th>
+            <th>Status</th>
+            <th>Manual</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for t in items %}
+          <tr>
+            <td>
+              <a href="/dashboard/preview?root=templates&path={{ t.path|urlencode }}" class="mono link">{{ t.path }}</a>
+            </td>
+            <td class="dim">{{ t.tags|join(', ') if t.tags else '—' }}</td>
+            <td>
+              {% if t.staleness == 'fresh' %}<span class="badge ok">fresh</span>
+              {% elif t.staleness == 'stale' %}<span class="badge warn">stale</span>
+              {% elif t.staleness == 'very-stale' %}<span class="badge danger">very stale</span>
+              {% else %}<span class="badge dim">unknown</span>{% endif %}
+            </td>
+            <td>
+              <label class="switch" title="Toggle manual maintenance">
+                <input type="checkbox" data-pin-path="{{ t.path }}" {% if t.manual %}checked{% endif %}>
+                <span class="slider"></span>
+              </label>
+            </td>
+            <td>
+              {% if t.manual %}<span class="badge accent">pinned</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No templates found{% if active_filter != 'all' %} matching the <strong>{{ active_filter }}</strong> filter{% endif %}.</p>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('input[data-pin-path]').forEach(el => {
+    el.addEventListener('change', async (e) => {
+      const path = e.target.getAttribute('data-pin-path');
+      const manual = e.target.checked;
+      try {
+        await AttuneUI.api(`/api/cowork/files/pin/templates/${encodeURIComponent(path)}`, {
+          method: 'POST',
+          body: JSON.stringify({ manual }),
+        });
+        AttuneUI.toast(manual ? `Pinned ${path}` : `Unpinned ${path}`, 'ok');
+      } catch (err) {
+        e.target.checked = !manual;
+        AttuneUI.toast(`Pin failed: ${err.message}`, 'danger');
+      }
+    });
+  });
+</script>
+{% endblock %}

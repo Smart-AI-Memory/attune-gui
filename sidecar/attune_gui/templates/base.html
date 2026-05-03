@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ active|capitalize }} — Attune</title>
+  <link rel="stylesheet" href="/cw-static/style.css">
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">Attune</div>
+    <nav>
+      {% for item in nav %}
+        <a href="{{ item.href }}"
+           class="nav-link{% if item.slug == active %} active{% endif %}"
+           data-slug="{{ item.slug }}">{{ item.label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="sidebar-foot">
+      <a href="/legacy/" class="legacy-link" title="Open the React UI">Legacy UI ↗</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="page-head">
+      <h1>{% block title %}{{ active|capitalize }}{% endblock %}</h1>
+      <div class="page-head-actions">
+        {% block actions %}{% endblock %}
+      </div>
+    </header>
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // Tiny vanilla JS layer for save/pin actions and toast feedback.
+    window.AttuneUI = (function () {
+      const toastEl = document.getElementById('toast');
+      let toastTimer = null;
+
+      function toast(msg, kind) {
+        if (!toastEl) return;
+        toastEl.textContent = msg;
+        toastEl.className = 'toast show ' + (kind || '');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toastEl.className = 'toast'; }, 3200);
+      }
+
+      async function getSessionToken() {
+        if (window.__attune_token) return window.__attune_token;
+        try {
+          const r = await fetch('/api/session/token');
+          if (!r.ok) return null;
+          const d = await r.json();
+          window.__attune_token = d.token || null;
+          return window.__attune_token;
+        } catch { return null; }
+      }
+
+      async function api(url, opts) {
+        opts = opts || {};
+        const headers = Object.assign(
+          { 'Content-Type': 'application/json' },
+          opts.headers || {}
+        );
+        if (opts.method && opts.method !== 'GET') {
+          const t = await getSessionToken();
+          if (t) headers['X-Attune-Client-Token'] = t;
+        }
+        const res = await fetch(url, Object.assign({}, opts, { headers }));
+        if (!res.ok) {
+          let msg = res.statusText || ('HTTP ' + res.status);
+          try {
+            const body = await res.json();
+            if (body && body.detail) msg = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+          } catch {}
+          throw new Error(msg);
+        }
+        return res.status === 204 ? null : res.json();
+      }
+
+      return { api, toast };
+    })();
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
