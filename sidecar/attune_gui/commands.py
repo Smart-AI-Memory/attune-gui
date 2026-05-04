@@ -208,7 +208,10 @@ COMMANDS: dict[str, CommandSpec] = {
         name="rag.query",
         title="Query corpus",
         domain="rag",
-        description="Run retrieval against the default attune-rag corpus and show hits + augmented prompt.",
+        description=(
+            "Run retrieval against the default attune-rag corpus and "
+            "show hits + augmented prompt."
+        ),
         args_schema={
             "type": "object",
             "properties": {
@@ -229,7 +232,10 @@ COMMANDS: dict[str, CommandSpec] = {
                     "type": "string",
                     "title": "Project path",
                     "default": "",
-                    "description": "Root of the project to search. Leave blank to use the configured workspace.",
+                    "description": (
+                        "Root of the project to search. "
+                        "Leave blank to use the configured workspace."
+                    ),
                     "ui:widget": "path",
                 },
             },
@@ -319,7 +325,10 @@ COMMANDS["rag.corpus-info"] = CommandSpec(
                 "type": "string",
                 "title": "Project path",
                 "default": "",
-                "description": "Root of the project whose corpus to inspect. Leave blank to use the configured workspace.",
+                "description": (
+                    "Root of the project whose corpus to inspect. "
+                    "Leave blank to use the configured workspace."
+                ),
                 "ui:widget": "path",
             },
         },
@@ -711,7 +720,9 @@ COMMANDS["help.lookup"] = CommandSpec(
                 "type": "string",
                 "title": "Template dir",
                 "default": "",
-                "description": "Path to .help/templates/ directory. Leave blank to use bundled templates.",
+                "description": (
+                    "Path to .help/templates/ directory. " "Leave blank to use bundled templates."
+                ),
                 "ui:widget": "path",
             },
         },
@@ -771,7 +782,9 @@ COMMANDS["help.search"] = CommandSpec(
                 "type": "string",
                 "title": "Template dir",
                 "default": "",
-                "description": "Path to .help/templates/ directory. Leave blank to use bundled templates.",
+                "description": (
+                    "Path to .help/templates/ directory. " "Leave blank to use bundled templates."
+                ),
                 "ui:widget": "path",
             },
         },
@@ -809,7 +822,10 @@ COMMANDS["help.list"] = CommandSpec(
     name="help.list",
     title="List topics",
     domain="help",
-    description="List all available help topics, optionally filtered by type (concepts, tasks, references).",
+    description=(
+        "List all available help topics, "
+        "optionally filtered by type (concepts, tasks, references)."
+    ),
     args_schema={
         "type": "object",
         "properties": {
@@ -823,7 +839,9 @@ COMMANDS["help.list"] = CommandSpec(
                 "type": "string",
                 "title": "Template dir",
                 "default": "",
-                "description": "Path to .help/templates/ directory. Leave blank to use bundled templates.",
+                "description": (
+                    "Path to .help/templates/ directory. " "Leave blank to use bundled templates."
+                ),
                 "ui:widget": "path",
             },
         },
@@ -873,7 +891,8 @@ async def _exec_author_regen(args: dict[str, Any], ctx: JobContext) -> dict[str,
             )
             ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
             generated.append({"feature": feat.name, "templates": len(result.templates)})
-        except Exception as exc:
+        # INTENTIONAL: per-feature failure must not abort the batch
+        except Exception as exc:  # noqa: BLE001
             ctx.log(f"  {feat.name}: FAILED — {exc}")
             failed.append(feat.name)
 
@@ -961,7 +980,8 @@ async def _exec_author_setup(args: dict[str, Any], ctx: JobContext) -> dict[str,
             )
             ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
             generated.append({"feature": feat.name, "templates": len(result.templates)})
-        except Exception as exc:
+        # INTENTIONAL: per-feature failure must not abort the batch
+        except Exception as exc:  # noqa: BLE001
             ctx.log(f"  {feat.name}: FAILED — {exc}")
             failed.append(feat.name)
 
@@ -981,7 +1001,9 @@ COMMANDS["author.setup"] = CommandSpec(
     name="author.setup",
     title="Setup help",
     domain="author",
-    description="Init .help/ (if needed) and generate all help templates for a project in one step.",
+    description=(
+        "Init .help/ (if needed) and generate all help templates " "for a project in one step."
+    ),
     args_schema={
         "type": "object",
         "properties": {
@@ -989,7 +1011,10 @@ COMMANDS["author.setup"] = CommandSpec(
                 "type": "string",
                 "title": "Project path",
                 "default": "",
-                "description": "Root of the project to set up help for. Leave blank to use the configured workspace.",
+                "description": (
+                    "Root of the project to set up help for. "
+                    "Leave blank to use the configured workspace."
+                ),
                 "ui:widget": "path",
             },
             "overwrite": {
