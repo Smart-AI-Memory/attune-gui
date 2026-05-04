@@ -22,9 +22,6 @@ Sidebar nav with seven pages, each consuming the existing JSON API:
 Click any spec or template to open the **Preview / Edit** panel — server-side
 Markdown rendering plus a raw `<textarea>` for editing.
 
-> Prefer the React UI? It's still bundled and reachable at
-> `/legacy/`. Both surfaces talk to the same FastAPI sidecar.
-
 > Looking for AI dev workflows (code review, security audits, refactor
 > planning, multi-agent orchestration)? Those live in
 > [`attune-ai`](https://pypi.org/project/attune-ai/) — a separate
@@ -81,17 +78,14 @@ uv sync
 uv run attune-gui --port 8765 --reload
 ```
 
-For HMR work on the React UI at `/legacy/`:
-
-```bash
-cd ui && npm install && cd ..
-./scripts/dev.sh   # starts sidecar + Vite dev server
-```
+Templates auto-reload — edit anything under `sidecar/attune_gui/templates/`
+and refresh the browser. Python code changes reload automatically with
+`--reload`.
 
 ### Tests
 
 ```bash
-uv run pytest                # 105 tests, ~2s
+uv run pytest                # 124 tests, ~2s
 uv run ruff check .          # lint
 ```
 
@@ -100,7 +94,6 @@ uv run ruff check .          # lint
 ```
 ┌──────────────────────────────────────┐
 │  Cowork dashboard (Jinja2)  /        │
-│  Legacy React UI            /legacy/ │
 └──────────────────┬───────────────────┘
                    │  /api/*
 ┌──────────────────▼───────────────────┐

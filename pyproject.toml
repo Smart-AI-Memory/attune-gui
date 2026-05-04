@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "attune-gui"
-version = "0.4.0"
-description = "Local dashboard for attune-rag / attune-help / attune-author. Server-rendered Jinja2 UI (Cowork) with React UI preserved at /legacy/."
+version = "0.5.0"
+description = "Local dashboard for attune-rag / attune-help / attune-author. Server-rendered Jinja2 UI — ships clean via PyPI with no npm step."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -61,24 +61,12 @@ packages = ["sidecar/attune_gui"]
 [tool.hatch.build.targets.sdist]
 include = [
     "sidecar/attune_gui",
-    "ui/src",
-    "ui/index.html",
-    "ui/package.json",
-    "ui/package-lock.json",
-    "ui/vite.config.js",
-    "scripts",
-    "build_hooks.py",
+    "sidecar/tests",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
     "pyproject.toml",
 ]
-
-[tool.hatch.build.targets.wheel.hooks.custom]
-path = "build_hooks.py"
-
-[tool.hatch.build.targets.sdist.hooks.custom]
-path = "build_hooks.py"
 
 [tool.ruff]
 line-length = 100

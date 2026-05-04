@@ -1,0 +1,23 @@
+version: 1
+features:
+  attune-gui:
+    description: "attune-gui \u2014 local FastAPI sidecar that drives attune-rag,\
+      \ attune-author, and (later) attune-ai."
+    files:
+    - attune_gui/**
+  attune-gui.egg-info:
+    description: Attune Gui.Egg Info
+    files:
+    - attune_gui.egg-info/**
+  attune_gui-entry:
+    description: 'Entry point: attune_gui/app.py'
+    files:
+    - attune_gui/app.py
+    tags:
+    - entry-point
+  tests:
+    description: Tests
+    files:
+    - tests/**
+    tags:
+    - testing

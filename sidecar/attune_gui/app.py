@@ -1,7 +1,7 @@
 """FastAPI app factory — wires routes, CORS, and the origin guard.
 
-Mounts the new Cowork dashboard at ``/`` (Jinja2 server-rendered) and keeps
-the legacy React UI available at ``/legacy/`` for fallback.
+Serves the Cowork dashboard (Jinja2) at ``/`` and the JSON APIs under
+``/api/*``. The legacy React UI was retired in 0.5.0.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from attune_gui import __version__
@@ -34,10 +34,8 @@ from attune_gui.security import origin_guard
 
 logger = logging.getLogger(__name__)
 
-# Package-relative dirs.
-_PKG_DIR = Path(__file__).parent
-_STATIC_DIR = _PKG_DIR / "static"  # legacy React build output
-_CW_STATIC_DIR = _PKG_DIR / "static_cw"  # Cowork dashboard CSS/JS
+# Cowork dashboard CSS/JS lives next to the package.
+_CW_STATIC_DIR = Path(__file__).parent / "static_cw"
 
 
 def create_app() -> FastAPI:
@@ -58,7 +56,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # ---- JSON APIs (existing) -------------------------------------------------
+    # ---- JSON APIs (existing) -----------------------------------------------
     app.include_router(system.router)
     app.include_router(fs.router)
     app.include_router(rag.router)
@@ -78,8 +76,10 @@ def create_app() -> FastAPI:
     if _CW_STATIC_DIR.is_dir():
         app.mount("/cw-static", StaticFiles(directory=_CW_STATIC_DIR), name="cw-static")
 
-    # ---- Legacy React UI at /legacy/ ----------------------------------------
-    _mount_legacy_ui(app)
+    # ---- robots --------------------------------------------------------------
+    @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
+    async def _robots() -> str:
+        return "User-agent: *\nDisallow: /\n"
 
     # ---- Cowork HTML pages (registered LAST so /api/* still resolves first) -
     # The pages router defines /, /dashboard, /dashboard/<page>. Specific
@@ -88,37 +88,3 @@ def create_app() -> FastAPI:
     app.include_router(cowork_pages.router)
 
     return app
-
-
-def _mount_legacy_ui(app: FastAPI) -> None:
-    """Mount the React UI at ``/legacy/`` so the new dashboard owns ``/``."""
-    if _STATIC_DIR.is_dir() and (_STATIC_DIR / "index.html").is_file():
-        app.mount(
-            "/legacy",
-            StaticFiles(directory=_STATIC_DIR, html=True),
-            name="legacy-ui",
-        )
-        return
-
-    # Development fallback: serve the Vite build output.
-    repo_root = Path(__file__).resolve().parents[2]
-    dist_ui = repo_root / "ui" / "dist"
-    if dist_ui.is_dir() and (dist_ui / "index.html").is_file():
-        app.mount(
-            "/legacy",
-            StaticFiles(directory=dist_ui, html=True),
-            name="legacy-ui-dist",
-        )
-        return
-
-    @app.get("/legacy", response_class=HTMLResponse)
-    async def _legacy_placeholder() -> str:
-        return (
-            "<h1>Legacy React UI not built</h1>"
-            "<p>Run <code>cd ui && npm run build</code> to enable the legacy UI.</p>"
-            "<p><a href='/dashboard'>← Back to dashboard</a></p>"
-        )
-
-    @app.get("/robots.txt", response_class=PlainTextResponse)
-    async def _robots() -> str:
-        return "User-agent: *\nDisallow: /\n"

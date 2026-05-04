@@ -101,15 +101,6 @@ code, .mono {
   color: var(--sidebar-active);
 }
 
-.sidebar-foot { margin-top: auto; }
-.legacy-link {
-  font-size: 0.75rem;
-  color: var(--ink-mute);
-  padding: 8px 12px;
-  display: block;
-}
-.legacy-link:hover { color: var(--sidebar-active); text-decoration: none; }
-
 /* ── Main canvas ───────────────────────────────────────────────────────── */
 
 .main {

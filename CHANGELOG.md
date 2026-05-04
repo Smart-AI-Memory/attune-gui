@@ -3,6 +3,40 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] — 2026-05-04
+
+### Removed — legacy React UI
+
+The React/Vite UI has been retired. The Cowork dashboard at `/` is now
+the only surface. This was always the plan from the `cowork-dashboard`
+spec; 0.4.0 ran the two side-by-side to give you time to vet the new
+one. With everything verified in production, the bundled React assets
+are dead weight.
+
+What goes away:
+- `/legacy/` URL route — anyone with a bookmark gets a 404.
+- `ui/` source tree (React + Vite + node_modules) — no more `npm install`
+  to build the wheel.
+- `sidecar/attune_gui/static/` — the built React assets that shipped in
+  the wheel. Wheel size drops dramatically as a result.
+- `build_hooks.py` — the hatchling hook that drove `npm run build`.
+- `scripts/dev.sh` — the dual-runner script.
+- The "Legacy UI ↗" link in the dashboard sidebar.
+
+What stays the same:
+- All JSON APIs (`/api/*`) — including the old ones that powered the
+  React UI. Any external scripts hitting those continue to work.
+- The Cowork dashboard at `/` — same routes, same look.
+- Tests (124, all passing) — none of them hit the legacy mount.
+
+If you need the old React UI for any reason, install `attune-gui==0.4.0`.
+
+### Changed
+- `pyproject.toml` description updated; sdist no longer includes `ui/*`
+  or `build_hooks.py`.
+
+---
+
 ## [0.4.0] — 2026-05-04
 
 ### Added — Spec authoring
