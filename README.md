@@ -1,28 +1,34 @@
 # attune-gui
 
-Local **Living Docs** dashboard for the `attune-*` documentation family
-(`attune-rag`, `attune-help`, `attune-author`). FastAPI sidecar +
-React + Vite UI. Designed so you don't have to remember CLI flags or
-sub-command paths to author, query, and maintain your project's docs.
+Local dashboard for the `attune-*` documentation family
+(`attune-rag`, `attune-help`, `attune-author`). Server-rendered Jinja2
+UI ("Cowork dashboard") backed by a FastAPI sidecar — ships clean via
+PyPI with no `npm` step required to run.
 
 ## What it does
 
-- **Commands mode** — run the 10 registered commands (RAG queries,
-  template generation, staleness checks, doc maintenance, help lookup
-  / search, …) from a 3-column form-driven UI. Async jobs with live
-  status, structured results, and re-run with one click.
-- **Living Docs mode** — proactively tracks documentation quality
-  across three consumer personas (End User, Developer, Support).
-  Scans your workspace, surfaces stale or low-quality docs, and gates
-  releases on RAG faithfulness / accuracy thresholds.
-- **Profiles** — Developer, Author, or Support. Each filters the
-  command list to what's relevant for that role.
+Sidebar nav with seven pages, each consuming the existing JSON API:
+
+| Page | What it shows |
+|------|---------------|
+| **Health** | Cross-layer health (rag/help/author/gui versions) + corpus snapshot |
+| **Templates** | Markdown templates with mtime staleness, tags, and a manual-pin toggle |
+| **Specs** | Feature specs in `specs/` with phase + status badges |
+| **Summaries** | Inline-editable `summaries.json` with overwrite warning |
+| **Living Docs** | Workspace editor, scan trigger, document health, review queue, RAG quality bars |
+| **Commands** | Run any registered command from a card grid (RAG queries, regen, maintain, …) |
+| **Jobs** | Job history with per-feature progress, last-output column, Cancel button, auto-refresh |
+
+Click any spec or template to open the **Preview / Edit** panel — server-side
+Markdown rendering plus a raw `<textarea>` for editing.
+
+> Prefer the React UI? It's still bundled and reachable at
+> `/legacy/`. Both surfaces talk to the same FastAPI sidecar.
 
 > Looking for AI dev workflows (code review, security audits, refactor
 > planning, multi-agent orchestration)? Those live in
 > [`attune-ai`](https://pypi.org/project/attune-ai/) — a separate
-> product with its own CLI/plugin/MCP entry points. attune-gui is
-> deliberately scoped to the documentation lifecycle.
+> product. attune-gui is deliberately scoped to the documentation lifecycle.
 
 ## Quickstart
 
@@ -33,49 +39,85 @@ attune-gui
 attune-gui --port 8765
 ```
 
-The sidecar binds to `127.0.0.1`, opens your browser, and serves the React UI
-from inside the package. No external services required.
+The sidecar binds to `127.0.0.1`, prints `SIDECAR_URL=…`, and serves the
+new dashboard at `/`. Use `--open` to auto-open your browser.
 
-For dev work against a local checkout (HMR + faster iteration):
+## Configuration
+
+### `.env` auto-loading
+
+The sidecar loads `KEY=value` lines from the first `.env` it finds, in this order:
+
+1. `./.env` (current working directory)
+2. `<repo-root>/.env` (the attune-gui checkout root)
+3. `~/.attune-gui/.env`
+4. `~/.attune/.env`
+
+Existing real env values are preserved; empty/whitespace-only values are
+treated as unset and overwritten. Common keys:
+
+```
+ANTHROPIC_API_KEY=sk-ant-…   # required for author.regen / author.maintain
+ATTUNE_SPECS_ROOT=/path/to/your/repo/specs
+ATTUNE_WORKSPACE=/path/to/your/project
+```
+
+### Workspace + specs root
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ATTUNE_WORKSPACE` | persisted to `~/.attune-gui/config.json` | The project the sidecar watches (Living Docs, templates) |
+| `ATTUNE_SPECS_ROOT` | `<workspace>/specs/`, then walks up from cwd | Where the **Specs** page reads from |
+
+Workspace can also be set via **Living Docs → Workspace** in the UI; it
+persists to `~/.attune-gui/config.json` and survives restarts.
+
+## Development
 
 ```bash
 git clone https://github.com/Smart-AI-Memory/attune-gui
 cd attune-gui
-uv venv && uv pip install -e '.[dev]'
+uv sync
+uv run attune-gui --port 8765 --reload
+```
+
+For HMR work on the React UI at `/legacy/`:
+
+```bash
 cd ui && npm install && cd ..
-./scripts/dev.sh   # starts sidecar on :8765 + Vite dev on :5173
+./scripts/dev.sh   # starts sidecar + Vite dev server
+```
+
+### Tests
+
+```bash
+uv run pytest                # 105 tests, ~2s
+uv run ruff check .          # lint
 ```
 
 ## Architecture
 
 ```
-┌──────────────────────────┐
-│  React + Vite UI         │  ← served from package, or Vite dev (HMR)
-│  (Commands | Living Docs)│
-└──────────┬───────────────┘
-           │  /api/*
-┌──────────▼───────────────┐
-│  FastAPI sidecar         │
-│  127.0.0.1:8765          │
-│  ├─ commands.py registry │
-│  ├─ jobs.py              │
-│  └─ routes/              │
-│     rag, help, author,   │
-│     profile, jobs,       │
-│     living_docs, search  │
-└──────────┬───────────────┘
-           │
-┌──────────▼───────────────┐
-│  attune-rag,             │
-│  attune-help,            │
-│  attune-author           │
-└──────────────────────────┘
+┌──────────────────────────────────────┐
+│  Cowork dashboard (Jinja2)  /        │
+│  Legacy React UI            /legacy/ │
+└──────────────────┬───────────────────┘
+                   │  /api/*
+┌──────────────────▼───────────────────┐
+│  FastAPI sidecar — 127.0.0.1         │
+│  ├─ routes/system, rag, help, …      │
+│  ├─ routes/cowork_health             │
+│  ├─ routes/cowork_specs              │
+│  ├─ routes/cowork_templates          │
+│  ├─ routes/cowork_files              │
+│  └─ routes/cowork_pages  (HTML)      │
+└──────────────────┬───────────────────┘
+                   │
+┌──────────────────▼───────────────────┐
+│  attune-rag · attune-help            │
+│  attune-author[ai]                   │
+└──────────────────────────────────────┘
 ```
-
-Workspace state (the project directory the sidecar watches) is
-persisted at `~/.attune-gui/config.json` so it survives restarts.
-Set it once via **Settings → Workspace** in the UI; the sidecar picks
-it up immediately without a reload.
 
 ## Security notes
 
@@ -86,12 +128,15 @@ deployment, not hardened against a motivated attacker on the same machine.
 - An `Origin` header guard rejects browser requests from non-localhost origins
 - Mutating endpoints require the `X-Attune-Client` header to match a
   per-process token (served from `/api/session/token`)
+- File API enforces a path-traversal guard against three named roots
+  (`templates`, `specs`, `summaries`); writes outside those roots return 400
 
 ## Related packages
 
 - [`attune-rag`](https://pypi.org/project/attune-rag/) — RAG pipeline
 - [`attune-help`](https://pypi.org/project/attune-help/) — help runtime
 - [`attune-author`](https://pypi.org/project/attune-author/) — doc authoring
+- [`attune-gui-plugin`](https://github.com/Smart-AI-Memory/attune-gui-plugin) — Claude Code plugin that launches the dashboard inside Cowork's preview pane
 - [`attune-ai`](https://pypi.org/project/attune-ai/) — separate AI dev workflow product (not used by attune-gui)
 
 ## License

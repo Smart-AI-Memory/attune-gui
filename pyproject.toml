@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "attune-gui"
-version = "0.2.1"
-description = "Local Living Docs dashboard for the attune-rag / attune-help / attune-author family. FastAPI sidecar + React UI."
+version = "0.3.0"
+description = "Local dashboard for attune-rag / attune-help / attune-author. Server-rendered Jinja2 UI (Cowork) with React UI preserved at /legacy/."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -67,6 +67,7 @@ include = [
     "scripts",
     "build_hooks.py",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "pyproject.toml",
 ]

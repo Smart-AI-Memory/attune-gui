@@ -1,0 +1,180 @@
+"""Smoke tests for the Jinja2-rendered HTML pages.
+
+Each page is hit with seeded data and asserted on:
+  - status code
+  - presence of the sidebar nav (via "Attune" brand)
+  - the active nav slug is highlighted
+  - core page content is present in the HTML
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from attune_gui.app import create_app
+from fastapi.testclient import TestClient
+
+HDR = {"Origin": "http://localhost:5173"}
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(create_app())
+
+
+# ---------------------------------------------------------------------------
+# Root + nav
+# ---------------------------------------------------------------------------
+
+
+def test_root_redirects_to_dashboard(client: TestClient) -> None:
+    r = client.get("/", headers=HDR, follow_redirects=False)
+    assert r.status_code in (307, 308)
+    assert r.headers["location"] == "/dashboard"
+
+
+def test_dashboard_renders_sidebar(client: TestClient) -> None:
+    r = client.get("/dashboard", headers=HDR)
+    assert r.status_code == 200
+    assert "Attune" in r.text
+    # All seven nav items present
+    for label in (
+        "Health",
+        "Templates",
+        "Specs",
+        "Summaries",
+        "Living Docs",
+        "Commands",
+        "Jobs",
+    ):
+        assert label in r.text
+
+
+def test_dashboard_health_marks_active(client: TestClient) -> None:
+    r = client.get("/dashboard", headers=HDR)
+    assert 'data-slug="health"' in r.text
+    # active class applied to the health nav link
+    assert 'class="nav-link active"' in r.text
+
+
+# ---------------------------------------------------------------------------
+# Per-page status checks (no seed required — pages must not 500 when empty)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/dashboard",
+        "/dashboard/templates",
+        "/dashboard/specs",
+        "/dashboard/summaries",
+        "/dashboard/living-docs",
+        "/dashboard/commands",
+        "/dashboard/jobs",
+    ],
+)
+def test_page_returns_200(client: TestClient, path: str) -> None:
+    r = client.get(path, headers=HDR)
+    assert r.status_code == 200, f"{path} returned {r.status_code}: {r.text[:200]}"
+
+
+# ---------------------------------------------------------------------------
+# Specs page renders seeded data
+# ---------------------------------------------------------------------------
+
+
+def test_specs_page_lists_seeded_features(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from attune_gui.routes import cowork_specs
+
+    specs_root = tmp_path / "specs"
+    feat = specs_root / "alpha"
+    feat.mkdir(parents=True)
+    (feat / "requirements.md").write_text("# spec\n\n**Status**: approved\n")
+
+    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: specs_root)
+
+    r = client.get("/dashboard/specs", headers=HDR)
+    assert r.status_code == 200
+    assert "alpha" in r.text
+    assert "approved" in r.text
+
+
+# ---------------------------------------------------------------------------
+# Templates page renders seeded data + manual flag
+# ---------------------------------------------------------------------------
+
+
+def test_templates_page_lists_seeded_with_manual_flag(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from attune_gui.routes import cowork_templates
+
+    root = tmp_path / "templates-root"
+    root.mkdir()
+    (root / "alpha.md").write_text("---\nmanual: true\n---\nbody")
+    (root / "beta.md").write_text("---\n---\nbody")
+
+    monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+
+    r = client.get("/dashboard/templates", headers=HDR)
+    assert r.status_code == 200
+    assert "alpha.md" in r.text
+    assert "beta.md" in r.text
+    # Pin checkbox present for both
+    assert r.text.count("data-pin-path=") == 2
+    # Filter chips
+    assert "AI-generated" in r.text
+    assert "Manual" in r.text
+
+
+def test_templates_page_filter_chip(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from attune_gui.routes import cowork_templates
+
+    root = tmp_path / "templates-root"
+    root.mkdir()
+    (root / "alpha.md").write_text("---\nmanual: true\n---\nbody")
+    (root / "beta.md").write_text("---\n---\nbody")
+
+    monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+
+    r = client.get("/dashboard/templates?filter=manual", headers=HDR)
+    assert r.status_code == 200
+    assert "alpha.md" in r.text
+    assert "beta.md" not in r.text
+
+
+# ---------------------------------------------------------------------------
+# Preview page renders rendered HTML
+# ---------------------------------------------------------------------------
+
+
+def test_preview_page_renders_markdown(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from attune_gui.routes import cowork_specs
+
+    root = tmp_path / "specs"
+    feat = root / "feature-a"
+    feat.mkdir(parents=True)
+    (feat / "requirements.md").write_text("# Heading\n\nBody text here.")
+
+    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: root)
+
+    r = client.get("/dashboard/preview?root=specs&path=feature-a/requirements.md", headers=HDR)
+    assert r.status_code == 200
+    assert "Heading" in r.text
+    assert "Body text here" in r.text
+    # Editor textarea present with raw content
+    assert "<textarea" in r.text
+
+
+def test_preview_page_no_path_shows_message(client: TestClient) -> None:
+    r = client.get("/dashboard/preview", headers=HDR)
+    assert r.status_code == 200
+    assert "No file path" in r.text

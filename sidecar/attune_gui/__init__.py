@@ -1,5 +1,5 @@
-"""attune-gui — local FastAPI sidecar that drives attune-rag, attune-author, and (later) attune-ai."""
+"""attune-gui — local FastAPI sidecar driving attune-rag, attune-author, attune-help."""
 
 from __future__ import annotations
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
