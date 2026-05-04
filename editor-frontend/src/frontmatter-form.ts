@@ -91,6 +91,18 @@ function attachInput(
   if (prop.description) {
     el.title = prop.description;
   }
+  if (prop.readOnly) {
+    if (el instanceof HTMLSelectElement) {
+      // <select> doesn't honor `readonly` per the HTML spec; disable
+      // it instead and add the `attune-fm-input-readonly` class so
+      // the value still posts to the form on submit.
+      el.disabled = true;
+    } else {
+      el.readOnly = true;
+    }
+    el.classList.add("attune-fm-input-readonly");
+    row.classList.add("attune-fm-row-readonly");
+  }
   const label = row.querySelector("label.attune-fm-label") as HTMLLabelElement | null;
   if (label) label.htmlFor = id;
   row.appendChild(el);

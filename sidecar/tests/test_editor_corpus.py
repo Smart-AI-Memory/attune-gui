@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 def _isolated_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Redirect the registry file to a per-test tmp path."""
     registry = tmp_path / ".attune" / "corpora.json"
-    monkeypatch.setattr(editor_corpora, "_REGISTRY_PATH", registry, raising=False)
+    monkeypatch.setenv("ATTUNE_CORPORA_REGISTRY", str(registry))
     return registry
 
 
@@ -50,7 +50,7 @@ def test_register_creates_entry_and_persists(tmp_path: Path) -> None:
     assert entry.kind == "source"
 
     # Persisted to disk.
-    raw = editor_corpora._REGISTRY_PATH.read_text(encoding="utf-8")
+    raw = editor_corpora._registry_path().read_text(encoding="utf-8")
     payload = json.loads(raw)
     assert payload["version"] == 1
     assert payload["active"] == "my-corpus"

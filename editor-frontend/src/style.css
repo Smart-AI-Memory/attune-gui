@@ -192,6 +192,24 @@ select.attune-fm-input {
   font-weight: 600;
 }
 
+.attune-fm-input-readonly,
+.attune-fm-input-readonly:focus {
+  background: var(--attune-bg-muted);
+  color: var(--attune-text-muted);
+  cursor: not-allowed;
+  outline: none;
+  border-color: var(--attune-border);
+}
+
+.attune-fm-row-readonly .attune-fm-label::after {
+  content: " (read-only)";
+  font-size: 0.7em;
+  color: var(--attune-text-muted);
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .attune-fm-toolbar {
   display: flex;
   justify-content: flex-end;

@@ -29,14 +29,27 @@ the caller supplies and only ensures uniqueness on register.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
 CorpusKind = Literal["source", "generated", "ad-hoc"]
-_REGISTRY_PATH = Path.home() / ".attune" / "corpora.json"
 _VERSION = 1
+
+
+def _registry_path() -> Path:
+    """Return the on-disk corpora-registry path.
+
+    Defaults to ``~/.attune/corpora.json``; tests and CI can override
+    via the ``ATTUNE_CORPORA_REGISTRY`` env var so they don't trample
+    the user's real registry.
+    """
+    override = os.environ.get("ATTUNE_CORPORA_REGISTRY")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".attune" / "corpora.json"
 
 
 @dataclass(frozen=True)
@@ -72,7 +85,7 @@ class Registry:
 def load_registry() -> Registry:
     """Read the registry file. Returns an empty Registry if absent."""
     try:
-        raw = _REGISTRY_PATH.read_text(encoding="utf-8")
+        raw = _registry_path().read_text(encoding="utf-8")
     except FileNotFoundError:
         return Registry()
     except OSError:
@@ -91,8 +104,8 @@ def load_registry() -> Registry:
 
 def save_registry(reg: Registry) -> None:
     """Write the registry to disk. Creates ``~/.attune/`` if needed."""
-    _REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _REGISTRY_PATH.write_text(json.dumps(reg.to_dict(), indent=2) + "\n", encoding="utf-8")
+    _registry_path().parent.mkdir(parents=True, exist_ok=True)
+    _registry_path().write_text(json.dumps(reg.to_dict(), indent=2) + "\n", encoding="utf-8")
 
 
 def _parse_entry(raw: dict[str, Any]) -> CorpusEntry:

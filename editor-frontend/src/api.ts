@@ -90,6 +90,12 @@ export interface TemplateSchemaProperty {
   items?: TemplateSchemaProperty;
   minLength?: number;
   uniqueItems?: boolean;
+  /**
+   * JSON Schema draft-07+ flag: the editor MAY display the value but
+   * MUST NOT let the user edit it. Used by `hash` (managed by the
+   * regen pipeline; manual edits silently invalidate staleness checks).
+   */
+  readOnly?: boolean;
 }
 
 export interface TemplateSchema {
