@@ -21,6 +21,28 @@ export interface SaveResponse {
   mtime: number;
 }
 
+export type DiagnosticSeverity = "error" | "warning" | "info";
+
+export interface ServerDiagnostic {
+  severity: DiagnosticSeverity;
+  code: string;
+  message: string;
+  /** 1-indexed line. */
+  line: number;
+  /** 1-indexed column. */
+  col: number;
+  end_line: number;
+  end_col: number;
+}
+
+export interface AliasInfo {
+  alias: string;
+  template_path: string;
+  template_name: string;
+}
+
+export type AutocompleteKind = "tag" | "alias";
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -58,6 +80,41 @@ export class EditorApi {
       body: JSON.stringify(body),
     });
     return this.parse<SaveResponse>(res);
+  }
+
+  async lint(
+    corpusId: string,
+    body: { path: string; text: string },
+    signal?: AbortSignal,
+  ): Promise<ServerDiagnostic[]> {
+    const url = `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/lint`;
+    const init: RequestInit = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Attune-Client": this.sessionToken,
+      },
+      body: JSON.stringify(body),
+    };
+    if (signal) init.signal = signal;
+    const res = await fetch(url, init);
+    return this.parse<ServerDiagnostic[]>(res);
+  }
+
+  async autocomplete(
+    corpusId: string,
+    kind: AutocompleteKind,
+    prefix: string,
+    limit = 50,
+    signal?: AbortSignal,
+  ): Promise<string[] | AliasInfo[]> {
+    const url =
+      `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/autocomplete` +
+      `?kind=${encodeURIComponent(kind)}&prefix=${encodeURIComponent(prefix)}&limit=${limit}`;
+    const init: RequestInit = { method: "GET" };
+    if (signal) init.signal = signal;
+    const res = await fetch(url, init);
+    return this.parse<string[] | AliasInfo[]>(res);
   }
 
   private async parse<T>(res: Response): Promise<T> {

@@ -3,11 +3,8 @@
  *
  * Bootstraps the layout (top bar, frontmatter sidebar, editor pane,
  * diagnostics strip), reads the corpus + path bootstrap data from the
- * Jinja shell, fetches the template via the API, and mounts CodeMirror.
- *
- * Task #15 wires the open-and-edit golden path. Saves, lints,
- * autocompletes, conflict mode, and the rest of M3/M4 land in later
- * tasks.
+ * Jinja shell, fetches the template via the API, and mounts CodeMirror
+ * with the linter + autocomplete extensions.
  */
 
 import "./style.css";
@@ -15,6 +12,9 @@ import { EditorApi, ApiError } from "./api";
 import { TemplateDocument } from "./document-model";
 import { mountEditor, type MountedEditor } from "./editor";
 import { renderFrontmatterForm } from "./frontmatter-form";
+import { attuneLinter } from "./lint";
+import { renderDiagnosticsStrip } from "./diagnostics-strip";
+import { attuneCompletions } from "./autocomplete";
 
 interface Bootstrap {
   corpusId: string;
@@ -65,7 +65,6 @@ function buildLayout(root: HTMLElement): {
 
   const diagnostics = document.createElement("footer");
   diagnostics.className = "attune-editor-diagnostics";
-  diagnostics.textContent = "Diagnostics: lint will run here in task #17.";
 
   root.appendChild(topBar);
   root.appendChild(main);
@@ -107,6 +106,7 @@ async function bootstrap(): Promise<void> {
   const doc = new TemplateDocument(template.text);
 
   let editor: MountedEditor | null = null;
+  let strip: ReturnType<typeof renderDiagnosticsStrip> | null = null;
   // Re-entrancy guards: avoid feedback loops when one view drives the other.
   let suppressEditorChange = false;
   let suppressFormRefresh = false;
@@ -124,10 +124,19 @@ async function bootstrap(): Promise<void> {
     },
   });
 
+  const completions = attuneCompletions({ api, corpusId: boot.corpusId });
+  const linter = attuneLinter({
+    api,
+    corpusId: boot.corpusId,
+    relPath: boot.relPath,
+    onDiagnostics: (diags) => strip?.setDiagnostics(diags),
+  });
+
   editor = mountEditor({
     parent: ui.editorPane,
     initialText: template.text,
     baseText: template.text,
+    extra: [linter, completions.extension],
     onChange: (text) => {
       if (suppressEditorChange) return;
       doc.setText(text);
@@ -137,13 +146,27 @@ async function bootstrap(): Promise<void> {
     },
   });
 
+  strip = renderDiagnosticsStrip(ui.diagnostics, { view: editor.view });
   ui.status.textContent = `loaded · base ${template.base_hash}`;
+
+  // Expose a tiny debug handle for live verification (preview_eval).
+  // Not used by production code paths.
+  (window as unknown as { __attuneEditor?: unknown }).__attuneEditor = {
+    api,
+    doc,
+    editor,
+    invalidateCompletions: completions.invalidateCache,
+  };
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    void bootstrap();
-  }, { once: true });
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      void bootstrap();
+    },
+    { once: true },
+  );
 } else {
   void bootstrap();
 }

@@ -82,6 +82,69 @@ body.attune-editor-page {
   background: var(--attune-bg-muted);
   color: var(--attune-text-muted);
   font-size: 0.8rem;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.attune-diag-summary {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.attune-diag-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attune-diag {
+  display: grid;
+  grid-template-columns: 1.2em 5em 1fr auto;
+  gap: 0.5rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.attune-diag:hover,
+.attune-diag:focus {
+  background: rgba(9, 105, 218, 0.06);
+  outline: none;
+}
+
+.attune-diag-icon {
+  text-align: center;
+}
+
+.attune-diag-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--attune-text-muted);
+}
+
+.attune-diag-msg {
+  color: var(--attune-text);
+}
+
+.attune-diag-source {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--attune-text-muted);
+  font-size: 0.72rem;
+}
+
+.attune-diag-error .attune-diag-icon {
+  color: #b31d28;
+}
+
+.attune-diag-warning .attune-diag-icon {
+  color: #b08800;
+}
+
+.attune-diag-info .attune-diag-icon,
+.attune-diag-hint .attune-diag-icon {
+  color: var(--attune-accent);
 }
 
 /* Frontmatter form */

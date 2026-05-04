@@ -2,10 +2,11 @@
  * CodeMirror 6 mount for the template editor.
  *
  * Composes:
- *   - basicSetup (line numbers, history, search, etc.)
+ *   - history + default keymap
  *   - markdown() with our Attune extension (front-matter, depth, alias)
- *   - diff gutter relative to the base text
- *   - an update listener that pushes edits back into the document model
+ *   - foldGutter + diff gutter
+ *   - linter (server + local fast-path) — supplied by the caller
+ *   - autocomplete (alias / tag) — supplied by the caller
  */
 
 import { EditorState, type Extension } from "@codemirror/state";
@@ -24,6 +25,8 @@ export interface MountOptions {
   baseText: string;
   /** Called after each user edit (debouncing is the caller's job). */
   onChange?: (text: string) => void;
+  /** Caller-supplied extensions (linter, autocomplete, etc.). */
+  extra?: readonly Extension[];
 }
 
 export interface MountedEditor {
@@ -61,6 +64,7 @@ export function mountEditor(opts: MountOptions): MountedEditor {
       ".attune-diff-modified": { color: "#b08800" },
       ".attune-diff-removed": { color: "#b31d28" },
     }),
+    ...(opts.extra ?? []),
   ];
 
   const view = new EditorView({

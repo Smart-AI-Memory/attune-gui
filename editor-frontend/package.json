@@ -12,9 +12,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.18.4",
     "@codemirror/commands": "^6.7.1",
     "@codemirror/lang-markdown": "^6.3.1",
     "@codemirror/language": "^6.10.6",
+    "@codemirror/lint": "^6.8.4",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.36.1",
     "@lezer/highlight": "^1.2.1",
