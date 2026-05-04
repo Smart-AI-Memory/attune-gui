@@ -1,24 +1,149 @@
 /**
  * Template editor entry point.
  *
- * Task #13 (M3) ships only the build pipeline. This module is a
- * placeholder that proves the bundle loads — task #15 replaces it
- * with the real CodeMirror mount + document model.
+ * Bootstraps the layout (top bar, frontmatter sidebar, editor pane,
+ * diagnostics strip), reads the corpus + path bootstrap data from the
+ * Jinja shell, fetches the template via the API, and mounts CodeMirror.
+ *
+ * Task #15 wires the open-and-edit golden path. Saves, lints,
+ * autocompletes, conflict mode, and the rest of M3/M4 land in later
+ * tasks.
  */
 
 import "./style.css";
+import { EditorApi, ApiError } from "./api";
+import { TemplateDocument } from "./document-model";
+import { mountEditor, type MountedEditor } from "./editor";
+import { renderFrontmatterForm } from "./frontmatter-form";
 
-const MOUNT_ID = "attune-editor-root";
+interface Bootstrap {
+  corpusId: string;
+  relPath: string;
+  sessionToken: string;
+}
 
-function mount(): void {
-  const root = document.getElementById(MOUNT_ID);
+const ROOT_ID = "attune-editor-root";
+
+function readBootstrap(root: HTMLElement): Bootstrap {
+  return {
+    corpusId: root.dataset.corpusId ?? "",
+    relPath: root.dataset.relPath ?? "",
+    sessionToken: root.dataset.sessionToken ?? "",
+  };
+}
+
+function buildLayout(root: HTMLElement): {
+  status: HTMLElement;
+  pathLabel: HTMLElement;
+  formSidebar: HTMLElement;
+  editorPane: HTMLElement;
+  diagnostics: HTMLElement;
+} {
+  root.innerHTML = "";
+  root.classList.add("attune-editor-shell");
+
+  const topBar = document.createElement("header");
+  topBar.className = "attune-editor-topbar";
+  const status = document.createElement("span");
+  status.className = "attune-editor-status";
+  const pathLabel = document.createElement("span");
+  pathLabel.className = "attune-editor-path";
+  topBar.appendChild(pathLabel);
+  topBar.appendChild(status);
+
+  const main = document.createElement("div");
+  main.className = "attune-editor-main";
+
+  const formSidebar = document.createElement("aside");
+  formSidebar.className = "attune-editor-sidebar";
+
+  const editorPane = document.createElement("section");
+  editorPane.className = "attune-editor-pane";
+
+  main.appendChild(formSidebar);
+  main.appendChild(editorPane);
+
+  const diagnostics = document.createElement("footer");
+  diagnostics.className = "attune-editor-diagnostics";
+  diagnostics.textContent = "Diagnostics: lint will run here in task #17.";
+
+  root.appendChild(topBar);
+  root.appendChild(main);
+  root.appendChild(diagnostics);
+
+  return { status, pathLabel, formSidebar, editorPane, diagnostics };
+}
+
+async function bootstrap(): Promise<void> {
+  const root = document.getElementById(ROOT_ID);
   if (!root) return;
-  root.classList.add("attune-editor-bootstrapped");
-  root.textContent = "Attune template editor — bundle loaded.";
+
+  const boot = readBootstrap(root);
+  const ui = buildLayout(root);
+
+  ui.pathLabel.textContent = boot.relPath
+    ? `${boot.corpusId} · ${boot.relPath}`
+    : "no template loaded";
+
+  if (!boot.corpusId || !boot.relPath) {
+    ui.status.textContent = "Open a template via `attune edit <path>` to begin.";
+    return;
+  }
+
+  ui.status.textContent = "Loading…";
+  const api = new EditorApi(boot.sessionToken);
+
+  let template;
+  try {
+    template = await api.loadTemplate(boot.corpusId, boot.relPath);
+  } catch (err) {
+    ui.status.textContent =
+      err instanceof ApiError
+        ? `Load failed (${err.status}): ${err.message}`
+        : "Load failed.";
+    return;
+  }
+
+  const doc = new TemplateDocument(template.text);
+
+  let editor: MountedEditor | null = null;
+  // Re-entrancy guards: avoid feedback loops when one view drives the other.
+  let suppressEditorChange = false;
+  let suppressFormRefresh = false;
+
+  const form = renderFrontmatterForm(ui.formSidebar, {
+    doc,
+    onChange: () => {
+      if (suppressFormRefresh) return;
+      const newText = doc.getText();
+      if (editor && editor.view.state.doc.toString() !== newText) {
+        suppressEditorChange = true;
+        editor.setText(newText);
+        suppressEditorChange = false;
+      }
+    },
+  });
+
+  editor = mountEditor({
+    parent: ui.editorPane,
+    initialText: template.text,
+    baseText: template.text,
+    onChange: (text) => {
+      if (suppressEditorChange) return;
+      doc.setText(text);
+      suppressFormRefresh = true;
+      form.refresh();
+      suppressFormRefresh = false;
+    },
+  });
+
+  ui.status.textContent = `loaded · base ${template.base_hash}`;
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", mount, { once: true });
+  document.addEventListener("DOMContentLoaded", () => {
+    void bootstrap();
+  }, { once: true });
 } else {
-  mount();
+  void bootstrap();
 }

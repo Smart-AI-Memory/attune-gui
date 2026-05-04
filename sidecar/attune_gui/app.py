@@ -24,6 +24,7 @@ from attune_gui.routes import (  # noqa: F401
     editor_corpus,
     editor_health,
     editor_lint,
+    editor_pages,
     editor_template,
     editor_ws,
     fs,
@@ -80,6 +81,11 @@ def create_app() -> FastAPI:
     app.include_router(editor_lint.router)
     app.include_router(editor_template.router)
     app.include_router(editor_ws.router)
+
+    # ---- Template editor HTML shell -----------------------------------------
+    # Registered after the JSON routes (which use /api/* prefixes) so the
+    # /editor page handler is unambiguous.
+    app.include_router(editor_pages.router)
 
     # ---- Cowork JSON APIs ----------------------------------------------------
     app.include_router(cowork_health.router)
