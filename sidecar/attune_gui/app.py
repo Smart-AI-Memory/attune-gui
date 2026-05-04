@@ -42,6 +42,10 @@ logger = logging.getLogger(__name__)
 # Cowork dashboard CSS/JS lives next to the package.
 _CW_STATIC_DIR = Path(__file__).parent / "static_cw"
 
+# Template-editor frontend bundle (Vite output from editor-frontend/).
+# Built artifacts are committed; consumers do not need Node at install time.
+_EDITOR_STATIC_DIR = Path(__file__).parent / "static" / "editor"
+
 
 def create_app() -> FastAPI:
     """Build the FastAPI app with origin-guard, CORS, and all routers wired."""
@@ -86,6 +90,14 @@ def create_app() -> FastAPI:
     # ---- Cowork dashboard CSS/JS --------------------------------------------
     if _CW_STATIC_DIR.is_dir():
         app.mount("/cw-static", StaticFiles(directory=_CW_STATIC_DIR), name="cw-static")
+
+    # ---- Template-editor frontend bundle ------------------------------------
+    if _EDITOR_STATIC_DIR.is_dir():
+        app.mount(
+            "/static/editor",
+            StaticFiles(directory=_EDITOR_STATIC_DIR),
+            name="editor-static",
+        )
 
     # ---- robots --------------------------------------------------------------
     @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)

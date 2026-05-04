@@ -1,0 +1,1 @@
+const n="attune-editor-root";function e(){const t=document.getElementById(n);t&&(t.classList.add("attune-editor-bootstrapped"),t.textContent="Attune template editor — bundle loaded.")}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",e,{once:!0}):e();

@@ -1,0 +1,30 @@
+{
+  "name": "attune-gui-editor-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Template editor frontend for attune-gui. Built with Vite + TypeScript + CodeMirror 6. Output is pre-bundled into ../sidecar/attune_gui/static/editor/ and committed to the repo so attune-gui consumers do not need Node at install time.",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.7.1",
+    "@codemirror/lang-markdown": "^6.3.1",
+    "@codemirror/language": "^6.10.6",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.36.1",
+    "codemirror": "^6.0.1"
+  }
+}
