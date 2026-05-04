@@ -56,6 +56,33 @@ export interface AliasInfo {
 
 export type AutocompleteKind = "tag" | "alias";
 
+export type RenameKind = "alias" | "tag" | "template_path";
+
+export interface RenameHunk {
+  hunk_id: string;
+  header: string;
+  lines: string[];
+}
+
+export interface RenameFileEdit {
+  path: string;
+  old_text: string;
+  new_text: string;
+  hunks: RenameHunk[];
+}
+
+export interface RenamePlan {
+  old: string;
+  new: string;
+  kind: RenameKind;
+  edits: RenameFileEdit[];
+}
+
+export interface RenameApplyResponse {
+  affected_files: string[];
+  plan: RenamePlan;
+}
+
 export interface TemplateSchemaProperty {
   type?: string | string[];
   enum?: readonly string[];
@@ -71,6 +98,21 @@ export interface TemplateSchema {
   required?: readonly string[];
   properties?: Readonly<Record<string, TemplateSchemaProperty>>;
   additionalProperties?: boolean;
+}
+
+export type CorpusKind = "source" | "generated" | "ad-hoc";
+
+export interface CorpusEntry {
+  id: string;
+  name: string;
+  path: string;
+  kind: CorpusKind;
+  warn_on_edit: boolean;
+}
+
+export interface CorpusListResponse {
+  active: string | null;
+  corpora: CorpusEntry[];
 }
 
 export class ApiError extends Error {
@@ -89,6 +131,42 @@ export class EditorApi {
     private readonly sessionToken: string,
     private readonly base = "",
   ) {}
+
+  async listCorpora(): Promise<CorpusListResponse> {
+    const url = `${this.base}/api/corpus`;
+    const res = await fetch(url, { method: "GET" });
+    return this.parse<CorpusListResponse>(res);
+  }
+
+  async setActiveCorpus(id: string): Promise<CorpusEntry> {
+    const url = `${this.base}/api/corpus/active`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Attune-Client": this.sessionToken,
+      },
+      body: JSON.stringify({ id }),
+    });
+    return this.parse<CorpusEntry>(res);
+  }
+
+  async registerCorpus(body: {
+    name: string;
+    path: string;
+    kind?: CorpusKind;
+  }): Promise<CorpusEntry> {
+    const url = `${this.base}/api/corpus/register`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Attune-Client": this.sessionToken,
+      },
+      body: JSON.stringify(body),
+    });
+    return this.parse<CorpusEntry>(res);
+  }
 
   async loadSchema(): Promise<TemplateSchema> {
     const url = `${this.base}/api/editor/template-schema`;
@@ -151,6 +229,38 @@ export class EditorApi {
     if (signal) init.signal = signal;
     const res = await fetch(url, init);
     return this.parse<ServerDiagnostic[]>(res);
+  }
+
+  async renamePreview(
+    corpusId: string,
+    body: { old: string; new: string; kind: RenameKind },
+  ): Promise<RenamePlan> {
+    const url = `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/refactor/rename/preview`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Attune-Client": this.sessionToken,
+      },
+      body: JSON.stringify(body),
+    });
+    return this.parse<RenamePlan>(res);
+  }
+
+  async renameApply(
+    corpusId: string,
+    body: { old: string; new: string; kind: RenameKind },
+  ): Promise<RenameApplyResponse> {
+    const url = `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/refactor/rename/apply`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Attune-Client": this.sessionToken,
+      },
+      body: JSON.stringify(body),
+    });
+    return this.parse<RenameApplyResponse>(res);
   }
 
   async autocomplete(

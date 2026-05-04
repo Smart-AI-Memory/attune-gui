@@ -25,11 +25,19 @@
 import type { TemplateDocument } from "./document-model";
 import type { TemplateSchema, TemplateSchemaProperty } from "./api";
 
+export type RenamableField = "tags" | "aliases";
+
 export interface FormBindings {
   doc: TemplateDocument;
   schema: TemplateSchema;
   /** Called after every form edit so the caller can reflect into CM. */
   onChange: () => void;
+  /**
+   * Optional hook fired when the user picks "Rename …" from a chip's
+   * context menu (right-click). Currently surfaced for `tags` and
+   * `aliases`. The host opens the rename modal.
+   */
+  onRename?: (field: RenamableField, name: string) => void;
 }
 
 export interface FormHandle {
@@ -163,6 +171,7 @@ function renderArrayField(
   prop: TemplateSchemaProperty,
   required: boolean,
   onChange: () => void,
+  onRename?: (field: RenamableField, value: string) => void,
 ): FieldRenderer {
   const row = renderRow(parent, name, required);
   row.classList.add("attune-fm-row-chips");
@@ -218,6 +227,15 @@ function renderArrayField(
       });
       pill.appendChild(text);
       pill.appendChild(remove);
+      if (onRename && (name === "tags" || name === "aliases")) {
+        const field: RenamableField = name;
+        pill.classList.add("attune-fm-chip-renamable");
+        pill.title = `${chip} — right-click to rename`;
+        pill.addEventListener("contextmenu", (ev) => {
+          ev.preventDefault();
+          onRename(field, chip);
+        });
+      }
       chipBox.appendChild(pill);
     }
   }
@@ -340,7 +358,7 @@ function renderRawYamlPane(
 // -- Form host ---------------------------------------------------------
 
 export function renderFrontmatterForm(parent: HTMLElement, bindings: FormBindings): FormHandle {
-  const { doc, schema, onChange } = bindings;
+  const { doc, schema, onChange, onRename } = bindings;
   parent.innerHTML = "";
   parent.classList.add("attune-fm-form");
 
@@ -372,7 +390,7 @@ export function renderFrontmatterForm(parent: HTMLElement, bindings: FormBinding
       if (Array.isArray(prop.enum) && prop.enum.length > 0) {
         r = renderEnumField(formBody, doc, name, prop, required.has(name), onChange);
       } else if (isArrayProperty(prop)) {
-        r = renderArrayField(formBody, doc, name, prop, required.has(name), onChange);
+        r = renderArrayField(formBody, doc, name, prop, required.has(name), onChange, onRename);
       } else {
         r = renderStringField(formBody, doc, name, prop, required.has(name), onChange);
       }

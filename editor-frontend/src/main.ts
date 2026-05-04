@@ -17,6 +17,17 @@ import { attuneLinter } from "./lint";
 import { renderDiagnosticsStrip } from "./diagnostics-strip";
 import { attuneCompletions } from "./autocomplete";
 import { openSaveModal } from "./save-modal";
+import { openEditorWebSocket, type WsClient } from "./ws";
+import { showConflict, type ConflictBanner } from "./conflict-mode";
+import { openRenameModal } from "./rename-modal";
+import type { RenamableField } from "./frontmatter-form";
+import { mountCorpusSwitcher, promptUnsavedEdits } from "./corpus-switcher";
+import {
+  setAdvisories,
+  type Advisory,
+  GENERATED_CORPUS_MESSAGE,
+  DUPLICATE_SESSION_MESSAGE,
+} from "./advisory-banner";
 
 interface Bootstrap {
   corpusId: string;
@@ -37,6 +48,7 @@ function readBootstrap(root: HTMLElement): Bootstrap {
 interface Layout {
   status: HTMLElement;
   pathLabel: HTMLElement;
+  advisoryBanner: HTMLElement;
   banner: HTMLElement;
   formSidebar: HTMLElement;
   editorPane: HTMLElement;
@@ -71,6 +83,12 @@ function buildLayout(root: HTMLElement): Layout {
   topBar.appendChild(pathLabel);
   topBar.appendChild(right);
 
+  const advisoryBanner = document.createElement("div");
+  advisoryBanner.className = "attune-advisory-strip";
+  advisoryBanner.setAttribute("role", "status");
+  advisoryBanner.setAttribute("aria-live", "polite");
+  advisoryBanner.hidden = true;
+
   const banner = document.createElement("div");
   banner.className = "attune-editor-banner";
   banner.hidden = true;
@@ -96,12 +114,23 @@ function buildLayout(root: HTMLElement): Layout {
   toast.setAttribute("aria-live", "polite");
 
   root.appendChild(topBar);
+  root.appendChild(advisoryBanner);
   root.appendChild(banner);
   root.appendChild(main);
   root.appendChild(diagnostics);
   root.appendChild(toast);
 
-  return { status, pathLabel, banner, formSidebar, editorPane, diagnostics, saveBtn, toast };
+  return {
+    status,
+    pathLabel,
+    advisoryBanner,
+    banner,
+    formSidebar,
+    editorPane,
+    diagnostics,
+    saveBtn,
+    toast,
+  };
 }
 
 function showToast(toast: HTMLElement, msg: string, kind: "ok" | "err" = "ok"): void {
@@ -119,9 +148,42 @@ async function bootstrap(): Promise<void> {
   const boot = readBootstrap(root);
   const ui = buildLayout(root);
 
-  ui.pathLabel.textContent = boot.relPath
-    ? `${boot.corpusId} · ${boot.relPath}`
-    : "no template loaded";
+  const api = new EditorApi(boot.sessionToken);
+
+  // The corpus switcher owns the path-label element; it renders the
+  // active corpus name + a dropdown to switch or register corpora.
+  // Mount it in both the empty and the loaded state so users can act
+  // on the workspace from either.
+  const switcher = mountCorpusSwitcher({
+    api,
+    trigger: ui.pathLabel,
+    panelParent: document.body,
+    modalParent: document.body,
+    initialCorpusId: boot.corpusId,
+    initialPath: boot.relPath,
+    onSwitchRequested: async () => {
+      if (!editor) return true;
+      const dirty =
+        editor.view.state.doc.toString() !== baseText && !isDuplicateTab;
+      if (!dirty) return true;
+      const choice = await promptUnsavedEdits(document.body);
+      if (choice === null) return false;
+      if (choice === "save") {
+        // Open the save modal; if user saves successfully, baseText
+        // updates and the dirty check on next click would pass.
+        await openSave();
+        return false;
+      }
+      // discard: drop edits silently, allow switch.
+      return true;
+    },
+    onSwitched: () => {
+      // Navigating to /editor with no params lands on the empty state
+      // for the new active corpus. The user picks a template via
+      // `attune edit <path>` from there.
+      window.location.assign("/editor");
+    },
+  });
 
   if (!boot.corpusId || !boot.relPath) {
     ui.status.textContent = "Open a template via `attune edit <path>` to begin.";
@@ -129,14 +191,15 @@ async function bootstrap(): Promise<void> {
   }
 
   ui.status.textContent = "Loading…";
-  const api = new EditorApi(boot.sessionToken);
 
   let template;
   let schema;
+  let corpusList;
   try {
-    [template, schema] = await Promise.all([
+    [template, schema, corpusList] = await Promise.all([
       api.loadTemplate(boot.corpusId, boot.relPath),
       api.loadSchema(),
+      api.listCorpora(),
     ]);
   } catch (err) {
     ui.status.textContent =
@@ -145,6 +208,8 @@ async function bootstrap(): Promise<void> {
         : "Load failed.";
     return;
   }
+
+  const activeCorpus = corpusList.corpora.find((c) => c.id === boot.corpusId);
 
   const doc = new TemplateDocument(template.text);
 
@@ -157,10 +222,52 @@ async function bootstrap(): Promise<void> {
   // Save-flow state — kept in scope so onChange can read it.
   let baseText = template.text;
   let baseHash = template.base_hash;
+  let isDuplicateTab = false;
+  let isGeneratedCorpus = false;
+  function renderAdvisories(): void {
+    const advisories: Advisory[] = [];
+    if (isGeneratedCorpus) {
+      advisories.push({ kind: "generated", message: GENERATED_CORPUS_MESSAGE });
+    }
+    if (isDuplicateTab) {
+      advisories.push({ kind: "duplicate_session", message: DUPLICATE_SESSION_MESSAGE });
+    }
+    setAdvisories(ui.advisoryBanner, advisories);
+  }
   function refreshSaveButton(): void {
     if (!editor) return;
+    if (isDuplicateTab) {
+      ui.saveBtn.disabled = true;
+      return;
+    }
     const draft = editor.view.state.doc.toString();
     ui.saveBtn.disabled = draft === baseText;
+  }
+
+  let activeRenameModal: { close(): void } | null = null;
+  function openRename(field: RenamableField, name: string): void {
+    if (activeRenameModal !== null) return;
+    activeRenameModal = openRenameModal({
+      api,
+      corpusId: boot.corpusId,
+      kind: field === "tags" ? "tag" : "alias",
+      currentName: name,
+      parent: document.body,
+      onSuccess: (affected) => {
+        // The server already broadcasts file_changed events to other
+        // open editors; for *this* tab, refresh the editor in place
+        // so the new name appears without waiting for a WS round-trip.
+        void reloadFromDisk();
+        const summary =
+          affected.length === 0
+            ? `Renamed (no files changed).`
+            : `Renamed across ${affected.length} file${affected.length === 1 ? "" : "s"}: ${affected.slice(0, 4).join(", ")}${affected.length > 4 ? "…" : ""}`;
+        showToast(ui.toast, summary);
+      },
+      onClose: () => {
+        activeRenameModal = null;
+      },
+    });
   }
 
   const form = renderFrontmatterForm(ui.formSidebar, {
@@ -175,6 +282,7 @@ async function bootstrap(): Promise<void> {
         suppressEditorChange = false;
       }
     },
+    onRename: openRename,
   });
 
   const completions = attuneCompletions({ api, corpusId: boot.corpusId });
@@ -207,24 +315,101 @@ async function bootstrap(): Promise<void> {
 
   strip = renderDiagnosticsStrip(ui.diagnostics, { view: editor.view });
   ui.status.textContent = `loaded · base ${template.base_hash}`;
+  if (activeCorpus?.kind === "generated") {
+    isGeneratedCorpus = true;
+  }
+  renderAdvisories();
   refreshSaveButton();
 
-  function showConflictBanner(): void {
-    ui.banner.hidden = false;
-    ui.banner.className = "attune-editor-banner attune-banner-conflict";
-    ui.banner.innerHTML = "";
-    const msg = document.createElement("span");
-    msg.textContent =
-      "This file changed on disk. Reload to continue. (Three-way merge: M4 task #20.)";
-    const reload = document.createElement("button");
-    reload.type = "button";
-    reload.className = "attune-btn attune-btn-secondary";
-    reload.textContent = "Reload from disk";
-    reload.addEventListener("click", () => {
-      void reloadFromDisk();
+  let activeConflict: ConflictBanner | null = null;
+
+  async function enterConflictMode(): Promise<void> {
+    // Avoid stacking banners; the first one wins until dismissed.
+    if (activeConflict !== null) return;
+
+    let fresh;
+    try {
+      fresh = await api.loadTemplate(boot.corpusId, boot.relPath);
+    } catch (err) {
+      showToast(ui.toast, `Couldn't read fresh disk text: ${(err as Error).message}`, "err");
+      return;
+    }
+    if (fresh.base_hash === baseHash) {
+      // The WS told us about a change but the hash matches — already
+      // settled. Likely race with our own save. Quietly drop the banner.
+      return;
+    }
+
+    const editorText = editor!.view.state.doc.toString();
+    if (editorText === baseText) {
+      // No local edits to preserve — just rebase silently. The user
+      // sees the file refresh; no decision to make.
+      acceptDiskAsBase(fresh.text, fresh.base_hash);
+      return;
+    }
+
+    activeConflict = showConflict({
+      banner: ui.banner,
+      modalParent: document.body,
+      baseText,
+      diskText: fresh.text,
+      editorText,
+      diskBaseHash: fresh.base_hash,
+      onReload: () => {
+        baseText = fresh.text;
+        baseHash = fresh.base_hash;
+        doc.setText(fresh.text);
+        suppressEditorChange = true;
+        editor!.setText(fresh.text);
+        editor!.setBase(fresh.text);
+        suppressEditorChange = false;
+        suppressFormRefresh = true;
+        form.refresh();
+        suppressFormRefresh = false;
+        ui.status.textContent = `reloaded · base ${baseHash}`;
+        refreshSaveButton();
+        activeConflict = null;
+      },
+      onKeep: () => {
+        // Keep local edits but rebase to the new disk hash so the next
+        // save doesn't immediately 409. The diff base stays at the old
+        // base so the gutter still reflects the user's intent.
+        baseHash = fresh.base_hash;
+        ui.status.textContent = `kept local · base ${baseHash}`;
+        activeConflict = null;
+      },
+      onResolve: (mergedText, newBaseHash) => {
+        baseText = mergedText;
+        baseHash = newBaseHash;
+        doc.setText(mergedText);
+        suppressEditorChange = true;
+        editor!.setText(mergedText);
+        editor!.setBase(mergedText);
+        suppressEditorChange = false;
+        suppressFormRefresh = true;
+        form.refresh();
+        suppressFormRefresh = false;
+        ui.status.textContent = `merged · base ${baseHash}`;
+        showToast(ui.toast, "Conflicts resolved. Review the editor and save.");
+        refreshSaveButton();
+        activeConflict = null;
+      },
     });
-    ui.banner.appendChild(msg);
-    ui.banner.appendChild(reload);
+  }
+
+  function acceptDiskAsBase(diskText: string, diskBaseHash: string): void {
+    baseText = diskText;
+    baseHash = diskBaseHash;
+    doc.setText(diskText);
+    suppressEditorChange = true;
+    editor!.setText(diskText);
+    editor!.setBase(diskText);
+    suppressEditorChange = false;
+    suppressFormRefresh = true;
+    form.refresh();
+    suppressFormRefresh = false;
+    ui.status.textContent = `synced · base ${baseHash}`;
+    refreshSaveButton();
   }
 
   async function reloadFromDisk(): Promise<void> {
@@ -260,7 +445,7 @@ async function bootstrap(): Promise<void> {
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        showConflictBanner();
+        void enterConflictMode();
         return;
       }
       showToast(ui.toast, `Diff failed: ${(err as Error).message}`, "err");
@@ -310,25 +495,61 @@ async function bootstrap(): Promise<void> {
         showToast(ui.toast, `Saved (${acceptedIds.length} of ${diff.hunks.length} hunks).`);
         refreshSaveButton();
       },
-      onConflict: showConflictBanner,
+      onConflict: () => {
+        void enterConflictMode();
+      },
     });
   }
 
   ui.saveBtn.addEventListener("click", () => void openSave());
 
+  const ws: WsClient = openEditorWebSocket({
+    corpusId: boot.corpusId,
+    relPath: boot.relPath,
+    onEvent: (event) => {
+      if (event.type === "file_changed") {
+        // Ignore events whose new_hash matches our current base — that
+        // means the change came from us (post-save rebase) and is a
+        // no-op. Rare race: server re-emits before our save response
+        // returns; the hash check guards both sides.
+        if (event.new_hash === baseHash) return;
+        void enterConflictMode();
+      } else if (event.type === "duplicate_session") {
+        isDuplicateTab = true;
+        completions.invalidateCache();
+        renderAdvisories();
+        ui.saveBtn.disabled = true;
+        ui.saveBtn.title = "Read-only: another tab owns this file";
+      }
+    },
+  });
+
   // Cmd/Ctrl-S opens the save modal. Trap before the browser does.
+  // Cmd/Ctrl-K is a placeholder for the v2 command palette — for now
+  // we just acknowledge the keystroke with a toast so users learn the
+  // shortcut exists.
   window.addEventListener("keydown", (ev) => {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "s") {
       ev.preventDefault();
       if (!ui.saveBtn.disabled) void openSave();
+      return;
+    }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === "k") {
+      ev.preventDefault();
+      showToast(ui.toast, "Command palette: coming in v2.");
     }
   });
 
   window.addEventListener("beforeunload", (ev) => {
+    if (isDuplicateTab) return;
     if (editor && editor.view.state.doc.toString() !== baseText) {
       ev.preventDefault();
       ev.returnValue = "";
     }
+  });
+
+  window.addEventListener("pagehide", () => {
+    ws.close();
   });
 
   // Expose a tiny debug handle for live verification (preview_eval).
@@ -337,9 +558,13 @@ async function bootstrap(): Promise<void> {
     api,
     doc,
     editor,
+    ws,
     invalidateCompletions: completions.invalidateCache,
     save: openSave,
     reload: reloadFromDisk,
+    triggerConflict: enterConflictMode,
+    openRename,
+    switcher,
   };
 }
 
