@@ -14,6 +14,7 @@ can still pick a corpus and path from the UI once it lands.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -29,22 +30,44 @@ router = APIRouter(tags=["editor-pages"])
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 _BUNDLE_DIR = Path(__file__).resolve().parent.parent / "static" / "editor"
+_MANIFEST_PATH = _BUNDLE_DIR / ".vite" / "manifest.json"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
-def _bundle_version() -> str:
-    """Return a cache-busting tag for ``/static/editor/editor.{js,css}``.
+def _read_bundle_assets() -> tuple[str, str]:
+    """Return ``(js_filename, css_filename)`` for the editor bundle.
 
-    Uses the bundle's mtime if it exists; falls back to ``dev`` so the
-    /editor route still renders even before the first ``make
-    build-editor``. Browsers cache the deterministic filename
-    aggressively — bumping the version string on each rebuild forces a
-    fresh fetch.
+    Vite emits content-hashed filenames plus ``.vite/manifest.json``
+    mapping logical sources (``src/main.ts``, ``style.css``) to their
+    hashed output. The route reads it on every request — the file is
+    tiny (<1 KB) and only changes on rebuild, so a cache layer would
+    add complexity for no measurable win.
+
+    Falls back to the legacy unhashed names (``editor.js`` /
+    ``editor.css``) if the manifest is missing — handy during a stale
+    install where the old deterministic-named bundle is still on disk.
+    Returns sentinel ``("dev.js", "dev.css")`` if neither is present so
+    the page still renders (with a broken bundle URL the browser will
+    surface clearly).
     """
-    bundle = _BUNDLE_DIR / "editor.js"
-    if bundle.is_file():
-        return str(int(bundle.stat().st_mtime))
-    return "dev"
+    if _MANIFEST_PATH.is_file():
+        try:
+            data = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+            entry = data.get("src/main.ts") or {}
+            css_entry = data.get("style.css") or {}
+            js = entry.get("file")
+            css = css_entry.get("file") or (entry.get("css") or [None])[0]
+            if js and css:
+                return js, css
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Failed to read editor manifest: %s", exc)
+
+    legacy_js = _BUNDLE_DIR / "editor.js"
+    legacy_css = _BUNDLE_DIR / "editor.css"
+    if legacy_js.is_file() and legacy_css.is_file():
+        return "editor.js", "editor.css"
+
+    return "dev.js", "dev.css"
 
 
 @router.get("/editor", response_class=HTMLResponse, include_in_schema=False)
@@ -62,6 +85,7 @@ async def editor_page(
       - the requested corpus + path so the bundle can fetch the
         template on first paint without a second roundtrip.
     """
+    js_file, css_file = _read_bundle_assets()
     return templates.TemplateResponse(
         request,
         "editor.html",
@@ -69,6 +93,7 @@ async def editor_page(
             "corpus_id": corpus or "",
             "rel_path": path or "",
             "session_token": current_session_token(),
-            "bundle_version": _bundle_version(),
+            "bundle_js": js_file,
+            "bundle_css": css_file,
         },
     )

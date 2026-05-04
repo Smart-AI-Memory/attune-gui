@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Editor — Attune</title>
-  <link rel="stylesheet" href="/static/editor/editor.css?v={{ bundle_version }}">
+  <link rel="stylesheet" href="/static/editor/{{ bundle_css }}">
   <link rel="icon" href="data:,">
 </head>
 <body class="attune-editor-page">
@@ -14,6 +14,6 @@
        data-session-token="{{ session_token }}">
     <noscript>The Attune template editor requires JavaScript.</noscript>
   </div>
-  <script type="module" src="/static/editor/editor.js?v={{ bundle_version }}"></script>
+  <script type="module" src="/static/editor/{{ bundle_js }}"></script>
 </body>
 </html>

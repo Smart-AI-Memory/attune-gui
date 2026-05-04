@@ -53,6 +53,10 @@ function toRange(
   text: string,
   diag: ServerDiagnostic,
 ): { from: number; to: number } | null {
+  // Empty document: nothing for CM to attach a diagnostic to. Drop
+  // the diagnostic rather than synthesize a 0..1 range CM will reject.
+  if (text.length === 0) return null;
+
   const lines = lineOffsets(text);
   const lineIdx = diag.line - 1;
   const endIdx = diag.end_line - 1;
@@ -76,6 +80,9 @@ function toRange(
     if (from < text.length) to = from + 1;
     else from = Math.max(0, from - 1);
   }
+  // Final clamp so neither bound exceeds doc length.
+  from = Math.min(from, text.length);
+  to = Math.min(to, text.length);
   return { from, to };
 }
 

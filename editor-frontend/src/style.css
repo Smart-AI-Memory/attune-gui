@@ -417,6 +417,18 @@ select.attune-fm-input {
   padding: 0;
 }
 
+.attune-modal-advisory {
+  border-top: 1px solid var(--attune-border);
+  padding: 0.5rem 1rem;
+  background: #fff8c5;
+  color: #4d3800;
+}
+
+.attune-modal-advisory ul {
+  margin: 0.25rem 0 0 1rem;
+  padding: 0;
+}
+
 .attune-hunk {
   margin-bottom: 0.6rem;
   border: 1px solid var(--attune-border);

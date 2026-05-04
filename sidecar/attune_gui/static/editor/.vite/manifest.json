@@ -1,0 +1,12 @@
+{
+  "src/main.ts": {
+    "file": "editor-BX1oYjtl.js",
+    "name": "editor",
+    "src": "src/main.ts",
+    "isEntry": true
+  },
+  "style.css": {
+    "file": "editor-Bi58upVz.css",
+    "src": "style.css"
+  }
+}

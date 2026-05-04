@@ -60,6 +60,16 @@ describe("inferContext", () => {
     expect(ctx?.kind).toBe("tag");
     expect(ctx?.prefix).toBe("alpha");
   });
+
+  it("fires on the last line of an unterminated frontmatter (C2 regression)", () => {
+    // Caught by the Haiku review pass: confirm completion still fires
+    // when the closing `---` has not been typed yet — users typically
+    // hit autocomplete *while* writing the frontmatter.
+    const text = "---\ntype: concept\ntags: [a";
+    const ctx = inferContext(text, text.length);
+    expect(ctx).not.toBeNull();
+    expect(ctx?.kind).toBe("tag");
+  });
 });
 
 describe("AutocompleteCache", () => {

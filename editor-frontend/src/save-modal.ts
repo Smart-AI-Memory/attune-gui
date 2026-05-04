@@ -64,6 +64,11 @@ export function openSaveModal(bindings: SaveModalBindings): SaveModal {
   lintBanner.hidden = true;
   dialog.appendChild(lintBanner);
 
+  const advisoryBanner = document.createElement("div");
+  advisoryBanner.className = "attune-modal-advisory";
+  advisoryBanner.hidden = true;
+  dialog.appendChild(advisoryBanner);
+
   const footer = document.createElement("footer");
   footer.className = "attune-modal-foot";
   const cancelBtn = document.createElement("button");
@@ -156,6 +161,15 @@ export function openSaveModal(bindings: SaveModalBindings): SaveModal {
     const blocking = diags.filter(
       (d) => BLOCKING_SEVERITIES.has(d.severity) && BLOCKING_CODES.test(d.code),
     );
+    // Advisory = error/warning that does NOT block (e.g. broken-alias).
+    // Some drafts intentionally reference an alias the user is about
+    // to create — we let that through with a clear heads-up rather
+    // than hard-blocking the save.
+    const advisory = diags.filter((d) => {
+      if (d.severity !== "error" && d.severity !== "warning") return false;
+      return !(BLOCKING_SEVERITIES.has(d.severity) && BLOCKING_CODES.test(d.code));
+    });
+
     blocked = blocking.length > 0;
     if (blocked) {
       lintBanner.hidden = false;
@@ -174,6 +188,23 @@ export function openSaveModal(bindings: SaveModalBindings): SaveModal {
     } else {
       lintBanner.hidden = true;
       saveBtn.disabled = false;
+    }
+
+    if (advisory.length > 0) {
+      advisoryBanner.hidden = false;
+      advisoryBanner.innerHTML = "";
+      const title = document.createElement("strong");
+      title.textContent = `${advisory.length} advisory issue${advisory.length === 1 ? "" : "s"} — save will proceed:`;
+      advisoryBanner.appendChild(title);
+      const ul = document.createElement("ul");
+      for (const d of advisory) {
+        const li = document.createElement("li");
+        li.textContent = `line ${d.line}: ${d.message}`;
+        ul.appendChild(li);
+      }
+      advisoryBanner.appendChild(ul);
+    } else {
+      advisoryBanner.hidden = true;
     }
   }
 

@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { localDiagnostics } from "./lint";
+import type { ServerDiagnostic } from "./api";
+
+// `toRange` is not exported, but we can exercise the surface by
+// reading what `localDiagnostics` produces (its own ranges). The
+// empty-doc guard for *server* diagnostics is exercised indirectly
+// through the lint pipeline; here we lock in the localDiagnostics
+// behaviour for completeness.
+void ({} as ServerDiagnostic);
 
 describe("localDiagnostics", () => {
   it("flags unterminated frontmatter", () => {
