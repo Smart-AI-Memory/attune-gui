@@ -16,12 +16,13 @@
             <th>Status</th>
             <th>Started</th>
             <th>Duration</th>
+            <th>Last output</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
         {% for j in jobs %}
-          <tr>
+          <tr data-job-id="{{ j.id }}">
             <td class="mono">{{ j.name }}</td>
             <td>
               {% set st = j.status %}
@@ -30,17 +31,59 @@
               {% elif st in ('errored','failed','cancelled') %}<span class="badge danger">{{ st }}</span>
               {% else %}<span class="badge dim">{{ st }}</span>{% endif %}
             </td>
-            <td class="dim mono">{{ j.started_at or '—' }}</td>
+            <td class="dim mono small">{{ j.started_at or '—' }}</td>
             <td class="dim">{{ j.duration_ms or 0 }} ms</td>
+            <td class="dim small">
+              {% if j.output_lines %}<span class="mono">{{ j.output_lines[-1] }}</span>
+              {% else %}—{% endif %}
+            </td>
             <td class="row-actions">
-              <a class="row-action" href="/api/jobs/{{ j.id }}">json</a>
+              {% if j.status in ('running', 'pending') %}
+                <button class="btn ghost btn-cancel" data-id="{{ j.id }}">Cancel</button>
+              {% endif %}
+              <a class="row-action" href="/api/jobs/{{ j.id }}" target="_blank" rel="noopener">json</a>
             </td>
           </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
+    <p class="meta-line dim small">
+      Auto-refreshes every 4s while a job is running.
+    </p>
   {% else %}
     <p class="empty">No jobs yet. <a href="/dashboard/commands">Run a command</a> to start one.</p>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Cancel button ─────────────────────────────────────────────────────
+  document.querySelectorAll('.btn-cancel').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      if (!confirm(`Cancel job ${id}?`)) return;
+      btn.disabled = true;
+      try {
+        await AttuneUI.api(`/api/jobs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        AttuneUI.toast(`Cancelled ${id.slice(0, 8)}`, 'ok');
+        setTimeout(() => location.reload(), 400);
+      } catch (e) {
+        AttuneUI.toast(`Cancel failed: ${e.message}`, 'danger');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // ── Auto-refresh while jobs are running ───────────────────────────────
+  (function () {
+    const hasRunning = document.querySelector('tr td .badge.accent-soft');
+    if (!hasRunning) return;
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      location.reload();
+    }, 4000);
+    window.addEventListener('beforeunload', () => clearInterval(timer));
+  })();
+</script>
 {% endblock %}

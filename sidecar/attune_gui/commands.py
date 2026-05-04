@@ -460,7 +460,16 @@ COMMANDS["author.status"] = CommandSpec(
 
 
 async def _exec_author_maintain(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from attune_author.maintenance import run_maintenance  # noqa: PLC0415
+    """Regenerate stale templates with per-feature progress.
+
+    Mirrors ``attune_author.maintenance.run_maintenance`` but calls
+    ``generate_feature_templates`` one feature at a time so we can emit a
+    log line per feature and the UI doesn't appear stuck.
+    """
+    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
+    from attune_author.maintenance import MaintenanceResult  # noqa: PLC0415
+    from attune_author.manifest import load_manifest  # noqa: PLC0415
+    from attune_author.staleness import check_staleness  # noqa: PLC0415
 
     project_root, help_dir = _resolve_project_paths(args)
     dry_run = bool(args.get("dry_run", False))
@@ -469,15 +478,48 @@ async def _exec_author_maintain(args: dict[str, Any], ctx: JobContext) -> dict[s
 
     label = "Dry-run check" if dry_run else "Regenerating stale templates"
     ctx.log(f"{label} in {help_dir}…")
-    result = await asyncio.to_thread(run_maintenance, help_dir, project_root, features, dry_run)
 
-    total = result.staleness.stale_count + result.staleness.current_count
-    ctx.log(f"Stale: {result.staleness.stale_count} / {total}")
-    if not dry_run:
-        ctx.log(f"Regenerated: {len(result.regenerated)}, failed: {len(result.failed)}")
+    manifest = await asyncio.to_thread(load_manifest, help_dir)
+    report = await asyncio.to_thread(check_staleness, manifest, help_dir, project_root, features)
+    result = MaintenanceResult(staleness=report)
+
+    total = report.stale_count + report.current_count
+    ctx.log(f"Stale: {report.stale_count} / {total}")
+
+    if dry_run or report.stale_count == 0:
+        return {
+            "stale_count": report.stale_count,
+            "total_count": total,
+            "regenerated": [],
+            "failed": [],
+            "dry_run": dry_run,
+        }
+
+    stale_entries = [e for e in report.help_entries if e.is_stale]
+    n_stale = len(stale_entries)
+    for idx, entry in enumerate(stale_entries, start=1):
+        feat = manifest.features.get(entry.feature)
+        if feat is None:
+            ctx.log(f"  [{idx}/{n_stale}] {entry.feature}: not in manifest — skip")
+            continue
+
+        try:
+            gen = await asyncio.to_thread(
+                generate_feature_templates,
+                feature=feat,
+                help_dir=help_dir,
+                project_root=project_root,
+            )
+            result.regenerated.append(gen)
+            ctx.log(f"  [{idx}/{n_stale}] {entry.feature}: {len(gen.templates)} template(s)")
+        except (OSError, Exception) as exc:  # noqa: BLE001
+            ctx.log(f"  [{idx}/{n_stale}] {entry.feature}: FAILED — {exc}")
+            result.failed.append(entry.feature)
+
+    ctx.log(f"Regenerated: {len(result.regenerated)}, failed: {len(result.failed)}")
 
     return {
-        "stale_count": result.staleness.stale_count,
+        "stale_count": report.stale_count,
         "total_count": total,
         "regenerated": [r.feature for r in result.regenerated],
         "failed": result.failed,
