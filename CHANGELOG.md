@@ -3,6 +3,33 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] — 2026-05-04
+
+### Added — Spec authoring
+
+The Specs page is no longer read-only. You can now create features, add
+phases as you go, and transition status — all from the dashboard.
+
+- **+ New spec** button on `/dashboard/specs` opens a slug input that
+  bootstraps `specs/<slug>/requirements.md` from the workspace's
+  `TEMPLATE.md` (falls back to a minimal stub if no template is found).
+- **+ Design / + Tasks** inline buttons appear on each spec row at the
+  appropriate moment, with prerequisite ordering enforced server-side
+  (no design without requirements; no tasks without design).
+- **Phase status dropdown** in the Preview/Edit panel for any spec file —
+  rewrites the `**Status**:` line atomically (`draft → in-review →
+  approved → complete`).
+- New JSON APIs (all under `/api/cowork/`):
+  - `GET  /specs/template` — fetch the canonical template
+  - `POST /specs` — create a new feature directory
+  - `POST /specs/{feature}/phase` — bootstrap design or tasks
+  - `PUT  /specs/{feature}/{phase}/status` — transition status
+- Slug validation: lowercase letters, digits, dashes; max 63 chars.
+- 19 new tests covering the authoring flow, validation, and ordering rules.
+  Suite total: **124 tests**, all passing.
+
+---
+
 ## [0.3.0] — 2026-05-04
 
 ### Added — Cowork dashboard

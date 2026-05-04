@@ -21,6 +21,19 @@
       {% if file.manual %}<span class="badge accent" style="margin-left:.5rem;">manually maintained</span>{% endif %}
     </p>
 
+    {% if file.root == 'specs' and file.path.endswith('.md') %}
+      <div id="status-bar" class="status-bar card" hidden>
+        <span class="dim small">Phase status:</span>
+        <select id="status-select" class="text-input" style="max-width:14rem;">
+          <option value="draft">draft</option>
+          <option value="in-review">in-review</option>
+          <option value="approved">approved</option>
+          <option value="complete">complete</option>
+        </select>
+        <button class="btn primary" id="status-save">Update status</button>
+      </div>
+    {% endif %}
+
     <div id="pane-preview" class="pane">
       <article class="markdown-body">
         {{ rendered_html|safe }}
@@ -67,7 +80,6 @@
         body: JSON.stringify({ content: editor.value }),
       });
       AttuneUI.toast('Saved.', 'ok');
-      // Refresh preview HTML
       const r = await AttuneUI.api(`/api/cowork/files/rendered/${root}/${encodeURIComponent(path)}`);
       document.querySelector('.markdown-body').innerHTML = r.html;
     } catch (e) {
@@ -76,6 +88,47 @@
       saveBtn.disabled = false;
     }
   });
+
+  // ── Spec phase status bar ────────────────────────────────────────────
+  (function () {
+    const bar = document.getElementById('status-bar');
+    if (!bar) return;
+    const parts = path.split('/');
+    if (parts.length !== 2) return;
+    const feature = parts[0];
+    const phase = parts[1].replace(/\.md$/, '');
+    if (!['requirements', 'design', 'tasks'].includes(phase)) return;
+
+    // Parse current status from file.content
+    const content = editor.value;
+    const m = content.match(/\*\*Status\*\*:\s*(\S+)/);
+    const select = document.getElementById('status-select');
+    if (m) {
+      const current = m[1].toLowerCase();
+      // Normalise legacy values
+      const normalised = ({completed: 'complete', done: 'complete', in_review: 'in-review', review: 'in-review'})[current] || current;
+      if ([...select.options].some(o => o.value === normalised)) {
+        select.value = normalised;
+      }
+    }
+    bar.hidden = false;
+
+    document.getElementById('status-save').addEventListener('click', async (e) => {
+      const status = select.value;
+      e.target.disabled = true;
+      try {
+        await AttuneUI.api(
+          `/api/cowork/specs/${encodeURIComponent(feature)}/${encodeURIComponent(phase)}/status`,
+          { method: 'PUT', body: JSON.stringify({ status }) }
+        );
+        AttuneUI.toast(`Status → ${status}`, 'ok');
+        setTimeout(() => location.reload(), 350);
+      } catch (err) {
+        AttuneUI.toast(`Status update failed: ${err.message}`, 'danger');
+        e.target.disabled = false;
+      }
+    });
+  })();
 </script>
 {% endif %}
 {% endblock %}

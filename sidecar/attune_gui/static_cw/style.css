@@ -424,6 +424,26 @@ code, .mono {
 
 .ws-form { display: flex; gap: 10px; align-items: center; }
 
+/* ── Spec authoring: + New spec form + phase status bar ──────────────── */
+
+.new-spec-form { margin: 0 0 18px; padding: 14px 18px; }
+.form-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+}
+
 /* ── Banners ───────────────────────────────────────────────────────────── */
 
 .banner {

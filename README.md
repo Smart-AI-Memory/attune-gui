@@ -13,7 +13,7 @@ Sidebar nav with seven pages, each consuming the existing JSON API:
 |------|---------------|
 | **Health** | Cross-layer health (rag/help/author/gui versions) + corpus snapshot |
 | **Templates** | Markdown templates with mtime staleness, tags, and a manual-pin toggle |
-| **Specs** | Feature specs in `specs/` with phase + status badges |
+| **Specs** | Feature specs in `specs/` with phase + status badges. **+ New spec** bootstraps from `TEMPLATE.md`; **+ Design / + Tasks** inline; status dropdown in Preview |
 | **Summaries** | Inline-editable `summaries.json` with overwrite warning |
 | **Living Docs** | Workspace editor, scan trigger, document health, review queue, RAG quality bars |
 | **Commands** | Run any registered command from a card grid (RAG queries, regen, maintain, …) |

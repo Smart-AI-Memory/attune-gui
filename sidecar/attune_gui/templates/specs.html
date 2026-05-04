@@ -2,12 +2,31 @@
 
 {% block title %}Specs{% endblock %}
 
+{% block actions %}
+  <button class="btn primary" id="new-spec-btn">+ New spec</button>
+{% endblock %}
+
 {% block content %}
   {% if specs_root %}
     <p class="meta-line">
       Reading from <code class="mono">{{ specs_root }}</code>
     </p>
   {% endif %}
+
+  <div id="new-spec-form" class="card new-spec-form" hidden>
+    <label for="new-spec-slug" class="form-label">New feature slug</label>
+    <div class="ws-form">
+      <input id="new-spec-slug" class="text-input" type="text"
+             placeholder="my-feature-name" autocomplete="off"
+             pattern="[a-z0-9][a-z0-9-]{0,62}" />
+      <button class="btn primary" id="new-spec-submit">Create</button>
+      <button class="btn ghost" id="new-spec-cancel">Cancel</button>
+    </div>
+    <p class="dim small" style="margin-top:.5rem;">
+      Lowercase letters, digits, and dashes. A starter <code>requirements.md</code>
+      will be generated from <code>TEMPLATE.md</code>.
+    </p>
+  </div>
 
   {% if specs %}
     <div class="table-wrap">
@@ -17,12 +36,13 @@
             <th>Feature</th>
             <th>Phase</th>
             <th>Status</th>
+            <th>Files</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
         {% for s in specs %}
-          <tr>
+          <tr data-feature="{{ s.feature }}" data-phase="{{ s.phase or '' }}">
             <td>
               {% if s.phase %}
                 <a href="/dashboard/preview?root=specs&path={{ (s.feature ~ '/' ~ s.phase)|urlencode }}" class="link">{{ s.feature }}</a>
@@ -53,12 +73,87 @@
                 <a href="/dashboard/preview?root=specs&path={{ (s.feature ~ '/' ~ f)|urlencode }}" class="row-action">{{ f }}</a>
               {% endfor %}
             </td>
+            <td class="row-actions">
+              {% if s.phase == 'requirements.md' %}
+                <button class="btn ghost btn-add-phase" data-feature="{{ s.feature }}" data-phase="design">+ Design</button>
+              {% elif s.phase == 'design.md' %}
+                <button class="btn ghost btn-add-phase" data-feature="{{ s.feature }}" data-phase="tasks">+ Tasks</button>
+              {% endif %}
+            </td>
           </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
   {% else %}
-    <p class="empty">No specs found. Create features under <code>specs/&lt;feature-slug&gt;/</code>.</p>
+    <p class="empty">No specs found. Click <strong>+ New spec</strong> to start one.</p>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── + New spec form ─────────────────────────────────────────────────
+  const newBtn = document.getElementById('new-spec-btn');
+  const newForm = document.getElementById('new-spec-form');
+  const newInput = document.getElementById('new-spec-slug');
+  const newSubmit = document.getElementById('new-spec-submit');
+  const newCancel = document.getElementById('new-spec-cancel');
+
+  newBtn.addEventListener('click', () => {
+    newForm.hidden = false;
+    newInput.focus();
+  });
+  newCancel.addEventListener('click', () => {
+    newForm.hidden = true;
+    newInput.value = '';
+  });
+  newInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); newSubmit.click(); }
+    if (e.key === 'Escape') newCancel.click();
+  });
+
+  newSubmit.addEventListener('click', async () => {
+    const slug = (newInput.value || '').trim();
+    if (!slug) {
+      AttuneUI.toast('Slug is required.', 'danger');
+      return;
+    }
+    newSubmit.disabled = true;
+    try {
+      const r = await AttuneUI.api('/api/cowork/specs', {
+        method: 'POST',
+        body: JSON.stringify({ feature: slug }),
+      });
+      AttuneUI.toast(`Created ${r.feature}/${r.phase}`, 'ok');
+      setTimeout(() => location.assign(
+        `/dashboard/preview?root=specs&path=${encodeURIComponent(r.path)}`
+      ), 350);
+    } catch (e) {
+      AttuneUI.toast(`Create failed: ${e.message}`, 'danger');
+      newSubmit.disabled = false;
+    }
+  });
+
+  // ── + Add design/tasks buttons ──────────────────────────────────────
+  document.querySelectorAll('.btn-add-phase').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const feature = btn.getAttribute('data-feature');
+      const phase = btn.getAttribute('data-phase');
+      btn.disabled = true;
+      try {
+        const r = await AttuneUI.api(`/api/cowork/specs/${encodeURIComponent(feature)}/phase`, {
+          method: 'POST',
+          body: JSON.stringify({ phase }),
+        });
+        AttuneUI.toast(`Added ${r.path}`, 'ok');
+        setTimeout(() => location.assign(
+          `/dashboard/preview?root=specs&path=${encodeURIComponent(r.path)}`
+        ), 350);
+      } catch (e) {
+        AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
 {% endblock %}
