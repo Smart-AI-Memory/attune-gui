@@ -132,8 +132,12 @@ async function bootstrap(): Promise<void> {
   const api = new EditorApi(boot.sessionToken);
 
   let template;
+  let schema;
   try {
-    template = await api.loadTemplate(boot.corpusId, boot.relPath);
+    [template, schema] = await Promise.all([
+      api.loadTemplate(boot.corpusId, boot.relPath),
+      api.loadSchema(),
+    ]);
   } catch (err) {
     ui.status.textContent =
       err instanceof ApiError
@@ -161,6 +165,7 @@ async function bootstrap(): Promise<void> {
 
   const form = renderFrontmatterForm(ui.formSidebar, {
     doc,
+    schema,
     onChange: () => {
       if (suppressFormRefresh) return;
       const newText = doc.getText();

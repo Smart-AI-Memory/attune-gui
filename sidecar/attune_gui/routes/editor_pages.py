@@ -28,7 +28,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["editor-pages"])
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+_BUNDLE_DIR = Path(__file__).resolve().parent.parent / "static" / "editor"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+
+
+def _bundle_version() -> str:
+    """Return a cache-busting tag for ``/static/editor/editor.{js,css}``.
+
+    Uses the bundle's mtime if it exists; falls back to ``dev`` so the
+    /editor route still renders even before the first ``make
+    build-editor``. Browsers cache the deterministic filename
+    aggressively — bumping the version string on each rebuild forces a
+    fresh fetch.
+    """
+    bundle = _BUNDLE_DIR / "editor.js"
+    if bundle.is_file():
+        return str(int(bundle.stat().st_mtime))
+    return "dev"
 
 
 @router.get("/editor", response_class=HTMLResponse, include_in_schema=False)
@@ -53,5 +69,6 @@ async def editor_page(
             "corpus_id": corpus or "",
             "rel_path": path or "",
             "session_token": current_session_token(),
+            "bundle_version": _bundle_version(),
         },
     )

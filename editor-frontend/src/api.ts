@@ -56,6 +56,23 @@ export interface AliasInfo {
 
 export type AutocompleteKind = "tag" | "alias";
 
+export interface TemplateSchemaProperty {
+  type?: string | string[];
+  enum?: readonly string[];
+  description?: string;
+  items?: TemplateSchemaProperty;
+  minLength?: number;
+  uniqueItems?: boolean;
+}
+
+export interface TemplateSchema {
+  title?: string;
+  description?: string;
+  required?: readonly string[];
+  properties?: Readonly<Record<string, TemplateSchemaProperty>>;
+  additionalProperties?: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -72,6 +89,12 @@ export class EditorApi {
     private readonly sessionToken: string,
     private readonly base = "",
   ) {}
+
+  async loadSchema(): Promise<TemplateSchema> {
+    const url = `${this.base}/api/editor/template-schema`;
+    const res = await fetch(url, { method: "GET" });
+    return this.parse<TemplateSchema>(res);
+  }
 
   async loadTemplate(corpusId: string, relPath: string): Promise<TemplateResponse> {
     const url = `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/template?path=${encodeURIComponent(relPath)}`;

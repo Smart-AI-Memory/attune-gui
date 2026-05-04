@@ -183,6 +183,106 @@ textarea.attune-fm-input {
   resize: vertical;
 }
 
+select.attune-fm-input {
+  font: inherit;
+}
+
+.attune-fm-required {
+  color: #b31d28;
+  font-weight: 600;
+}
+
+.attune-fm-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.attune-fm-toggle {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--attune-border);
+  background: var(--attune-bg);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--attune-text-muted);
+}
+
+.attune-fm-toggle-on {
+  background: var(--attune-accent);
+  color: #fff;
+  border-color: var(--attune-accent);
+}
+
+.attune-fm-row-chips .attune-fm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.attune-fm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  background: rgba(9, 105, 218, 0.08);
+  border-radius: 12px;
+  font-size: 0.78rem;
+}
+
+.attune-fm-chip-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--attune-text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.attune-fm-chip-remove:hover {
+  color: #b31d28;
+}
+
+.attune-fm-rawyaml-input {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
+.attune-fm-unknown {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--attune-border);
+}
+
+.attune-fm-unknown-head {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--attune-text-muted);
+}
+
+.attune-fm-unknown-list {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--attune-text-muted);
+}
+
+.attune-fm-unknown-list dt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.attune-fm-unknown-list dd {
+  margin: 0 0 0 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-word;
+}
+
 /* Buttons */
 
 .attune-btn {
