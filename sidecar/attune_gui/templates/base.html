@@ -68,7 +68,7 @@
         );
         if (opts.method && opts.method !== 'GET') {
           const t = await getSessionToken();
-          if (t) headers['X-Attune-Client-Token'] = t;
+          if (t) headers['X-Attune-Client'] = t;
         }
         const res = await fetch(url, Object.assign({}, opts, { headers }));
         if (!res.ok) {
