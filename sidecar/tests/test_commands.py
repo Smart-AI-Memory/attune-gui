@@ -155,7 +155,7 @@ class TestHelpExecutors:
         engine = MagicMock()
         engine.lookup.return_value = "concept body"
         engine.list_topics.return_value = ["a", "b"]
-        engine.generated_dir = Path("/tmp/help")
+        engine.generated_dir = Path("/tmp/help")  # noqa: S108
         with patch("attune_help.HelpEngine", return_value=engine):
             result = await _exec_help_lookup({"topic": "auth"}, ctx)  # type: ignore[arg-type]
         assert result["topic"] == "auth"
@@ -178,7 +178,7 @@ class TestHelpExecutors:
         engine = MagicMock()
         engine.lookup.return_value = "body"
         engine.list_topics.return_value = []
-        engine.generated_dir = Path("/tmp/help")
+        engine.generated_dir = Path("/tmp/help")  # noqa: S108
         with patch("attune_help.HelpEngine", return_value=engine):
             await _exec_help_lookup({"topic": "x", "depth": "reference"}, ctx)  # type: ignore[arg-type]
         assert engine.lookup.call_count == 3
@@ -187,7 +187,7 @@ class TestHelpExecutors:
     async def test_search_returns_results_and_count(self, ctx: FakeJobContext) -> None:
         engine = MagicMock()
         engine.search.return_value = [("topic-a", 0.9), ("topic-b", 0.5)]
-        engine.generated_dir = Path("/tmp/help")
+        engine.generated_dir = Path("/tmp/help")  # noqa: S108
         with patch("attune_help.HelpEngine", return_value=engine):
             result = await _exec_help_search({"query": "auth", "limit": 5}, ctx)  # type: ignore[arg-type]
         assert result["count"] == 2
@@ -198,7 +198,7 @@ class TestHelpExecutors:
     async def test_list_returns_topics_and_count(self, ctx: FakeJobContext) -> None:
         engine = MagicMock()
         engine.list_topics.return_value = ["t1", "t2", "t3"]
-        engine.generated_dir = Path("/tmp/help")
+        engine.generated_dir = Path("/tmp/help")  # noqa: S108
         with patch("attune_help.HelpEngine", return_value=engine):
             result = await _exec_help_list({}, ctx)  # type: ignore[arg-type]
         assert result["topics"] == ["t1", "t2", "t3"]
@@ -208,7 +208,7 @@ class TestHelpExecutors:
     async def test_list_passes_type_filter(self, ctx: FakeJobContext) -> None:
         engine = MagicMock()
         engine.list_topics.return_value = []
-        engine.generated_dir = Path("/tmp/help")
+        engine.generated_dir = Path("/tmp/help")  # noqa: S108
         with patch("attune_help.HelpEngine", return_value=engine):
             await _exec_help_list({"type_filter": "concept"}, ctx)  # type: ignore[arg-type]
         engine.list_topics.assert_called_once_with(type_filter="concept")
@@ -351,9 +351,11 @@ class TestAuthorExecutors:
     ) -> None:
         feat = SimpleNamespace(name="auth")
         manifest = SimpleNamespace(features={"auth": feat})
+        concept_path = Path("/tmp/concept.md")  # noqa: S108
+        task_path = Path("/tmp/task.md")  # noqa: S108
         templates = [
-            SimpleNamespace(depth="concept", path=Path("/tmp/concept.md"), source_hash="h1"),
-            SimpleNamespace(depth="task", path=Path("/tmp/task.md"), source_hash="h2"),
+            SimpleNamespace(depth="concept", path=concept_path, source_hash="h1"),
+            SimpleNamespace(depth="task", path=task_path, source_hash="h2"),
         ]
         result = SimpleNamespace(
             feature="auth",
