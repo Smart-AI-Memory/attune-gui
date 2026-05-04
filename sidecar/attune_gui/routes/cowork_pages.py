@@ -163,6 +163,8 @@ async def page_summaries(request: Request) -> HTMLResponse:
 
     summaries: dict[str, str] = {}
     error: str | None = None
+    not_yet_generated = False
+
     try:
         data = await cowork_files.read_file(root="summaries", path="summaries.json")
         try:
@@ -173,10 +175,23 @@ async def page_summaries(request: Request) -> HTMLResponse:
         except json.JSONDecodeError as exc:
             error = f"Invalid JSON in summaries.json: {exc}"
     except HTTPException as exc:
-        error = exc.detail if isinstance(exc.detail, str) else "Could not load summaries.json"
+        # 404 = file simply hasn't been generated yet → friendly empty state
+        # rather than a red error banner.
+        if exc.status_code == 404:
+            not_yet_generated = True
+        else:
+            error = exc.detail if isinstance(exc.detail, str) else "Could not load summaries.json"
 
     return templates.TemplateResponse(
-        request, "summaries.html", _ctx(request, "summaries", summaries=summaries, error=error)
+        request,
+        "summaries.html",
+        _ctx(
+            request,
+            "summaries",
+            summaries=summaries,
+            error=error,
+            not_yet_generated=not_yet_generated,
+        ),
     )
 
 

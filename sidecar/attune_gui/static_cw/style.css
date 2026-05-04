@@ -444,6 +444,34 @@ code, .mono {
   padding: 10px 14px;
 }
 
+/* Friendly empty states (page-level, not inline) */
+.empty-state {
+  text-align: center;
+  padding: 36px 28px;
+  max-width: 520px;
+  margin: 32px auto;
+}
+.empty-state-title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.empty-state-body {
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+}
+.cmd-snippet {
+  display: inline-block;
+  background: var(--ink);
+  color: #f5f5f7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  margin: 0;
+}
+
 /* ── Banners ───────────────────────────────────────────────────────────── */
 
 .banner {
