@@ -47,6 +47,7 @@ class Job:
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """JSON-serializable snapshot of this job for the API."""
         return {
             "id": self.id,
             "name": self.name,
@@ -69,6 +70,7 @@ class JobContext:
         self.job_id = job.id
 
     def log(self, line: str) -> None:
+        """Append a line to the job's output buffer (visible in the UI)."""
         self.job.output_lines.append(line)
         logger.debug("job %s: %s", self.job.id, line)
 
@@ -85,12 +87,15 @@ class JobRegistry:
         self._max_jobs = max_jobs
 
     def list_jobs(self) -> list[Job]:
+        """All jobs, newest first (sorted by ``created_at`` descending)."""
         return sorted(self._jobs.values(), key=lambda j: j.created_at, reverse=True)
 
     def get(self, job_id: str) -> Job | None:
+        """Return the job with this id, or None."""
         return self._jobs.get(job_id)
 
     async def start(self, name: str, args: dict[str, Any], executor: ExecutorFn) -> Job:
+        """Register and launch a job; the executor runs in a background asyncio task."""
         job = Job(id=str(uuid.uuid4()), name=name, args=args)
         self._jobs[job.id] = job
         self._trim()
@@ -100,6 +105,7 @@ class JobRegistry:
         return job
 
     def cancel(self, job_id: str) -> bool:
+        """Request cancellation of a running job. Returns False if it isn't running."""
         task = self._tasks.get(job_id)
         if task is None or task.done():
             return False
@@ -147,6 +153,7 @@ _REGISTRY: JobRegistry | None = None
 
 
 def get_registry() -> JobRegistry:
+    """Return the process-global JobRegistry, creating it on first call."""
     global _REGISTRY
     if _REGISTRY is None:
         _REGISTRY = JobRegistry()

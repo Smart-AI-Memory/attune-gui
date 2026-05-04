@@ -1030,10 +1030,16 @@ COMMANDS["author.setup"] = CommandSpec(
 
 
 def get_command(name: str) -> CommandSpec | None:
+    """Return the CommandSpec for ``name``, or None if it isn't registered."""
     return COMMANDS.get(name)
 
 
 def list_commands(profile: str | None = None) -> list[dict[str, Any]]:
+    """Return registered commands as JSON-serializable dicts.
+
+    If ``profile`` is given, only commands whose ``profiles`` tuple includes
+    it are returned. ``None`` returns every command.
+    """
     return [
         {
             "name": c.name,

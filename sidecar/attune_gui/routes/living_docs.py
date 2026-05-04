@@ -57,12 +57,14 @@ class ConfigUpdate(BaseModel):
 
 @router.get("/config")
 async def get_config() -> dict[str, Any]:
+    """Return the configured workspace path and whether `.help/` exists in it."""
     ws = _get_workspace()
     return {"workspace": str(ws), "has_help_dir": (ws / ".help").is_dir()}
 
 
 @router.put("/config", dependencies=[Depends(require_client_token)])
 async def set_config(body: ConfigUpdate, background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Persist a new workspace path and queue a manual rescan. 400 if the path isn't a directory."""
     try:
         resolved = await asyncio.to_thread(_set_workspace, body.workspace)
     except ValueError as e:
@@ -81,6 +83,7 @@ async def set_config(body: ConfigUpdate, background_tasks: BackgroundTasks) -> d
 
 @router.get("/health")
 async def health() -> dict[str, Any]:
+    """Living Docs health summary — counts, last scan, quality scores, plus workspace path."""
     h = await get_store().get_health()
     h["workspace"] = str(_get_workspace())
     return h
@@ -93,6 +96,7 @@ async def health() -> dict[str, Any]:
 
 @router.get("/docs")
 async def list_docs(persona: str | None = None) -> dict[str, Any]:
+    """Return the doc registry. ``persona`` filters to one of end-user|developer|support."""
     docs = await get_store().list_docs(persona=persona)
     return {"docs": docs}
 
@@ -116,6 +120,7 @@ async def _run_scan(trigger: str) -> None:
 
 @router.post("/scan", dependencies=[Depends(require_client_token)])
 async def trigger_scan(req: ScanRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Queue a workspace scan. Returns immediately; scan runs in the background."""
     background_tasks.add_task(_run_scan, req.trigger)
     return {"status": "scan_queued", "trigger": req.trigger}
 
@@ -168,6 +173,7 @@ async def _regenerate_doc(doc_id: str, trigger: str) -> None:
 
 @router.post("/docs/{doc_id:path}/regenerate", dependencies=[Depends(require_client_token)])
 async def regenerate_doc(doc_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Queue regeneration of a single doc (``feature/depth``). Runs in the background."""
     background_tasks.add_task(_regenerate_doc, doc_id, "manual")
     return {"status": "regeneration_queued", "doc_id": doc_id}
 
@@ -182,12 +188,14 @@ async def list_queue(
     persona: str | None = None,
     reviewed: bool | None = None,
 ) -> dict[str, Any]:
+    """Return the auto-applied review queue, optionally filtered by persona / reviewed-state."""
     items = await get_store().list_queue(persona=persona, reviewed=reviewed)
     return {"queue": items}
 
 
 @router.post("/queue/{item_id}/approve", dependencies=[Depends(require_client_token)])
 async def approve_item(item_id: str) -> dict[str, Any]:
+    """Mark a queue item as reviewed. 404 if the item isn't in the queue."""
     ok = await get_store().approve(item_id)
     if not ok:
         raise HTTPException(
@@ -199,6 +207,7 @@ async def approve_item(item_id: str) -> dict[str, Any]:
 
 @router.post("/queue/{item_id}/revert", dependencies=[Depends(require_client_token)])
 async def revert_item(item_id: str) -> dict[str, Any]:
+    """Git-revert an auto-applied doc. 500 if `git checkout HEAD -- <path>` fails."""
     result = await get_store().revert(item_id, _get_workspace())
     if not result["ok"]:
         raise HTTPException(
@@ -218,6 +227,7 @@ async def revert_item(item_id: str) -> dict[str, Any]:
 
 @router.get("/quality")
 async def get_quality() -> dict[str, Any]:
+    """Return the most recent RAG quality scores (faithfulness + strict accuracy)."""
     h = await get_store().get_health()
     return {"quality": h.get("quality", {})}
 
@@ -229,5 +239,6 @@ async def get_quality() -> dict[str, Any]:
 
 @router.post("/webhook/git")
 async def git_webhook(background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Git post-commit hook entry point — queues a workspace scan tagged ``git_hook``."""
     background_tasks.add_task(_run_scan, "git_hook")
     return {"status": "scan_queued", "trigger": "git_hook"}

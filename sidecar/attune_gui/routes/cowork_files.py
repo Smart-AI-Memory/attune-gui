@@ -88,6 +88,7 @@ def _atomic_write(target: Path, content: str) -> None:
 
 @router.get("/raw/{root}/{path:path}")
 async def read_file(root: str, path: str) -> dict[str, Any]:
+    """Return raw file contents (UTF-8) plus the `manual` frontmatter flag for `.md` files."""
     target = _resolve_path(root, path)
     if not target.is_file():
         raise HTTPException(status_code=404, detail=f"File not found: {path}")
@@ -111,6 +112,7 @@ async def read_file(root: str, path: str) -> dict[str, Any]:
 
 @router.get("/rendered/{root}/{path:path}")
 async def render_file(root: str, path: str) -> dict[str, Any]:
+    """Render a Markdown file (or raw text) to an HTML fragment for the preview pane."""
     target = _resolve_path(root, path)
     if not target.is_file():
         raise HTTPException(status_code=404, detail=f"File not found: {path}")
@@ -144,6 +146,7 @@ async def write_file(
     path: str,
     body: dict[str, Any] = Body(...),  # noqa: B008
 ) -> dict[str, Any]:
+    """Atomically replace file contents from `body["content"]`. 422 if not a string."""
     target = _resolve_path(root, path)
     content = body.get("content")
     if not isinstance(content, str):
@@ -168,6 +171,7 @@ async def toggle_pin(
     path: str,
     body: dict[str, Any] = Body(...),  # noqa: B008
 ) -> dict[str, Any]:
+    """Set or clear the ``manual: true`` frontmatter flag on a template (templates-root only)."""
     if root != "templates":
         raise HTTPException(status_code=400, detail="Pin is only valid for the `templates` root.")
 

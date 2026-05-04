@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api", tags=["system"])
 
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
+    """Liveness probe — returns the sidecar version and Python runtime."""
     return HealthResponse(
         version=__version__,
         python=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",

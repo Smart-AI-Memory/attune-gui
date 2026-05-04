@@ -38,11 +38,13 @@ class ProfileUpdate(BaseModel):
 
 @router.get("/profile")
 async def get_profile() -> dict[str, str]:
+    """Return the active UI profile (developer | author | support)."""
     return {"profile": _read_profile()}
 
 
 @router.put("/profile")
 async def set_profile(body: ProfileUpdate) -> dict[str, str]:
+    """Persist a new UI profile. 400 if the value isn't in the allowed set."""
     if body.profile not in _VALID_PROFILES:
         raise HTTPException(
             status_code=400,
