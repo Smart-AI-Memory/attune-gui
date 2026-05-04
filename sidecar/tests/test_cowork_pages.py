@@ -178,3 +178,49 @@ def test_preview_page_no_path_shows_message(client: TestClient) -> None:
     r = client.get("/dashboard/preview", headers=HDR)
     assert r.status_code == 200
     assert "No file path" in r.text
+
+
+# ---------------------------------------------------------------------------
+# Commands page — regression coverage for the args-schema embed
+# ---------------------------------------------------------------------------
+
+
+def test_commands_page_embeds_args_schema_per_command(client: TestClient) -> None:
+    """Each command card must carry a parseable JSON schema script tag.
+
+    Regression: an earlier version embedded the schema as a `data-schema`
+    attribute via Jinja's ``{{ x | tojson | e }}``. ``tojson`` returns
+    Markup-safe content that bypasses ``|e``, so raw ``"`` ended up
+    inside the attribute value and broke at the first quote — the JS
+    only saw ``{`` and `author.generate` always 400'd with
+    "Missing required args: feature" because the modal couldn't
+    render its form. The fix moves the schema into a sibling
+    ``<script type="application/json">`` tag.
+    """
+    import json
+    import re
+
+    r = client.get("/dashboard/commands?profile=author", headers=HDR)
+    assert r.status_code == 200, r.text[:200]
+    assert 'data-name="author.generate"' in r.text
+    # Pull every cmd-schema script and verify each parses + has the
+    # expected shape.
+    script_re = re.compile(
+        r'<script type="application/json" class="cmd-schema" data-name="([^"]+)">'
+        r"(.*?)</script>",
+        re.DOTALL,
+    )
+    matches = script_re.findall(r.text)
+    assert matches, "no cmd-schema scripts rendered on the commands page"
+
+    by_name = {name: json.loads(payload) for name, payload in matches}
+    assert "author.generate" in by_name
+    schema = by_name["author.generate"]
+    assert schema["type"] == "object"
+    assert schema["required"] == ["feature"]
+    # Spot-check a known property.
+    assert "feature" in schema["properties"]
+    # Old bug check: the schema MUST NOT also be present as a raw
+    # data-schema attribute (would suggest a regression to the
+    # broken embed).
+    assert 'data-schema="' not in r.text

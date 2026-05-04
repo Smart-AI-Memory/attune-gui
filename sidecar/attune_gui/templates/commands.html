@@ -20,33 +20,292 @@
             {% if c.domain %}<span class="badge accent-soft">{{ c.domain }}</span>{% endif %}
           </header>
           {% if c.description %}<p class="cmd-desc">{{ c.description }}</p>{% endif %}
-          <button class="btn primary cmd-run" data-name="{{ c.name }}">Run</button>
+          <button class="btn primary cmd-run"
+                  data-name="{{ c.name }}"
+                  data-title="{{ c.title }}">Run</button>
+          {# Inline the schema as JSON so the JS doesn't need a fetch.
+             tojson + an HTML attribute don't compose (tojson returns
+             Markup-safe content, which bypasses |e and leaves raw `"`
+             that breaks the attribute). A <script type="application/
+             json"> tag sidesteps the escaping problem entirely. #}
+          <script type="application/json" class="cmd-schema" data-name="{{ c.name }}">{{ c.args_schema | tojson }}</script>
         </article>
       {% endfor %}
     </div>
   {% else %}
     <p class="empty">No commands available for the <strong>{{ profile }}</strong> profile.</p>
   {% endif %}
+
+  <!-- Form-modal scaffold; populated dynamically when Run is clicked. -->
+  <div id="cmd-modal" class="cmd-modal" hidden>
+    <div class="cmd-modal-overlay" data-close></div>
+    <form class="cmd-modal-dialog" id="cmd-form">
+      <header class="cmd-modal-head">
+        <h3 id="cmd-modal-title">Run command</h3>
+        <button type="button" class="cmd-modal-close" data-close aria-label="Close">×</button>
+      </header>
+      <div class="cmd-modal-body" id="cmd-modal-body"></div>
+      <div class="cmd-modal-error" id="cmd-modal-error" hidden></div>
+      <footer class="cmd-modal-foot">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn primary" id="cmd-modal-submit">Run</button>
+      </footer>
+    </form>
+  </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  document.querySelectorAll('.cmd-run').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const name = btn.getAttribute('data-name');
+  /**
+   * Commands page Run flow.
+   *
+   * Each command card carries its `args_schema` on a data attribute.
+   * Clicking Run opens a modal with one input per schema property,
+   * defaults pre-filled, required fields gated client-side. On submit
+   * we build the `args` object and POST `/api/jobs`.
+   *
+   * Commands with no `properties` skip the modal — POST `args: {}`
+   * directly (preserves the original one-click behavior).
+   */
+  (function () {
+    const modal = document.getElementById('cmd-modal');
+    const form = document.getElementById('cmd-form');
+    const body = document.getElementById('cmd-modal-body');
+    const title = document.getElementById('cmd-modal-title');
+    const errorEl = document.getElementById('cmd-modal-error');
+    const submitBtn = document.getElementById('cmd-modal-submit');
+    let activeCommand = null;
+
+    function closeModal() {
+      modal.hidden = true;
+      body.innerHTML = '';
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Run';
+      activeCommand = null;
+      document.removeEventListener('keydown', onEsc);
+    }
+
+    function onEsc(ev) {
+      if (ev.key === 'Escape') closeModal();
+    }
+
+    modal.querySelectorAll('[data-close]').forEach(el => {
+      el.addEventListener('click', closeModal);
+    });
+
+    function fieldRow(key, prop, required) {
+      const row = document.createElement('label');
+      row.className = 'cmd-field';
+      const lbl = document.createElement('span');
+      lbl.className = 'cmd-field-label';
+      lbl.textContent = prop.title || key;
+      if (required) {
+        const star = document.createElement('em');
+        star.className = 'cmd-field-required';
+        star.textContent = ' *';
+        lbl.appendChild(star);
+      }
+      row.appendChild(lbl);
+
+      let input;
+      if (Array.isArray(prop.enum)) {
+        input = document.createElement('select');
+        if (!required) {
+          const blank = document.createElement('option');
+          blank.value = '';
+          blank.textContent = '—';
+          input.appendChild(blank);
+        }
+        for (const v of prop.enum) {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          input.appendChild(opt);
+        }
+      } else if (prop.type === 'boolean') {
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        if (prop.default === true) input.checked = true;
+        row.classList.add('cmd-field-checkbox');
+      } else if (prop.type === 'integer' || prop.type === 'number') {
+        input = document.createElement('input');
+        input.type = 'number';
+        if (prop.minimum !== undefined) input.min = String(prop.minimum);
+        if (prop.maximum !== undefined) input.max = String(prop.maximum);
+        if (prop.default !== undefined) input.value = String(prop.default);
+      } else if (prop['ui:widget'] === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = 4;
+        if (prop.default !== undefined) input.value = String(prop.default);
+      } else {
+        input = document.createElement('input');
+        input.type = 'text';
+        if (prop.default !== undefined) input.value = String(prop.default);
+        if (prop['ui:widget'] === 'path') input.placeholder = 'Path (absolute or relative to sidecar cwd)';
+      }
+      input.name = key;
+      input.className = 'cmd-input';
+      if (required) input.required = true;
+      if (prop.description) input.title = prop.description;
+      row.appendChild(input);
+
+      if (prop.description) {
+        const help = document.createElement('small');
+        help.className = 'cmd-field-help';
+        help.textContent = prop.description;
+        row.appendChild(help);
+      }
+      return row;
+    }
+
+    function buildForm(schema) {
+      body.innerHTML = '';
+      const props = schema.properties || {};
+      const required = new Set(schema.required || []);
+      const keys = Object.keys(props);
+      if (keys.length === 0) {
+        const note = document.createElement('p');
+        note.className = 'empty';
+        note.textContent = 'This command takes no arguments.';
+        body.appendChild(note);
+        return;
+      }
+      for (const key of keys) {
+        body.appendChild(fieldRow(key, props[key], required.has(key)));
+      }
+    }
+
+    function collectArgs(schema) {
+      const props = schema.properties || {};
+      const required = new Set(schema.required || []);
+      const args = {};
+      const missing = [];
+      for (const key of Object.keys(props)) {
+        const prop = props[key];
+        const el = form.elements.namedItem(key);
+        if (!el) continue;
+        let value;
+        if (prop.type === 'boolean') {
+          value = el.checked;
+          args[key] = value;
+        } else if (prop.type === 'integer') {
+          if (el.value === '') {
+            if (prop.default !== undefined) args[key] = prop.default;
+          } else {
+            value = parseInt(el.value, 10);
+            if (Number.isNaN(value)) {
+              missing.push(`${key}: not a valid integer`);
+              continue;
+            }
+            args[key] = value;
+          }
+        } else if (prop.type === 'number') {
+          if (el.value === '') {
+            if (prop.default !== undefined) args[key] = prop.default;
+          } else {
+            value = parseFloat(el.value);
+            if (Number.isNaN(value)) {
+              missing.push(`${key}: not a valid number`);
+              continue;
+            }
+            args[key] = value;
+          }
+        } else {
+          value = el.value.trim();
+          if (value === '') {
+            if (required.has(key)) {
+              missing.push(key);
+              continue;
+            }
+            // Optional empty: include default if defined; else omit.
+            if (prop.default !== undefined && prop.default !== '') args[key] = prop.default;
+          } else {
+            args[key] = value;
+          }
+        }
+      }
+      return { args, missing };
+    }
+
+    function readSchema(btn) {
+      const card = btn.closest('.cmd-card') || document;
+      const node = card.querySelector(`script.cmd-schema[data-name="${btn.dataset.name}"]`);
+      if (!node) throw new Error('schema script tag not found');
+      return JSON.parse(node.textContent || '{}');
+    }
+
+    document.querySelectorAll('.cmd-run').forEach(btn => {
+      btn.addEventListener('click', () => {
+        let schema;
+        try {
+          schema = readSchema(btn);
+        } catch (e) {
+          AttuneUI.toast(`Bad schema for ${btn.dataset.name}: ${e.message}`, 'danger');
+          return;
+        }
+        const props = schema.properties || {};
+        const hasAnyProps = Object.keys(props).length > 0;
+        // No properties → keep the one-click flow.
+        if (!hasAnyProps) {
+          fireRun(btn.dataset.name, btn, {});
+          return;
+        }
+        activeCommand = { name: btn.dataset.name, schema, btn };
+        title.textContent = `Run ${btn.dataset.title || btn.dataset.name}`;
+        buildForm(schema);
+        modal.hidden = false;
+        document.addEventListener('keydown', onEsc);
+        // Focus the first input.
+        const first = body.querySelector('input, select, textarea');
+        if (first) first.focus();
+      });
+    });
+
+    form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      if (!activeCommand) return;
+      errorEl.hidden = true;
+      const { args, missing } = collectArgs(activeCommand.schema);
+      if (missing.length > 0) {
+        errorEl.hidden = false;
+        errorEl.textContent = `Missing or invalid: ${missing.join(', ')}`;
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Starting…';
+      const ok = await fireRun(activeCommand.name, activeCommand.btn, args);
+      if (ok) closeModal();
+      else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Run';
+      }
+    });
+
+    async function fireRun(name, btn, args) {
       btn.disabled = true;
       try {
         const job = await AttuneUI.api('/api/jobs', {
           method: 'POST',
-          body: JSON.stringify({ name, args: {} }),
+          body: JSON.stringify({ name, args }),
         });
         AttuneUI.toast(`Started job ${job.id || name}`, 'ok');
         setTimeout(() => location.assign('/dashboard/jobs'), 800);
+        return true;
       } catch (e) {
-        AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+        const msg = e.message || String(e);
+        if (modal.hidden) {
+          AttuneUI.toast(`Failed: ${msg}`, 'danger');
+          btn.disabled = false;
+        } else {
+          errorEl.hidden = false;
+          errorEl.textContent = `Failed: ${msg}`;
+        }
         btn.disabled = false;
+        return false;
       }
-    });
-  });
+    }
+  })();
 </script>
 {% endblock %}

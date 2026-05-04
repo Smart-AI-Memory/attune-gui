@@ -568,3 +568,116 @@ code, .mono {
 .toast.show { opacity: 1; transform: translateY(0); }
 .toast.ok      { background: var(--ok); }
 .toast.danger  { background: var(--danger); }
+
+/* Commands page — Run modal */
+.cmd-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cmd-modal[hidden] { display: none; }
+.cmd-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+.cmd-modal-dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 8px;
+  width: min(560px, 92vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
+}
+.cmd-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.cmd-modal-head h3 { margin: 0; font-size: 1rem; }
+.cmd-modal-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--text-muted, #6b7280);
+  padding: 0.1rem 0.4rem;
+}
+.cmd-modal-body {
+  padding: 0.75rem 1rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.cmd-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+.cmd-modal-error {
+  padding: 0.5rem 1rem;
+  background: var(--danger-soft, #fee2e2);
+  color: var(--danger, #b91c1c);
+  border-top: 1px solid var(--border, #e5e7eb);
+  font-size: 0.85rem;
+}
+
+.cmd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.cmd-field-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #6b7280);
+}
+.cmd-field-required {
+  color: var(--danger, #b91c1c);
+  font-style: normal;
+  font-weight: 600;
+}
+.cmd-field-help {
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+}
+.cmd-input {
+  font: inherit;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+}
+.cmd-input:focus {
+  outline: 2px solid var(--accent, #4f46e5);
+  outline-offset: -1px;
+  border-color: var(--accent, #4f46e5);
+}
+textarea.cmd-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+.cmd-field-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cmd-field-checkbox .cmd-field-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.9rem;
+}
