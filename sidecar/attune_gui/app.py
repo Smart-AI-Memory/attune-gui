@@ -21,6 +21,10 @@ from attune_gui.routes import (  # noqa: F401
     cowork_pages,
     cowork_specs,
     cowork_templates,
+    editor_corpus,
+    editor_health,
+    editor_lint,
+    editor_template,
     fs,
     help,
     jobs,
@@ -66,6 +70,10 @@ def create_app() -> FastAPI:
     app.include_router(search.router)
     app.include_router(profile.router)
     app.include_router(living_docs.router)
+    app.include_router(editor_corpus.router)
+    app.include_router(editor_health.router)
+    app.include_router(editor_lint.router)
+    app.include_router(editor_template.router)
 
     # ---- Cowork JSON APIs ----------------------------------------------------
     app.include_router(cowork_health.router)
