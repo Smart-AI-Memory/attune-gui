@@ -28,6 +28,15 @@ phases as you go, and transition status — all from the dashboard.
 - 19 new tests covering the authoring flow, validation, and ordering rules.
   Suite total: **124 tests**, all passing.
 
+### Fixed
+
+- **Summaries page** no longer shows a red error banner when
+  `summaries.json` doesn't exist yet. A missing file is the expected state
+  on a fresh workspace (the polish pass hasn't run), so the page now
+  renders a centered empty-state card with the exact
+  `attune-author polish` command to generate it. Genuine errors (corrupt
+  JSON, real I/O failures) still surface the danger banner.
+
 ---
 
 ## [0.3.0] — 2026-05-04
