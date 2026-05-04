@@ -183,6 +183,189 @@ textarea.attune-fm-input {
   resize: vertical;
 }
 
+/* Buttons */
+
+.attune-btn {
+  font: inherit;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--attune-border);
+  border-radius: 4px;
+  background: var(--attune-bg);
+  color: var(--attune-text);
+  cursor: pointer;
+}
+
+.attune-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attune-btn-primary {
+  background: var(--attune-accent);
+  border-color: var(--attune-accent);
+  color: #fff;
+}
+
+.attune-btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.attune-btn-secondary {
+  background: var(--attune-bg-muted);
+}
+
+.attune-editor-topbar-right {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Banner */
+
+.attune-editor-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--attune-border);
+}
+
+.attune-banner-conflict {
+  background: #fff8c5;
+  border-color: #d4a72c;
+  color: #2c2106;
+}
+
+/* Toast */
+
+.attune-toast {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  background: var(--attune-text);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+  z-index: 1100;
+}
+
+.attune-toast-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.attune-toast-err {
+  background: #b31d28;
+}
+
+/* Save modal */
+
+.attune-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.attune-modal {
+  background: var(--attune-bg);
+  border-radius: 8px;
+  width: min(720px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
+}
+
+.attune-modal-head {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--attune-border);
+}
+
+.attune-modal-body {
+  padding: 0.5rem 1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.attune-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--attune-border);
+}
+
+.attune-modal-lint {
+  border-top: 1px solid var(--attune-border);
+  padding: 0.5rem 1rem;
+  background: #ffeef0;
+  color: #6f1d1f;
+}
+
+.attune-modal-lint ul {
+  margin: 0.25rem 0 0 1rem;
+  padding: 0;
+}
+
+.attune-hunk {
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--attune-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.attune-hunk-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--attune-bg-muted);
+}
+
+.attune-hunk-header-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--attune-text-muted);
+  cursor: pointer;
+}
+
+.attune-hunk-body {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.4;
+}
+
+.attune-hunk-add {
+  background: #e6ffec;
+  color: #0a3622;
+  display: block;
+}
+
+.attune-hunk-del {
+  background: #ffebe9;
+  color: #7a1c1c;
+  display: block;
+}
+
+.attune-hunk-ctx {
+  color: var(--attune-text-muted);
+  display: block;
+}
+
 /* Diff gutter markers */
 
 .attune-diff-marker {

@@ -21,6 +21,19 @@ export interface SaveResponse {
   mtime: number;
 }
 
+export interface Hunk {
+  hunk_id: string;
+  header: string;
+  lines: string[];
+}
+
+export interface DiffResponse {
+  rel_path: string;
+  base_hash: string;
+  new_hash: string;
+  hunks: Hunk[];
+}
+
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
 export interface ServerDiagnostic {
@@ -64,6 +77,22 @@ export class EditorApi {
     const url = `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/template?path=${encodeURIComponent(relPath)}`;
     const res = await fetch(url, { method: "GET" });
     return this.parse<TemplateResponse>(res);
+  }
+
+  async diffTemplate(
+    corpusId: string,
+    body: { path: string; draft_text: string; base_hash: string },
+  ): Promise<DiffResponse> {
+    const url = `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/template/diff`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Attune-Client": this.sessionToken,
+      },
+      body: JSON.stringify(body),
+    });
+    return this.parse<DiffResponse>(res);
   }
 
   async saveTemplate(
