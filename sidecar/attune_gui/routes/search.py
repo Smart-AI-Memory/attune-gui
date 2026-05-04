@@ -28,9 +28,10 @@ def _help_search(q: str, limit: int, workspace: Path | None) -> list[tuple[str, 
         candidate = workspace / ".help" / "templates"
         if candidate.is_dir():
             template_dir = candidate
+    # INTENTIONAL: search must degrade gracefully on any third-party failure
     try:
         return HelpEngine(template_dir=template_dir, renderer="plain").search(q, limit=limit)
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("HelpEngine.search failed for %r", q, exc_info=True)
         return []
 
@@ -38,9 +39,10 @@ def _help_search(q: str, limit: int, workspace: Path | None) -> list[tuple[str, 
 def _rag_search(q: str, limit: int, workspace: Path | None) -> list[Any]:
     from attune_gui.routes.rag import _get_pipeline  # noqa: PLC0415
 
+    # INTENTIONAL: search must degrade gracefully on any third-party failure
     try:
         return _get_pipeline(workspace).run(q, k=limit).citation.hits
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("RagPipeline.run failed for %r", q, exc_info=True)
         return []
 

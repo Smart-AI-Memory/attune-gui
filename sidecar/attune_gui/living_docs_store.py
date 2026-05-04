@@ -134,6 +134,8 @@ class LivingDocsStore:
         known_features: list[str] = []
 
         # Load manifest for staleness info — graceful if not present.
+        # INTENTIONAL: attune-author internals may raise anything; degrade silently
+        # so the docs list still renders without staleness annotations.
         stale_reasons: dict[str, str] = {}
         try:
             from attune_author.manifest import load_manifest
@@ -145,9 +147,9 @@ class LivingDocsStore:
                 report = check_staleness(manifest, help_dir, project_root)
                 stale_features = set(report.stale_features)
                 stale_reasons = getattr(report, "stale_reasons", {})
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
         seen_ids: set[str] = set()
@@ -168,7 +170,7 @@ class LivingDocsStore:
                         mtime = datetime.fromtimestamp(
                             md_file.stat().st_mtime, tz=timezone.utc
                         ).isoformat()
-                    except Exception:
+                    except OSError:
                         mtime = None
                     docs.append(
                         DocEntry(
@@ -182,7 +184,7 @@ class LivingDocsStore:
                             reason=stale_reasons.get(feature_name),
                         )
                     )
-                except Exception:
+                except (OSError, ValueError):  # malformed path / unreadable file — skip
                     continue
 
         # Add missing docs for known features × core depths.
@@ -270,15 +272,16 @@ class LivingDocsStore:
         if not path.exists():
             return ""
         try:
-            result = subprocess.run(
-                ["git", "diff", "--stat", "HEAD", "--", str(path)],
+            result = subprocess.run(  # noqa: S603
+                ["git", "diff", "--stat", "HEAD", "--", str(path)],  # noqa: S607
                 cwd=project_root,
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             return result.stdout.strip() or "New file (untracked)"
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return ""
 
     async def list_queue(
@@ -311,18 +314,19 @@ class LivingDocsStore:
         try:
             result = await asyncio.to_thread(
                 subprocess.run,
-                ["git", "checkout", "HEAD", "--", str(path)],
+                ["git", "checkout", "HEAD", "--", str(path)],  # noqa: S603, S607
                 cwd=project_root,
                 capture_output=True,
                 text=True,
                 timeout=10,
+                check=False,
             )
             if result.returncode == 0:
                 async with self._lock:
                     self._queue = [i for i in self._queue if i.id != item_id]
                 return {"ok": True}
             return {"ok": False, "error": result.stderr.strip() or "git checkout failed"}
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             return {"ok": False, "error": str(e)}
 
     # -- Quality -------------------------------------------------------------

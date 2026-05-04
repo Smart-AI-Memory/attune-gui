@@ -69,7 +69,7 @@ async def set_config(body: ConfigUpdate, background_tasks: BackgroundTasks) -> d
         raise HTTPException(
             status_code=400,
             detail={"code": "invalid_workspace", "message": str(e)},
-        )
+        ) from e
     background_tasks.add_task(_run_scan, "manual")
     return {"workspace": str(resolved), "has_help_dir": (resolved / ".help").is_dir()}
 

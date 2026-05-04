@@ -20,7 +20,7 @@ def get_workspace() -> Path | None:
             p = Path(ws).expanduser()
             if p.is_dir():
                 return p
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         pass
     return None
 
@@ -33,7 +33,7 @@ def set_workspace(path: str) -> Path:
     _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
         data = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         data = {}
     data["workspace"] = str(resolved)
     _CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")

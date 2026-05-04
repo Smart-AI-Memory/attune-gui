@@ -23,7 +23,7 @@ def _read_profile() -> str:
         data = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
         profile = data.get("profile", _DEFAULT_PROFILE)
         return profile if profile in _VALID_PROFILES else _DEFAULT_PROFILE
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         return _DEFAULT_PROFILE
 
 
