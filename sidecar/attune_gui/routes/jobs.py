@@ -31,17 +31,23 @@ class StartJobRequest(BaseModel):
 
 @router.get("/commands")
 async def commands(profile: str | None = None) -> dict[str, Any]:
+    """List runnable commands, optionally filtered by profile."""
     return {"commands": list_commands(profile=profile)}
 
 
 @router.get("/jobs")
 async def list_all_jobs() -> dict[str, Any]:
+    """Return every job the registry knows about (newest first)."""
     reg = get_registry()
     return {"jobs": [j.to_dict() for j in reg.list_jobs()]}
 
 
 @router.post("/jobs", dependencies=[Depends(require_client_token)])
 async def start_job(req: StartJobRequest) -> dict[str, Any]:
+    """Start a new job for command ``req.name`` with ``req.args``.
+
+    404 if the command isn't registered. 400 if required args are missing.
+    """
     spec = get_command(req.name)
     if spec is None:
         raise HTTPException(
@@ -72,6 +78,7 @@ async def start_job(req: StartJobRequest) -> dict[str, Any]:
 
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: str) -> dict[str, Any]:
+    """Return one job by id. 404 if unknown."""
     reg = get_registry()
     job = reg.get(job_id)
     if job is None:
@@ -84,6 +91,7 @@ async def get_job(job_id: str) -> dict[str, Any]:
 
 @router.delete("/jobs/{job_id}", dependencies=[Depends(require_client_token)])
 async def cancel_job(job_id: str) -> dict[str, Any]:
+    """Cancel a running job. 404 if unknown, 409 if it isn't cancellable."""
     reg = get_registry()
     job = reg.get(job_id)
     if job is None:

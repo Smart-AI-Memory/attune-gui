@@ -72,6 +72,7 @@ def _templates_root() -> Path | None:
 
 @router.get("/templates")
 async def list_templates() -> dict[str, Any]:
+    """List `.help/templates/*.md` for the active workspace, with frontmatter and mtime."""
     root = _templates_root()
     if root is None:
         return {"templates": [], "templates_root": None}

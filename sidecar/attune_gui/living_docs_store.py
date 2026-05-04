@@ -59,6 +59,7 @@ class DocEntry:
     reason: str | None = None  # human-readable staleness reason (Phase 1.5+)
 
     def to_dict(self) -> dict[str, Any]:
+        """JSON-serializable view of this doc entry."""
         return {
             "id": self.id,
             "feature": self.feature,
@@ -84,6 +85,7 @@ class ReviewItem:
     diff_summary: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        """JSON-serializable view of this review-queue item."""
         return {
             "id": self.id,
             "doc_id": self.doc_id,
@@ -114,6 +116,11 @@ class LivingDocsStore:
     # -- Scan ----------------------------------------------------------------
 
     async def scan(self, project_root: Path, trigger: str = "manual") -> dict[str, Any]:
+        """Walk the workspace's `.help/` tree and rebuild the in-memory doc registry.
+
+        Returns ``{"status": "already_scanning"}`` if a scan is in flight, otherwise
+        ``{"status": "ok", "scanned": <count>}`` once the new doc list is committed.
+        """
         if self._scanning:
             return {"status": "already_scanning"}
         self._scanning = True
@@ -209,6 +216,7 @@ class LivingDocsStore:
     # -- Health --------------------------------------------------------------
 
     async def get_health(self) -> dict[str, Any]:
+        """Aggregate doc counts (total / current / stale / missing) plus per-persona breakdown."""
         async with self._lock:
             docs = list(self._docs)
             quality = dict(self._quality)
@@ -239,6 +247,7 @@ class LivingDocsStore:
     # -- Doc registry --------------------------------------------------------
 
     async def list_docs(self, persona: str | None = None) -> list[dict[str, Any]]:
+        """Return the doc registry. Pass a persona to filter; ``"author"`` means no filter."""
         async with self._lock:
             docs = list(self._docs)
         if persona and persona != "author":
@@ -248,6 +257,7 @@ class LivingDocsStore:
     # -- Review queue --------------------------------------------------------
 
     async def add_to_queue(self, doc_id: str, trigger: str, project_root: Path) -> ReviewItem:
+        """Record an auto-applied doc for review, with a `git diff --stat` summary."""
         parts = doc_id.split("/", 1)
         feature = parts[0]
         depth = parts[1] if len(parts) > 1 else "concept"
@@ -289,6 +299,7 @@ class LivingDocsStore:
         persona: str | None = None,
         reviewed: bool | None = None,
     ) -> list[dict[str, Any]]:
+        """Return queue items, newest first. Filter by persona and/or reviewed-state."""
         async with self._lock:
             items = list(self._queue)
         if persona and persona != "author":
@@ -298,6 +309,7 @@ class LivingDocsStore:
         return [i.to_dict() for i in sorted(items, key=lambda x: x.auto_applied_at, reverse=True)]
 
     async def approve(self, item_id: str) -> bool:
+        """Mark a queue item reviewed. Returns False if the id isn't in the queue."""
         async with self._lock:
             for item in self._queue:
                 if item.id == item_id:
@@ -306,6 +318,11 @@ class LivingDocsStore:
         return False
 
     async def revert(self, item_id: str, project_root: Path) -> dict[str, Any]:
+        """Run `git checkout HEAD -- <path>` to revert an auto-applied doc.
+
+        Drops the item from the queue on success. Returns ``{"ok": False, "error": ...}``
+        if the item is missing or git fails.
+        """
         async with self._lock:
             item = next((i for i in self._queue if i.id == item_id), None)
         if not item:
@@ -332,6 +349,7 @@ class LivingDocsStore:
     # -- Quality -------------------------------------------------------------
 
     async def set_quality(self, scores: dict[str, Any]) -> None:
+        """Replace the latest RAG quality scores (e.g. faithfulness, strict accuracy)."""
         async with self._lock:
             self._quality = scores
 
@@ -349,6 +367,7 @@ _store: LivingDocsStore | None = None
 
 
 def get_store() -> LivingDocsStore:
+    """Return the process-global LivingDocsStore singleton, creating it on first call."""
     global _store
     if _store is None:
         _store = LivingDocsStore()

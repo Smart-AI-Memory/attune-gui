@@ -87,6 +87,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI entry point: parse args, pick a port, print SIDECAR_URL, run uvicorn."""
     args = _build_parser().parse_args(argv)
 
     _load_dotenv()

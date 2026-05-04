@@ -82,6 +82,7 @@ def _ctx(request: Request, active: str, **extra: Any) -> dict[str, Any]:
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def root_redirect() -> RedirectResponse:
+    """Redirect ``/`` to the default Health page."""
     return RedirectResponse(url="/dashboard", status_code=307)
 
 
@@ -92,6 +93,7 @@ async def root_redirect() -> RedirectResponse:
 
 @router.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 async def page_health(request: Request) -> HTMLResponse:
+    """Render the Health page — per-layer version probe + corpus snapshot."""
     from attune_gui.routes import cowork_health
 
     layers = await _safe_call(cowork_health.layer_health()) or {"layers": {}}
@@ -108,6 +110,7 @@ async def page_health(request: Request) -> HTMLResponse:
 
 @router.get("/dashboard/templates", response_class=HTMLResponse, include_in_schema=False)
 async def page_templates(request: Request, filter: str = "all") -> HTMLResponse:
+    """Render the Templates page. ``filter`` is one of all|manual|generated|stale."""
     from attune_gui.routes import cowork_templates
 
     data = await _safe_call(cowork_templates.list_templates()) or {
@@ -142,6 +145,7 @@ async def page_templates(request: Request, filter: str = "all") -> HTMLResponse:
 
 @router.get("/dashboard/specs", response_class=HTMLResponse, include_in_schema=False)
 async def page_specs(request: Request) -> HTMLResponse:
+    """Render the Specs page — feature specs grouped by phase + status."""
     from attune_gui.routes import cowork_specs
 
     data = await _safe_call(cowork_specs.list_specs()) or {"specs": [], "specs_root": None}
@@ -159,6 +163,7 @@ async def page_specs(request: Request) -> HTMLResponse:
 
 @router.get("/dashboard/summaries", response_class=HTMLResponse, include_in_schema=False)
 async def page_summaries(request: Request) -> HTMLResponse:
+    """Render the Summaries page — inline-editable view of summaries.json."""
     from attune_gui.routes import cowork_files
 
     summaries: dict[str, str] = {}
@@ -206,6 +211,7 @@ async def page_preview(
     root: str = "templates",
     path: str = "",
 ) -> HTMLResponse:
+    """Render the Preview/Edit page for any file under a known root (templates|specs|summaries)."""
     from attune_gui.routes import cowork_files
 
     file_data: dict[str, Any] | None = None
@@ -244,6 +250,7 @@ async def page_preview(
 
 @router.get("/dashboard/living-docs", response_class=HTMLResponse, include_in_schema=False)
 async def page_living_docs(request: Request) -> HTMLResponse:
+    """Render the Living Docs page — health, doc registry, review queue, workspace config."""
     from attune_gui.routes import living_docs as ld
 
     health = await _safe_call(ld.health()) or {}
@@ -272,6 +279,7 @@ async def page_living_docs(request: Request) -> HTMLResponse:
 
 @router.get("/dashboard/commands", response_class=HTMLResponse, include_in_schema=False)
 async def page_commands(request: Request, profile: str = "developer") -> HTMLResponse:
+    """Render the Commands page — clickable cards for each registered command."""
     from attune_gui.routes import jobs as jobs_route
 
     cmds_data = await _safe_call(jobs_route.commands(profile=profile)) or {"commands": []}
@@ -294,6 +302,7 @@ async def page_commands(request: Request, profile: str = "developer") -> HTMLRes
 
 @router.get("/dashboard/jobs", response_class=HTMLResponse, include_in_schema=False)
 async def page_jobs(request: Request) -> HTMLResponse:
+    """Render the Jobs page — history with status, last-output, and Cancel buttons."""
     from attune_gui.routes import jobs as jobs_route
 
     jobs_data = await _safe_call(jobs_route.list_all_jobs()) or {"jobs": []}

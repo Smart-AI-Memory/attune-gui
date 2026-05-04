@@ -39,6 +39,7 @@ _CW_STATIC_DIR = Path(__file__).parent / "static_cw"
 
 
 def create_app() -> FastAPI:
+    """Build the FastAPI app with origin-guard, CORS, and all routers wired."""
     app = FastAPI(
         title="attune-gui sidecar",
         version=__version__,
