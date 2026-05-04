@@ -19,6 +19,8 @@ from attune_gui.commands import (
     _exec_author_init,
     _exec_author_lookup,
     _exec_author_maintain,
+    _exec_author_regen,
+    _exec_author_setup,
     _exec_author_status,
     _exec_help_list,
     _exec_help_lookup,
@@ -486,3 +488,298 @@ class TestAuthorExecutors:
             )
         assert out["stale_count"] == 0
         assert out["regenerated"] == []
+
+    @pytest.mark.asyncio
+    async def test_maintain_regen_walks_stale_entries(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        """When stale_count > 0 and not dry_run, regen each stale feature."""
+        feat = SimpleNamespace(name="auth")
+        manifest = SimpleNamespace(features={"auth": feat})
+        stale_entry = SimpleNamespace(feature="auth", is_stale=True)
+        report = SimpleNamespace(
+            stale_count=1,
+            current_count=2,
+            help_entries=[stale_entry],
+            stale_features=["auth"],
+        )
+        gen_result = SimpleNamespace(feature="auth", templates=[1, 2, 3])
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch("attune_author.staleness.check_staleness", return_value=report),
+            patch(
+                "attune_author.maintenance.MaintenanceResult",
+                side_effect=lambda **_: SimpleNamespace(
+                    staleness=report, regenerated=[], failed=[]
+                ),
+            ),
+            patch(
+                "attune_author.generator.generate_feature_templates",
+                return_value=gen_result,
+            ),
+        ):
+            out = await _exec_author_maintain(
+                {"project_root": str(tmp_path), "help_dir": str(tmp_path / ".help")},
+                ctx,  # type: ignore[arg-type]
+            )
+        assert out["regenerated"] == ["auth"]
+        assert out["failed"] == []
+
+    @pytest.mark.asyncio
+    async def test_maintain_skips_features_missing_from_manifest(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        manifest = SimpleNamespace(features={})  # no features
+        stale_entry = SimpleNamespace(feature="ghost", is_stale=True)
+        report = SimpleNamespace(
+            stale_count=1,
+            current_count=0,
+            help_entries=[stale_entry],
+            stale_features=["ghost"],
+        )
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch("attune_author.staleness.check_staleness", return_value=report),
+            patch(
+                "attune_author.maintenance.MaintenanceResult",
+                side_effect=lambda **_: SimpleNamespace(
+                    staleness=report, regenerated=[], failed=[]
+                ),
+            ),
+        ):
+            out = await _exec_author_maintain(
+                {"project_root": str(tmp_path), "help_dir": str(tmp_path / ".help")},
+                ctx,  # type: ignore[arg-type]
+            )
+        # The "ghost" feature isn't in the manifest, so it's skipped — not regenerated, not failed
+        assert out["regenerated"] == []
+        assert out["failed"] == []
+        assert any("not in manifest" in line for line in ctx.lines)
+
+    @pytest.mark.asyncio
+    async def test_generate_all_kinds_uses_full_template_list(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        """all_kinds=True should pull _ALL_TEMPLATE_NAMES and pass them to the generator."""
+        feat = SimpleNamespace(name="auth")
+        manifest = SimpleNamespace(features={"auth": feat})
+        result = SimpleNamespace(feature="auth", source_hash="h", matched_files=[], templates=[])
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch(
+                "attune_author.generator._ALL_TEMPLATE_NAMES",
+                ["concept", "task", "reference", "comparison", "error"],
+                create=True,
+            ),
+            patch("attune_author.generator.generate_feature_templates", return_value=result) as gen,
+        ):
+            await _exec_author_generate(
+                {
+                    "feature": "auth",
+                    "all_kinds": True,
+                    "project_root": str(tmp_path),
+                    "help_dir": str(tmp_path / ".help"),
+                },
+                ctx,  # type: ignore[arg-type]
+            )
+        # generate_feature_templates received the full list of depths
+        kwargs = gen.call_args.kwargs
+        assert kwargs["depths"] == ["concept", "task", "reference", "comparison", "error"]
+
+    @pytest.mark.asyncio
+    async def test_lookup_unsafe_feature_name_raises(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        """is_safe_feature_name rejection path — defends against path-traversal-style names."""
+        manifest = SimpleNamespace(features={"weird": object()})
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch("attune_author.manifest.resolve_topic", return_value="../escape"),
+            patch("attune_author.manifest.is_safe_feature_name", return_value=False),
+        ):
+            with pytest.raises(ValueError, match="Invalid feature name"):
+                await _exec_author_lookup(
+                    {"query": "weird", "help_dir": str(tmp_path / ".help")},
+                    ctx,  # type: ignore[arg-type]
+                )
+
+
+# ---------------------------------------------------------------------------
+# author.regen — full executor coverage
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorRegen:
+    @pytest.mark.asyncio
+    async def test_regen_single_feature_succeeds(self, ctx: FakeJobContext, tmp_path: Path) -> None:
+        feat = SimpleNamespace(name="auth")
+        manifest = SimpleNamespace(features={"auth": feat})
+        gen_result = SimpleNamespace(templates=[1, 2])
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch(
+                "attune_author.generator.generate_feature_templates",
+                return_value=gen_result,
+            ),
+            patch("attune_gui.routes.rag.invalidate"),
+        ):
+            out = await _exec_author_regen(
+                {
+                    "feature": "auth",
+                    "project_root": str(tmp_path),
+                    "help_dir": str(tmp_path / ".help"),
+                },
+                ctx,  # type: ignore[arg-type]
+            )
+        assert len(out["generated"]) == 1
+        assert out["generated"][0]["feature"] == "auth"
+        assert out["failed"] == []
+
+    @pytest.mark.asyncio
+    async def test_regen_unknown_feature_raises_with_available(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        manifest = SimpleNamespace(features={"auth": SimpleNamespace(name="auth")})
+        with patch("attune_author.manifest.load_manifest", return_value=manifest):
+            with pytest.raises(ValueError, match="ghost.*not in manifest.*auth"):
+                await _exec_author_regen(
+                    {
+                        "feature": "ghost",
+                        "project_root": str(tmp_path),
+                        "help_dir": str(tmp_path / ".help"),
+                    },
+                    ctx,  # type: ignore[arg-type]
+                )
+
+    @pytest.mark.asyncio
+    async def test_regen_no_feature_walks_all(self, ctx: FakeJobContext, tmp_path: Path) -> None:
+        feats = {
+            "auth": SimpleNamespace(name="auth"),
+            "memory": SimpleNamespace(name="memory"),
+        }
+        manifest = SimpleNamespace(features=feats)
+        gen_result = SimpleNamespace(templates=[1])
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch(
+                "attune_author.generator.generate_feature_templates",
+                return_value=gen_result,
+            ),
+            patch("attune_gui.routes.rag.invalidate"),
+        ):
+            out = await _exec_author_regen(
+                {
+                    "project_root": str(tmp_path),
+                    "help_dir": str(tmp_path / ".help"),
+                },
+                ctx,  # type: ignore[arg-type]
+            )
+        assert {g["feature"] for g in out["generated"]} == {"auth", "memory"}
+
+    @pytest.mark.asyncio
+    async def test_regen_continues_after_per_feature_failure(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        """Per-feature failure must not abort the batch (the BLE001 INTENTIONAL clause)."""
+        feats = {
+            "auth": SimpleNamespace(name="auth"),
+            "broken": SimpleNamespace(name="broken"),
+        }
+        manifest = SimpleNamespace(features=feats)
+
+        def gen_side_effect(**kwargs):  # type: ignore[no-untyped-def]
+            if kwargs["feature"].name == "broken":
+                raise RuntimeError("kaboom")
+            return SimpleNamespace(templates=[1])
+
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch(
+                "attune_author.generator.generate_feature_templates",
+                side_effect=gen_side_effect,
+            ),
+            patch("attune_gui.routes.rag.invalidate"),
+        ):
+            out = await _exec_author_regen(
+                {
+                    "project_root": str(tmp_path),
+                    "help_dir": str(tmp_path / ".help"),
+                },
+                ctx,  # type: ignore[arg-type]
+            )
+        assert {g["feature"] for g in out["generated"]} == {"auth"}
+        assert out["failed"] == ["broken"]
+
+
+# ---------------------------------------------------------------------------
+# author.setup — full executor coverage
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorSetup:
+    @pytest.mark.asyncio
+    async def test_setup_existing_manifest_skips_init(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        help_dir = tmp_path / ".help"
+        help_dir.mkdir()
+        (help_dir / "features.yaml").write_text("# manifest")
+        feat = SimpleNamespace(name="auth")
+        manifest = SimpleNamespace(features={"auth": feat})
+        gen_result = SimpleNamespace(templates=[1])
+        with (
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch(
+                "attune_author.generator.generate_feature_templates",
+                return_value=gen_result,
+            ),
+            patch("attune_gui.routes.rag.invalidate"),
+        ):
+            out = await _exec_author_setup(
+                {"project_root": str(tmp_path), "help_dir": str(help_dir)},
+                ctx,  # type: ignore[arg-type]
+            )
+        assert out["features_total"] == 1
+        assert any("Manifest exists" in line for line in ctx.lines)
+
+    @pytest.mark.asyncio
+    async def test_setup_no_features_returns_early(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        with patch("attune_author.bootstrap.scan_project", return_value=[]):
+            out = await _exec_author_setup(
+                {"project_root": str(tmp_path), "help_dir": str(tmp_path / ".help")},
+                ctx,  # type: ignore[arg-type]
+            )
+        assert out["discovered"] == 0
+        assert "No features" in out["message"]
+
+    @pytest.mark.asyncio
+    async def test_setup_full_path_init_and_generate(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        proposals = [SimpleNamespace(name="auth", description="auth feature")]
+        feat = SimpleNamespace(name="auth")
+        manifest = SimpleNamespace(features={"auth": feat})
+        gen_result = SimpleNamespace(templates=[1, 2, 3])
+        with (
+            patch("attune_author.bootstrap.scan_project", return_value=proposals),
+            patch("attune_author.bootstrap.proposals_to_manifest", return_value=manifest),
+            patch(
+                "attune_author.manifest.save_manifest",
+                return_value=tmp_path / ".help" / "features.yaml",
+            ),
+            patch("attune_author.manifest.load_manifest", return_value=manifest),
+            patch(
+                "attune_author.generator.generate_feature_templates",
+                return_value=gen_result,
+            ),
+            patch("attune_gui.routes.rag.invalidate"),
+        ):
+            out = await _exec_author_setup(
+                {"project_root": str(tmp_path), "help_dir": str(tmp_path / ".help")},
+                ctx,  # type: ignore[arg-type]
+            )
+        assert out["features_total"] == 1
+        assert len(out["generated"]) == 1
+        assert out["failed"] == []
