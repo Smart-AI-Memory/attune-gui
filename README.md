@@ -58,11 +58,20 @@ cd editor-frontend && npm run test --watch
 
 # Rebuild the bundle (deterministic; output committed):
 make build-editor
+
+# Run the 4 golden-flow Playwright e2e tests against a fresh sidecar
+# (auto-spawned by playwright.config.ts) — ~3s end-to-end:
+cd editor-frontend && npm run e2e
 ```
 
 The editor bundle is ~210 KB gzipped (budget: 600 KB). Schema and Lezer
 grammar parse fixtures live in `editor-frontend/src/grammar/`; merge
-correctness in `three-way-merge.test.ts`.
+correctness in `three-way-merge.test.ts`. The Playwright suite under
+`editor-frontend/e2e/` exercises the four end-to-end flows
+(open→edit→save, conflict resolve via WS-pushed `file_changed`, rename
+refactor preview+apply, corpus switcher with unsaved-edits guard) — it
+spins up a real sidecar with an isolated `ATTUNE_CORPORA_REGISTRY` so
+your dev registry isn't touched.
 
 ### Endpoint summary
 
