@@ -65,7 +65,9 @@ def _load_dotenv() -> None:
                 key, _, value = line.partition("=")
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")
-                if key and key not in os.environ:
+                # Treat empty/whitespace-only values in os.environ as "unset"
+                # so a stray `export FOO=` in the shell doesn't shadow .env.
+                if key and not os.environ.get(key, "").strip():
                     os.environ[key] = value
         except OSError:
             continue
