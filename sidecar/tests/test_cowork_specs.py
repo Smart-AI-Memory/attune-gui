@@ -5,14 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from attune_gui.app import create_app
 from attune_gui.routes import cowork_specs
 from fastapi.testclient import TestClient
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
 def _seed_spec(root: Path, name: str, *, files: list[str], status: str | None = None) -> None:

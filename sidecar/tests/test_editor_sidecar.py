@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 from attune_gui import editor_sidecar
-from attune_gui.app import create_app
 from attune_gui.security import current_session_token
 from fastapi.testclient import TestClient
 
@@ -19,9 +18,6 @@ def _isolated_portfile(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return portfile
 
 
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
 # -- helpers --------------------------------------------------------

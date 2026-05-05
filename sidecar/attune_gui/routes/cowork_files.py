@@ -16,7 +16,6 @@ Allowed roots:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +23,7 @@ import frontmatter
 import markdown as md_lib
 from fastapi import APIRouter, Body, Depends, HTTPException
 
+from attune_gui._fs import atomic_write
 from attune_gui.security import require_client_token
 from attune_gui.workspace import get_workspace
 
@@ -72,13 +72,6 @@ def _resolve_path(root: str, rel: str) -> Path:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Path traversal blocked.") from exc
     return candidate
-
-
-def _atomic_write(target: Path, content: str) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix(target.suffix + ".tmp")
-    tmp.write_text(content, encoding="utf-8")
-    os.replace(tmp, target)
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +146,7 @@ async def write_file(
         raise HTTPException(status_code=422, detail="Body must include `content` (string).")
 
     try:
-        _atomic_write(target, content)
+        atomic_write(target, content)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
 
@@ -193,7 +186,7 @@ async def toggle_pin(
 
     new_text = frontmatter.dumps(post) + "\n"
     try:
-        _atomic_write(target, new_text)
+        atomic_write(target, new_text)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
 

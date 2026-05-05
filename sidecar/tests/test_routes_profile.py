@@ -6,14 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
-from attune_gui.app import create_app
 from attune_gui.routes import profile
 from fastapi.testclient import TestClient
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
 @pytest.fixture

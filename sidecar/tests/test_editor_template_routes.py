@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 from attune_gui import editor_corpora
-from attune_gui.app import create_app
 from fastapi.testclient import TestClient
 
 
@@ -37,9 +36,6 @@ def corpus_id(tmp_path: Path) -> str:
     return entry.id
 
 
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
 # -- GET /template --------------------------------------------------

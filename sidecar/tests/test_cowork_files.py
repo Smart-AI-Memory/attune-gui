@@ -5,20 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from attune_gui.app import create_app
 from attune_gui.routes import cowork_files
 from fastapi.testclient import TestClient
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
-
-
-@pytest.fixture
-def session_token(client: TestClient) -> str:
-    """Get a session token for mutating-route tests."""
-    return client.get("/api/session/token").json()["token"]
 
 
 def _patch_specs_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:

@@ -7,14 +7,8 @@ import time
 from pathlib import Path
 
 import pytest
-from attune_gui.app import create_app
 from attune_gui.routes import cowork_templates
 from fastapi.testclient import TestClient
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
 def _aged(path: Path, days: float) -> None:

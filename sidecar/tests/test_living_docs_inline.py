@@ -13,8 +13,15 @@ from attune_gui.routes.living_docs import _project_doc_state
 
 
 def _doc(status: str = "current") -> dict[str, Any]:
-    return {"id": "auth/concept", "feature": "auth", "depth": "concept",
-            "persona": "end_user", "status": status, "reason": None, "last_modified": None}
+    return {
+        "id": "auth/concept",
+        "feature": "auth",
+        "depth": "concept",
+        "persona": "end_user",
+        "status": status,
+        "reason": None,
+        "last_modified": None,
+    }
 
 
 def _qi() -> dict[str, Any]:
@@ -22,8 +29,12 @@ def _qi() -> dict[str, Any]:
 
 
 def _job(status: str) -> dict[str, Any]:
-    return {"id": "job-1", "name": "living-docs.regenerate",
-            "status": status, "error": "boom" if status == "errored" else None}
+    return {
+        "id": "job-1",
+        "name": "living-docs.regenerate",
+        "status": status,
+        "error": "boom" if status == "errored" else None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -31,29 +42,32 @@ def _job(status: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("doc_status,queue_item,job,expected", [
-    # base cases — no queue, no job
-    ("current", None,   None,           "current"),
-    ("stale",   None,   None,           "stale"),
-    ("missing", None,   None,           "missing"),
-    # queue item wins over base status
-    ("current", _qi(),  None,           "pending-review"),
-    ("stale",   _qi(),  None,           "pending-review"),
-    # running job beats everything
-    ("current", None,   _job("running"), "regenerating"),
-    ("stale",   None,   _job("pending"), "regenerating"),
-    ("missing", None,   _job("running"), "regenerating"),
-    # running job beats pending-review
-    ("stale",   _qi(),  _job("running"), "regenerating"),
-    # errored job (no queue item)
-    ("current", None,   _job("errored"), "errored"),
-    ("stale",   None,   _job("errored"), "errored"),
-    # pending-review beats errored
-    ("stale",   _qi(),  _job("errored"), "pending-review"),
-    # completed job is irrelevant
-    ("current", None,   _job("completed"), "current"),
-    ("stale",   None,   _job("completed"), "stale"),
-])
+@pytest.mark.parametrize(
+    "doc_status,queue_item,job,expected",
+    [
+        # base cases — no queue, no job
+        ("current", None, None, "current"),
+        ("stale", None, None, "stale"),
+        ("missing", None, None, "missing"),
+        # queue item wins over base status
+        ("current", _qi(), None, "pending-review"),
+        ("stale", _qi(), None, "pending-review"),
+        # running job beats everything
+        ("current", None, _job("running"), "regenerating"),
+        ("stale", None, _job("pending"), "regenerating"),
+        ("missing", None, _job("running"), "regenerating"),
+        # running job beats pending-review
+        ("stale", _qi(), _job("running"), "regenerating"),
+        # errored job (no queue item)
+        ("current", None, _job("errored"), "errored"),
+        ("stale", None, _job("errored"), "errored"),
+        # pending-review beats errored
+        ("stale", _qi(), _job("errored"), "pending-review"),
+        # completed job is irrelevant
+        ("current", None, _job("completed"), "current"),
+        ("stale", None, _job("completed"), "stale"),
+    ],
+)
 def test_project_doc_state(doc_status, queue_item, job, expected):
     doc = _doc(doc_status)
     assert _project_doc_state(doc, queue_item, job) == expected
@@ -64,17 +78,11 @@ def test_project_doc_state(doc_status, queue_item, job, expected):
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def client():
-    from attune_gui.app import create_app
-    from fastapi.testclient import TestClient
-    return TestClient(create_app())
-
-
 @pytest.fixture(autouse=True)
 def reset_store(monkeypatch):
     from attune_gui import jobs as jobs_mod
     from attune_gui import living_docs_store
+
     monkeypatch.setattr(living_docs_store, "_store", None)
     monkeypatch.setattr(jobs_mod, "_REGISTRY", None)
 
@@ -82,6 +90,7 @@ def reset_store(monkeypatch):
 @pytest.fixture
 def workspace(tmp_path, monkeypatch):
     from attune_gui import workspace as ws
+
     cfg = tmp_path / "config.json"
     monkeypatch.setattr(ws, "_CONFIG_PATH", cfg)
     cfg.parent.mkdir(parents=True, exist_ok=True)
@@ -105,9 +114,15 @@ def test_rows_endpoint_computed_state_for_stale_doc(client, workspace, monkeypat
 
     store = LivingDocsStore()
     store._docs = [
-        DocEntry(id="auth/concept", feature="auth", depth="concept",
-                 persona="end_user", status="stale", path="auth/concept.md",
-                 last_modified=None)
+        DocEntry(
+            id="auth/concept",
+            feature="auth",
+            depth="concept",
+            persona="end_user",
+            status="stale",
+            path="auth/concept.md",
+            last_modified=None,
+        )
     ]
     monkeypatch.setattr(living_docs_store, "_store", store)
 
@@ -127,15 +142,22 @@ def test_rows_endpoint_pending_review_state(client, workspace, monkeypatch):
 
     store = LivingDocsStore()
     store._docs = [
-        DocEntry(id="auth/concept", feature="auth", depth="concept",
-                 persona="end_user", status="current", path="auth/concept.md",
-                 last_modified=None)
+        DocEntry(
+            id="auth/concept",
+            feature="auth",
+            depth="concept",
+            persona="end_user",
+            status="current",
+            path="auth/concept.md",
+            last_modified=None,
+        )
     ]
     monkeypatch.setattr(living_docs_store, "_store", store)
 
     # Seed a review item directly
     with patch.object(store, "_git_diff_summary", return_value="1 line"):
         import asyncio
+
         asyncio.get_event_loop().run_until_complete(
             store.add_to_queue("auth/concept", "manual", workspace)
         )

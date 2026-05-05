@@ -17,8 +17,6 @@ the corpus root is rejected with 400.
 from __future__ import annotations
 
 import hashlib
-import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +24,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from attune_gui import editor_corpora
+from attune_gui._fs import atomic_write
 
 router = APIRouter(prefix="/api/corpus", tags=["editor-template"])
 
@@ -127,21 +126,6 @@ def _split_frontmatter(text: str) -> tuple[str, str]:
     return fm, rest[body_start:]
 
 
-def _atomic_write(target: Path, text: str) -> float:
-    """Write ``text`` atomically; return the new mtime."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-
-    fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(text)
-        os.replace(tmp, target)
-    except Exception:
-        Path(tmp).unlink(missing_ok=True)
-        raise
-    return target.stat().st_mtime
-
-
 def _rename_hunks(rel_path: str, old_text: str, new_text: str):
     """Lazy proxy for ``attune_rag.editor._rename._hunks``.
 
@@ -172,7 +156,8 @@ def _apply_accepted_hunks(
     across hunks of a single diff.
     """
     hunks = _rename_hunks(rel_path, base_text, draft_text)
-    accepted = {h.hunk_id for h in hunks if h.hunk_id in set(accepted_ids)}
+    accepted_set = set(accepted_ids)
+    accepted = {h.hunk_id for h in hunks if h.hunk_id in accepted_set}
     if not accepted:
         return base_text
 
@@ -302,5 +287,5 @@ async def save_template(corpus_id: str, req: SaveRequest) -> SaveResponse:
         # Nothing to write.
         return SaveResponse(rel_path=req.path, new_hash=req.base_hash, mtime=target.stat().st_mtime)
 
-    mtime = _atomic_write(target, new_text)
+    mtime = atomic_write(target, new_text)
     return SaveResponse(rel_path=req.path, new_hash=_hash_text(new_text), mtime=mtime)

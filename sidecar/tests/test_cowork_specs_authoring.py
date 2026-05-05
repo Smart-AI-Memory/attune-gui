@@ -12,16 +12,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from attune_gui.app import create_app
 from attune_gui.routes import cowork_specs
 from fastapi.testclient import TestClient
 
 HDR = {"Origin": "http://localhost:5173"}
 
 
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
 @pytest.fixture
