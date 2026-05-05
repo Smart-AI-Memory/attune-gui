@@ -4,6 +4,7 @@ GET  /api/living-docs/config              — get/set workspace path
 PUT  /api/living-docs/config              — set workspace, triggers rescan
 GET  /api/living-docs/health              — health summary + quality scores
 GET  /api/living-docs/docs                — doc registry (?persona=)
+GET  /api/living-docs/rows                — composed rows (docs + queue + jobs joined)
 POST /api/living-docs/scan               — trigger a workspace scan
 POST /api/living-docs/docs/{id}/regenerate — regenerate a single doc
 GET  /api/living-docs/queue              — review queue (?persona= &reviewed=)
@@ -31,6 +32,38 @@ from attune_gui.workspace import get_workspace, set_workspace
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/living-docs", tags=["living-docs"])
+
+
+# ---------------------------------------------------------------------------
+# State computation (pure — takes plain dicts, no I/O)
+# ---------------------------------------------------------------------------
+
+_LIVE_STATUSES = {"pending", "running"}
+
+
+def _project_doc_state(
+    doc: dict[str, Any],
+    queue_item: dict[str, Any] | None,
+    job: dict[str, Any] | None,
+) -> str:
+    """Compute the display state for one row.
+
+    Priority (highest wins):
+        regenerating > pending-review > errored > missing > stale > current
+    """
+    job_status = job["status"] if job else None
+    if job_status in _LIVE_STATUSES:
+        return "regenerating"
+    if queue_item is not None:
+        return "pending-review"
+    if job_status == "errored":
+        return "errored"
+    base = doc.get("status", "current")
+    if base == "missing":
+        return "missing"
+    if base == "stale":
+        return "stale"
+    return "current"
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +133,57 @@ async def list_docs(persona: str | None = None) -> dict[str, Any]:
     """Return the doc registry. ``persona`` filters to one of end-user|developer|support."""
     docs = await get_store().list_docs(persona=persona)
     return {"docs": docs}
+
+
+@router.get("/rows")
+async def list_rows() -> dict[str, Any]:
+    """Composed rows: docs + unreviewed queue items + regen jobs joined server-side.
+
+    Each row carries a ``computed_state`` (via ``_project_doc_state``) so the
+    template and poller never need to join data themselves.
+    """
+    store = get_store()
+    registry = get_registry()
+
+    docs = await store.list_docs()
+    queue_items = await store.list_queue(reviewed=False)
+    all_jobs = [j.to_dict() for j in registry.list_jobs()]
+
+    queue_by_doc: dict[str, dict[str, Any]] = {}
+    for qi in queue_items:
+        queue_by_doc.setdefault(qi["doc_id"], qi)
+
+    regen_jobs: dict[str, dict[str, Any]] = {}
+    for j in all_jobs:
+        if j["name"] != "living-docs.regenerate":
+            continue
+        doc_id = j["args"].get("doc_id", "")
+        if doc_id not in regen_jobs:
+            regen_jobs[doc_id] = j  # list_jobs() is newest-first
+
+    rows = []
+    for doc in docs:
+        doc_id = doc["id"]
+        qi = queue_by_doc.get(doc_id)
+        job = regen_jobs.get(doc_id)
+        state = _project_doc_state(doc, qi, job)
+        live = state in ("regenerating", "errored")
+        rows.append({
+            "id": doc_id,
+            "feature": doc["feature"],
+            "depth": doc["depth"],
+            "persona": doc["persona"],
+            "base_status": doc["status"],
+            "computed_state": state,
+            "reason": doc.get("reason"),
+            "last_modified": doc.get("last_modified"),
+            "regen_job_id": job["id"] if live and job else None,
+            "regen_job_status": job["status"] if live and job else None,
+            "regen_job_error": job.get("error") if state == "errored" and job else None,
+            "queue_item_id": qi["id"] if state == "pending-review" and qi else None,
+            "diff_summary": qi.get("diff_summary") if state == "pending-review" and qi else None,
+        })
+    return {"rows": rows}
 
 
 # ---------------------------------------------------------------------------
