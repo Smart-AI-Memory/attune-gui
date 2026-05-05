@@ -1,5 +1,57 @@
 version: 1
 features:
+  template-editor:
+    description: >-
+      CodeMirror 6 editor for attune-help-style markdown templates,
+      served at /editor by the attune-gui sidecar. Schema-driven
+      frontmatter form, debounced server-side lint, tag/alias
+      autocomplete, per-hunk save modal, 3-way merge conflict mode
+      via WebSocket file_changed pushes, cross-corpus rename
+      refactor, corpus switcher with unsaved-edits guard, persistent
+      advisory banners, and a directory picker. Pre-bundled (Vite +
+      TypeScript) into sidecar/attune_gui/static/editor/ so PyPI
+      consumers don't need Node.
+    files:
+    # Pre-bundled frontend sources (the bundle that gets shipped is
+    # under sidecar/attune_gui/static/editor/).
+    - editor-frontend/src/main.ts
+    - editor-frontend/src/editor.ts
+    - editor-frontend/src/api.ts
+    - editor-frontend/src/document-model.ts
+    - editor-frontend/src/frontmatter-form.ts
+    - editor-frontend/src/save-flow.ts
+    - editor-frontend/src/save-modal.ts
+    - editor-frontend/src/lint.ts
+    - editor-frontend/src/autocomplete.ts
+    - editor-frontend/src/diagnostics-strip.ts
+    - editor-frontend/src/diff-gutter.ts
+    - editor-frontend/src/ws.ts
+    - editor-frontend/src/three-way-merge.ts
+    - editor-frontend/src/conflict-mode.ts
+    - editor-frontend/src/rename-modal.ts
+    - editor-frontend/src/corpus-switcher.ts
+    - editor-frontend/src/advisory-banner.ts
+    - editor-frontend/src/grammar/markdown-extension.ts
+    # Sidecar routes that back the UI.
+    - sidecar/attune_gui/routes/editor_pages.py
+    - sidecar/attune_gui/routes/editor_corpus.py
+    - sidecar/attune_gui/routes/editor_template.py
+    - sidecar/attune_gui/routes/editor_lint.py
+    - sidecar/attune_gui/routes/editor_schema.py
+    - sidecar/attune_gui/routes/editor_health.py
+    - sidecar/attune_gui/routes/editor_ws.py
+    - sidecar/attune_gui/editor_corpora.py
+    - sidecar/attune_gui/editor_session.py
+    - sidecar/attune_gui/editor_sidecar.py
+    - sidecar/attune_gui/templates/editor.html
+    tags:
+    - editor
+    - templates
+    - codemirror
+    - websocket
+    - frontend
+  # ---- Auto-scaffolded entries kept for back-compat. The
+  # `template-editor` feature above is the curated one to use. ----
   attune_gui-entry:
     description: 'Entry point: sidecar/attune_gui/app.py'
     files:
