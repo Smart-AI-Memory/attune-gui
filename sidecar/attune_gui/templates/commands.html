@@ -144,6 +144,19 @@
         input.type = 'text';
         if (prop.default !== undefined) input.value = String(prop.default);
         if (prop['ui:widget'] === 'path') input.placeholder = 'Path (absolute or relative to sidecar cwd)';
+        // Fields with a `ui:choicesUrl` extension get a <datalist>
+        // populated from a live endpoint. The URL can reference
+        // sibling fields with `{name}` placeholders; values are
+        // substituted from the form's current state when the modal
+        // opens (and re-fetched when a referenced field changes).
+        if (typeof prop['ui:choicesUrl'] === 'string') {
+          const listId = `cmd-choices-${key}`;
+          const datalist = document.createElement('datalist');
+          datalist.id = listId;
+          row.appendChild(datalist);
+          input.setAttribute('list', listId);
+          input.dataset.choicesUrl = prop['ui:choicesUrl'];
+        }
       }
       input.name = key;
       input.className = 'cmd-input';
@@ -175,6 +188,78 @@
       for (const key of keys) {
         body.appendChild(fieldRow(key, props[key], required.has(key)));
       }
+      wireChoicesEndpoints();
+    }
+
+    /** Substitute `{name}` placeholders in `urlTemplate` with the
+     * trimmed value of the form's `<input name="name">`. Returns
+     * `null` if any required placeholder resolves to an empty
+     * string — signals "wait until that field has a value". */
+    function expandChoicesUrl(urlTemplate) {
+      let resolved = urlTemplate;
+      let abort = false;
+      resolved = resolved.replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, name) => {
+        const el = form.elements.namedItem(name);
+        const v = el && 'value' in el ? String(el.value).trim() : '';
+        if (v === '') abort = true;
+        return encodeURIComponent(v);
+      });
+      return abort ? null : resolved;
+    }
+
+    /** For every input with a `data-choices-url`, fetch and populate
+     * its sibling `<datalist>`. Re-runs on each call (cheap; the
+     * server caches the manifest read). */
+    async function wireChoicesEndpoints() {
+      const inputs = body.querySelectorAll('input[data-choices-url]');
+      const refresh = async (input) => {
+        const url = expandChoicesUrl(input.dataset.choicesUrl);
+        const dl = document.getElementById(input.getAttribute('list'));
+        if (!dl) return;
+        if (url === null) {
+          dl.innerHTML = '';
+          input.placeholder = `(fill the related field first to load suggestions)`;
+          return;
+        }
+        try {
+          const res = await fetch(url, { method: 'GET' });
+          if (!res.ok) {
+            dl.innerHTML = '';
+            input.placeholder = `(no suggestions — ${res.status})`;
+            return;
+          }
+          const payload = await res.json();
+          const choices = Array.isArray(payload?.choices) ? payload.choices : [];
+          dl.innerHTML = '';
+          for (const c of choices) {
+            const opt = document.createElement('option');
+            opt.value = c;
+            dl.appendChild(opt);
+          }
+          input.placeholder = choices.length > 0
+            ? `${choices.length} suggestion${choices.length === 1 ? '' : 's'} — type or pick`
+            : '(no suggestions found)';
+        } catch (e) {
+          dl.innerHTML = '';
+          input.placeholder = `(suggestions unavailable: ${e.message})`;
+        }
+      };
+
+      // Initial load.
+      for (const inp of inputs) refresh(inp);
+
+      // Re-fetch when a sibling field that's referenced in the URL
+      // changes. Listen on every form input; only the affected
+      // datalists re-render.
+      form.addEventListener('input', (ev) => {
+        const target = ev.target;
+        if (!(target && target.name)) return;
+        const placeholder = `{${target.name}}`;
+        for (const inp of inputs) {
+          if (inp === target) continue;
+          if (inp.dataset.choicesUrl.includes(placeholder)) refresh(inp);
+        }
+      });
     }
 
     function collectArgs(schema) {

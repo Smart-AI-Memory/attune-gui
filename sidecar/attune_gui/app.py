@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from attune_gui import __version__
 from attune_gui.routes import (  # noqa: F401
+    choices,
     cowork_files,
     cowork_health,
     cowork_pages,
@@ -73,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(fs.router)
     app.include_router(rag.router)
     app.include_router(jobs.router)
+    app.include_router(choices.router)
     app.include_router(help.router)
     app.include_router(search.router)
     app.include_router(profile.router)

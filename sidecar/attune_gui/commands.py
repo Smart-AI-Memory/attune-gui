@@ -257,6 +257,11 @@ COMMANDS: dict[str, CommandSpec] = {
                     "title": "Feature name",
                     "minLength": 1,
                     "description": "Must exist in the manifest at <help_dir>/features.yaml.",
+                    # The Commands-page form fetches this URL when the
+                    # modal opens (with `{help_dir}` replaced by the
+                    # sibling field's current value) and renders a
+                    # datalist of feature names.
+                    "ui:choicesUrl": "/api/author/features?help_dir={help_dir}",
                 },
                 "help_dir": {
                     "type": "string",
@@ -923,6 +928,7 @@ COMMANDS["author.regen"] = CommandSpec(
                 "title": "Feature (leave blank for all)",
                 "default": "",
                 "description": "Feature name from the manifest. Leave blank to regenerate all.",
+                "ui:choicesUrl": "/api/author/features?project_path={project_path}",
             },
             "overwrite": {
                 "type": "boolean",
