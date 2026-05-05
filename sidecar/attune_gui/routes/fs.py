@@ -44,10 +44,19 @@ async def browse(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     annotate_help = annotate == "help"
+    annotate_project = annotate == "project"
 
     def _has_manifest(p: Path) -> bool:
+        """A `.help/`-style dir: contains `features.yaml` directly."""
         try:
             return (p / "features.yaml").is_file()
+        except OSError:
+            return False
+
+    def _has_project_manifest(p: Path) -> bool:
+        """A project root: contains `.help/features.yaml` as a child."""
+        try:
+            return (p / ".help" / "features.yaml").is_file()
         except OSError:
             return False
 
@@ -61,6 +70,8 @@ async def browse(
         entry: dict = {"name": name, "path": str(child)}
         if annotate_help:
             entry["has_manifest"] = _has_manifest(child)
+        elif annotate_project:
+            entry["has_project_manifest"] = _has_project_manifest(child)
         entries.append(entry)
 
     parent = str(resolved.parent) if resolved.parent != resolved else None
@@ -72,4 +83,6 @@ async def browse(
     }
     if annotate_help:
         response["has_manifest"] = _has_manifest(resolved)
+    elif annotate_project:
+        response["has_project_manifest"] = _has_project_manifest(resolved)
     return response

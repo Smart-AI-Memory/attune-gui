@@ -512,6 +512,15 @@
               statusEl.className = 'cmd-picker-status cmd-picker-status-warn';
               statusEl.textContent = '⚠ This directory has no features.yaml. Look for a child marked "✓ manifest" or navigate up.';
             }
+          } else if (browseHint === 'project') {
+            statusEl.hidden = false;
+            if (payload.has_project_manifest) {
+              statusEl.className = 'cmd-picker-status cmd-picker-status-ok';
+              statusEl.textContent = '✓ This directory has a `.help/features.yaml` — valid project root.';
+            } else {
+              statusEl.className = 'cmd-picker-status cmd-picker-status-warn';
+              statusEl.textContent = '⚠ This directory has no `.help/features.yaml`. Look for a child marked "✓ project" or navigate up.';
+            }
           } else {
             statusEl.hidden = true;
           }
@@ -534,6 +543,12 @@
                 const badge = document.createElement('span');
                 badge.className = 'cmd-picker-badge';
                 badge.textContent = '✓ manifest';
+                li.appendChild(badge);
+                li.classList.add('cmd-picker-item-match');
+              } else if (browseHint === 'project' && entry.has_project_manifest) {
+                const badge = document.createElement('span');
+                badge.className = 'cmd-picker-badge';
+                badge.textContent = '✓ project';
                 li.appendChild(badge);
                 li.classList.add('cmd-picker-item-match');
               }

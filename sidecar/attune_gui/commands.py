@@ -237,6 +237,7 @@ COMMANDS: dict[str, CommandSpec] = {
                         "Leave blank to use the configured workspace."
                     ),
                     "ui:widget": "path",
+                "ui:browseHint": "project",
                 },
             },
             "required": ["query"],
@@ -278,6 +279,7 @@ COMMANDS: dict[str, CommandSpec] = {
                     "title": "Project root",
                     "default": ".",
                     "ui:widget": "path",
+                "ui:browseHint": "project",
                 },
                 "all_kinds": {
                     "type": "boolean",
@@ -339,6 +341,7 @@ COMMANDS["rag.corpus-info"] = CommandSpec(
                     "Leave blank to use the configured workspace."
                 ),
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
         },
     },
@@ -401,6 +404,7 @@ COMMANDS["author.init"] = CommandSpec(
                 "default": ".",
                 "description": "Root of the project to scan.",
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
         },
     },
@@ -451,6 +455,7 @@ COMMANDS["author.status"] = CommandSpec(
                 "title": "Project path",
                 "default": "",
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
             "help_dir": {
                 "type": "string",
@@ -463,6 +468,7 @@ COMMANDS["author.status"] = CommandSpec(
                 "title": "Project root (overrides project_path)",
                 "default": "",
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
         },
     },
@@ -558,6 +564,7 @@ COMMANDS["author.maintain"] = CommandSpec(
                 "title": "Project path",
                 "default": "",
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
             "help_dir": {
                 "type": "string",
@@ -570,6 +577,7 @@ COMMANDS["author.maintain"] = CommandSpec(
                 "title": "Project root (overrides project_path)",
                 "default": "",
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
             "features": {
                 "type": "string",
@@ -926,6 +934,7 @@ COMMANDS["author.regen"] = CommandSpec(
                 "default": "",
                 "description": "Root of the project. Leave blank to use the configured workspace.",
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
             "feature": {
                 "type": "string",
@@ -1026,6 +1035,7 @@ COMMANDS["author.setup"] = CommandSpec(
                     "Leave blank to use the configured workspace."
                 ),
                 "ui:widget": "path",
+                "ui:browseHint": "project",
             },
             "overwrite": {
                 "type": "boolean",
