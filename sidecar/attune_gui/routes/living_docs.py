@@ -23,6 +23,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
+from attune_gui.jobs import JobContext, get_registry
 from attune_gui.living_docs_store import get_store
 from attune_gui.security import require_client_token
 from attune_gui.workspace import get_workspace, set_workspace
@@ -130,52 +131,78 @@ async def trigger_scan(req: ScanRequest, background_tasks: BackgroundTasks) -> d
 # ---------------------------------------------------------------------------
 
 
-async def _regenerate_doc(doc_id: str, trigger: str) -> None:
+async def _regenerate_doc_executor(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
+    """Job-system executor for `living-docs.regenerate`.
+
+    Same effective work as the legacy `_regenerate_doc` background task,
+    but progress is now visible on the Jobs page via `ctx.log` calls
+    instead of disappearing into a fire-and-forget BackgroundTask.
+    """
+    doc_id = str(args["doc_id"])
+    trigger = str(args.get("trigger", "manual"))
     parts = doc_id.split("/", 1)
     feature_name = parts[0]
     depth = parts[1] if len(parts) > 1 else "concept"
 
+    ctx.log(f"regenerating {doc_id} (feature={feature_name}, depth={depth}, trigger={trigger})")
     root = _get_workspace()
     store = get_store()
     help_dir = root / ".help"
+    ctx.log(f"workspace = {root}")
+    ctx.log(f"help_dir  = {help_dir}")
 
-    try:
-        from attune_author.generator import generate_feature_templates
-        from attune_author.manifest import load_manifest
+    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
+    from attune_author.manifest import load_manifest  # noqa: PLC0415
 
-        manifest = await asyncio.to_thread(load_manifest, help_dir)
-        feat = next(
-            (f for f in manifest.features if getattr(f, "name", str(f)) == feature_name),
-            None,
-        )
-        if feat is None:
-            logger.error("Feature %r not in manifest — cannot regenerate", feature_name)
-            return
+    ctx.log("loading manifest…")
+    manifest = await asyncio.to_thread(load_manifest, help_dir)
+    # `manifest.features` is `dict[str, Feature]`, not a list — the
+    # legacy BackgroundTask version was iterating it as a list, which
+    # silently produced str keys instead of Feature objects and crashed
+    # in `getattr(f, 'name', ...)`. The error never surfaced because
+    # BackgroundTask exceptions only logged. Surfaced now via the Jobs
+    # page; fix the lookup.
+    feat = manifest.features.get(feature_name)
+    if feat is None:
+        available = ", ".join(sorted(manifest.features.keys())) or "(none)"
+        raise ValueError(f"Feature {feature_name!r} not in manifest. Available: {available}")
 
-        await asyncio.to_thread(
-            generate_feature_templates,
-            feat,
-            help_dir,
-            root,
-            [depth],
-            True,  # overwrite=True
-        )
-    except Exception:
-        logger.exception("Regeneration failed for %s", doc_id)
-        return
-
+    ctx.log(f"running attune-author generate (single depth: {depth})…")
+    await asyncio.to_thread(
+        generate_feature_templates,
+        feat,
+        help_dir,
+        root,
+        [depth],
+        True,  # overwrite=True
+    )
+    ctx.log("generate complete; adding to review queue + rescanning")
     await store.add_to_queue(doc_id, trigger=trigger, project_root=root)
     await store.scan(root, trigger=trigger)
+
     from attune_gui.routes import rag  # noqa: PLC0415
 
     rag.invalidate(root)
+    ctx.log("RAG cache invalidated")
+
+    return {"doc_id": doc_id, "feature": feature_name, "depth": depth, "trigger": trigger}
 
 
 @router.post("/docs/{doc_id:path}/regenerate", dependencies=[Depends(require_client_token)])
-async def regenerate_doc(doc_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
-    """Queue regeneration of a single doc (``feature/depth``). Runs in the background."""
-    background_tasks.add_task(_regenerate_doc, doc_id, "manual")
-    return {"status": "regeneration_queued", "doc_id": doc_id}
+async def regenerate_doc(doc_id: str) -> dict[str, Any]:
+    """Start a regeneration job for a single doc (``feature/depth``).
+
+    Returns the job dict so the frontend can navigate to the Jobs page
+    and watch progress — the previous BackgroundTask version had no
+    visibility, leaving users staring at a "queued" toast with no idea
+    whether the work was running.
+    """
+    job = await get_registry().start(
+        name="living-docs.regenerate",
+        args={"doc_id": doc_id, "trigger": "manual"},
+        executor=_regenerate_doc_executor,
+    )
+    return job.to_dict()
 
 
 # ---------------------------------------------------------------------------
