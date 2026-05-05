@@ -178,7 +178,9 @@ class RenameRequest(BaseModel):
 
 @router.post("/api/corpus/{corpus_id}/refactor/rename/preview")
 async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
-    from attune_rag.editor import RenameCollisionError, plan_rename  # noqa: PLC0415
+    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
+
+    editor_mod = require_editor_submodule("")
 
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
@@ -186,8 +188,8 @@ async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     try:
-        plan = plan_rename(corpus, req.old, req.new, req.kind)
-    except RenameCollisionError as exc:
+        plan = editor_mod.plan_rename(corpus, req.old, req.new, req.kind)
+    except editor_mod.RenameCollisionError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -204,12 +206,9 @@ async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
 
 @router.post("/api/corpus/{corpus_id}/refactor/rename/apply")
 async def rename_apply(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
-    from attune_rag.editor import (  # noqa: PLC0415
-        RenameCollisionError,
-        RenameError,
-        apply_rename,
-        plan_rename,
-    )
+    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
+
+    editor_mod = require_editor_submodule("")
 
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
@@ -217,8 +216,8 @@ async def rename_apply(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     try:
-        plan = plan_rename(corpus, req.old, req.new, req.kind)
-    except RenameCollisionError as exc:
+        plan = editor_mod.plan_rename(corpus, req.old, req.new, req.kind)
+    except editor_mod.RenameCollisionError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -231,8 +230,8 @@ async def rename_apply(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     try:
-        affected = apply_rename(corpus, plan)
-    except RenameError as exc:
+        affected = editor_mod.apply_rename(corpus, plan)
+    except editor_mod.RenameError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except OSError as exc:
         # Atomic-write failure mid-stream. _rename.apply_rename rolls

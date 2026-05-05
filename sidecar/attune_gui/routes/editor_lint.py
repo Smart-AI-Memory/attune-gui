@@ -40,14 +40,16 @@ class AliasInfoModel(BaseModel):
 
 @router.post("/{corpus_id}/lint", response_model=list[DiagnosticModel])
 async def lint(corpus_id: str, req: LintRequest) -> list[DiagnosticModel]:
-    from attune_rag.editor import lint_template  # noqa: PLC0415
+    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
+
+    editor_mod = require_editor_submodule("")
 
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
-    diagnostics = lint_template(req.text, req.path, corpus)
+    diagnostics = editor_mod.lint_template(req.text, req.path, corpus)
     return [DiagnosticModel(**d.to_dict()) for d in diagnostics]
 
 
@@ -58,10 +60,9 @@ async def autocomplete(
     prefix: str = Query("", description="Case-insensitive prefix; empty matches all"),
     limit: int = Query(50, ge=1, le=500),
 ) -> list:
-    from attune_rag.editor import (  # noqa: PLC0415
-        autocomplete_aliases,
-        autocomplete_tags,
-    )
+    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
+
+    editor_mod = require_editor_submodule("")
 
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
@@ -69,6 +70,6 @@ async def autocomplete(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     if kind == "tag":
-        return autocomplete_tags(corpus, prefix, limit)
-    aliases = autocomplete_aliases(corpus, prefix, limit)
+        return editor_mod.autocomplete_tags(corpus, prefix, limit)
+    aliases = editor_mod.autocomplete_aliases(corpus, prefix, limit)
     return [AliasInfoModel(**info).model_dump() for info in aliases]

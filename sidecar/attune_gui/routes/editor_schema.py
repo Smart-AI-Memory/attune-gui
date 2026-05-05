@@ -26,10 +26,12 @@ async def template_schema() -> dict[str, Any]:
     sidecar's cold start does not pay for a json import we may never
     use.
     """
-    from attune_rag.editor._schema import load_schema  # noqa: PLC0415
+    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
+
+    schema_mod = require_editor_submodule("_schema")
 
     try:
-        return load_schema()
+        return schema_mod.load_schema()
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
