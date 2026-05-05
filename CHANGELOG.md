@@ -3,7 +3,7 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.5.1] — 2026-05-05
 
 ### Fixed
 
@@ -27,13 +27,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Polish pass** across the editor + living-docs surfaces — ~170 net
+- **Polish pass** across the editor + living-docs surfaces — ~340 net
   lines removed without changing behaviour. Notable: collapsed four
   near-identical "rebase the editor" blocks in `main.ts` into one
   helper; deleted the unused `summarize()` from `three-way-merge.ts`;
   removed the dead `EditorSession.rebase()` method (production never
   called it); dropped the legacy-bundle fallback in `editor_pages.py`;
   unified `attune_rag.editor._rename._hunks` lazy imports.
+- **`atomic_write` helper** (`sidecar/attune_gui/_fs.py`) replaces three
+  near-duplicate route-local impls; the `cowork_specs` / `cowork_files`
+  variants leaked tmp files on exception and now inherit the robust
+  cleanup path from the editor's version.
+- **Test fixtures** — shared `client` and `session_token` fixtures
+  moved to `sidecar/tests/conftest.py`; 17 test files were redefining
+  them.
 
 ---
 
