@@ -681,3 +681,59 @@ textarea.cmd-input {
   letter-spacing: 0;
   font-size: 0.9rem;
 }
+
+/* Path picker (Browse… on Commands page form) */
+.cmd-path-wrap {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+.cmd-path-wrap .cmd-input { flex: 1; min-width: 0; }
+.cmd-path-browse { white-space: nowrap; }
+
+.cmd-picker-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.cmd-picker-up {
+  padding: 0.25rem 0.6rem;
+  font-weight: 600;
+}
+.cmd-picker-path {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b7280);
+  padding: 0.2rem 0.4rem;
+  background: var(--bg, #fafafa);
+  border-radius: 3px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.cmd-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 200px;
+  max-height: 50vh;
+}
+.cmd-picker-item {
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+.cmd-picker-item:hover {
+  background: var(--accent-soft, #ede9fe);
+  color: var(--accent-ink, #5046e5);
+}
+.cmd-picker-empty {
+  padding: 0.6rem 1rem;
+  color: var(--text-muted, #6b7280);
+  font-style: italic;
+}

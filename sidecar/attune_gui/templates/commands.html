@@ -158,11 +158,31 @@
           input.dataset.choicesUrl = prop['ui:choicesUrl'];
         }
       }
+      // Path widgets get a Browse… button next to the input that
+      // opens a directory picker — typing absolute paths blind is
+      // both user-hostile and easy to get wrong (relative paths
+      // resolve against the sidecar's cwd, not the project root).
+      if (prop['ui:widget'] === 'path') {
+        const wrap = document.createElement('div');
+        wrap.className = 'cmd-path-wrap';
+        // Move the input into the wrapper.
+        wrap.appendChild(input);
+        const browse = document.createElement('button');
+        browse.type = 'button';
+        browse.className = 'btn cmd-path-browse';
+        browse.textContent = 'Browse…';
+        browse.addEventListener('click', () => openPathPicker(input));
+        wrap.appendChild(browse);
+        // Append the wrapper to the row in place of the bare input.
+        // Caller (the row builder) will skip its own appendChild.
+        input.dataset.wrapped = '1';
+        row.appendChild(wrap);
+      }
       input.name = key;
       input.className = 'cmd-input';
       if (required) input.required = true;
       if (prop.description) input.title = prop.description;
-      row.appendChild(input);
+      if (!input.dataset.wrapped) row.appendChild(input);
 
       if (prop.description) {
         const help = document.createElement('small');
@@ -389,6 +409,129 @@
         }
         btn.disabled = false;
         return false;
+      }
+    }
+
+    // ---- Path picker modal -------------------------------------
+
+    /**
+     * Open a directory picker rooted at the input's current value
+     * (or `~` if empty). User can navigate via the parent button or
+     * by clicking subdirectories; "Choose this directory" sets the
+     * input value to the currently-shown path.
+     *
+     * Backed by GET /api/fs/browse (existing endpoint — directories
+     * only, hidden entries suppressed except for `.help` / `.attune`).
+     */
+    async function openPathPicker(targetInput) {
+      const start = (targetInput.value && targetInput.value.trim()) || '~';
+
+      // Build the picker scaffolding lazily so it doesn't pollute
+      // the DOM until needed.
+      let picker = document.getElementById('cmd-picker');
+      if (!picker) {
+        picker = document.createElement('div');
+        picker.id = 'cmd-picker';
+        picker.className = 'cmd-modal';
+        picker.hidden = true;
+        picker.innerHTML = `
+          <div class="cmd-modal-overlay" data-picker-close></div>
+          <div class="cmd-modal-dialog">
+            <header class="cmd-modal-head">
+              <h3 id="cmd-picker-title">Choose a directory</h3>
+              <button type="button" class="cmd-modal-close" data-picker-close aria-label="Close">×</button>
+            </header>
+            <div class="cmd-picker-bar">
+              <button type="button" class="btn cmd-picker-up" id="cmd-picker-up" title="Parent directory">↑</button>
+              <code id="cmd-picker-path" class="cmd-picker-path"></code>
+            </div>
+            <ul class="cmd-picker-list" id="cmd-picker-list"></ul>
+            <div class="cmd-modal-error" id="cmd-picker-error" hidden></div>
+            <footer class="cmd-modal-foot">
+              <button type="button" class="btn" data-picker-close>Cancel</button>
+              <button type="button" class="btn primary" id="cmd-picker-choose">Choose this directory</button>
+            </footer>
+          </div>
+        `;
+        document.body.appendChild(picker);
+        picker.querySelectorAll('[data-picker-close]').forEach(el => {
+          el.addEventListener('click', closePicker);
+        });
+      }
+      const pathLabel = picker.querySelector('#cmd-picker-path');
+      const list = picker.querySelector('#cmd-picker-list');
+      const upBtn = picker.querySelector('#cmd-picker-up');
+      const chooseBtn = picker.querySelector('#cmd-picker-choose');
+      const errorEl2 = picker.querySelector('#cmd-picker-error');
+
+      let currentPath = '';
+
+      async function load(path) {
+        errorEl2.hidden = true;
+        try {
+          const res = await fetch(`/api/fs/browse?path=${encodeURIComponent(path)}`);
+          if (!res.ok) {
+            const detail = await safeDetail(res);
+            errorEl2.hidden = false;
+            errorEl2.textContent = `Can't open ${path}: ${detail}`;
+            return;
+          }
+          const payload = await res.json();
+          currentPath = payload.path;
+          pathLabel.textContent = currentPath;
+          upBtn.disabled = !payload.parent;
+          upBtn.dataset.parent = payload.parent || '';
+          list.innerHTML = '';
+          if (payload.entries.length === 0) {
+            const empty = document.createElement('li');
+            empty.className = 'cmd-picker-empty';
+            empty.textContent = '(no subdirectories)';
+            list.appendChild(empty);
+          } else {
+            for (const entry of payload.entries) {
+              const li = document.createElement('li');
+              li.className = 'cmd-picker-item';
+              li.dataset.path = entry.path;
+              li.textContent = entry.name + '/';
+              li.addEventListener('click', () => load(entry.path));
+              list.appendChild(li);
+            }
+          }
+        } catch (e) {
+          errorEl2.hidden = false;
+          errorEl2.textContent = `Network error: ${e.message}`;
+        }
+      }
+
+      upBtn.onclick = () => {
+        if (upBtn.dataset.parent) load(upBtn.dataset.parent);
+      };
+      chooseBtn.onclick = () => {
+        targetInput.value = currentPath;
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        closePicker();
+      };
+      function onPickerKey(ev) {
+        if (ev.key === 'Escape') closePicker();
+      }
+      function closePicker() {
+        picker.hidden = true;
+        document.removeEventListener('keydown', onPickerKey);
+      }
+      document.addEventListener('keydown', onPickerKey);
+
+      picker.hidden = false;
+      load(start);
+    }
+
+    async function safeDetail(res) {
+      try {
+        const j = await res.json();
+        if (typeof j.detail === 'string') return j.detail;
+        if (j.detail && j.detail.message) return j.detail.message;
+        return JSON.stringify(j);
+      } catch {
+        return `HTTP ${res.status}`;
       }
     }
   })();

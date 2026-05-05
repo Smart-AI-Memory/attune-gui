@@ -224,3 +224,29 @@ def test_commands_page_embeds_args_schema_per_command(client: TestClient) -> Non
     # data-schema attribute (would suggest a regression to the
     # broken embed).
     assert 'data-schema="' not in r.text
+
+
+def test_commands_page_renders_browse_buttons_for_path_widgets(client: TestClient) -> None:
+    """Path-typed args should get a `Browse…` button + picker wiring.
+
+    Regression: an earlier version rendered every string as a bare
+    text input. Users had to type absolute paths blind, and the
+    relative defaults (`.help`, `.`) silently resolved against the
+    sidecar's CWD instead of the project root — hard to tell from
+    a typo, easy to misconfigure.
+    """
+    r = client.get("/dashboard/commands?profile=author", headers=HDR)
+    assert r.status_code == 200
+    # The HTML carries the JS that renders the button at runtime,
+    # not the button itself (the form is built client-side from the
+    # schema). What we *can* assert at render time is that the JS
+    # block defines `openPathPicker` and that the schemas mark the
+    # right fields with `ui:widget: "path"`.
+    assert "openPathPicker" in r.text
+    assert "cmd-path-browse" in r.text  # CSS class referenced by the JS
+    # Schemas must declare the path-widget hint for the targeted fields.
+    api = client.get("/api/commands?profile=author", headers=HDR).json()
+    by = {c["name"]: c for c in api["commands"]}
+    gen_props = by["author.generate"]["args_schema"]["properties"]
+    assert gen_props["help_dir"].get("ui:widget") == "path"
+    assert gen_props["project_root"].get("ui:widget") == "path"
