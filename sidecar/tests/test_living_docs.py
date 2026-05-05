@@ -403,15 +403,23 @@ class TestLivingDocsRoutes:
         assert r.status_code == 200
         assert r.json() == {"status": "scan_queued", "trigger": "git_hook"}
 
-    def test_regenerate_queues_background_task(
+    def test_regenerate_starts_a_visible_job(
         self, client: TestClient, session_token: str, workspace: Path
     ) -> None:
+        """The regen route now goes through the Jobs registry instead of
+        a fire-and-forget BackgroundTask, so users can watch progress
+        on the Jobs page. The response is the job dict with an id."""
         r = client.post(
             "/api/living-docs/docs/auth/concept/regenerate",
             headers={"X-Attune-Client": session_token},
         )
         assert r.status_code == 200
-        assert r.json()["status"] == "regeneration_queued"
+        body = r.json()
+        assert body["name"] == "living-docs.regenerate"
+        assert body["args"] == {"doc_id": "auth/concept", "trigger": "manual"}
+        # Job is at least pending; may have started by the time we read.
+        assert body["status"] in ("pending", "running", "completed", "errored")
+        assert "id" in body and isinstance(body["id"], str) and body["id"]
 
 
 # ---------------------------------------------------------------------------

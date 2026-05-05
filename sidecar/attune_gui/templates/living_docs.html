@@ -171,11 +171,18 @@
   document.querySelectorAll('.btn-regen').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
+      btn.disabled = true;
       try {
-        await AttuneUI.api(`/api/living-docs/docs/${encodeURIComponent(id)}/regenerate`, { method: 'POST', body: '{}' });
-        AttuneUI.toast('Regenerate queued.', 'ok');
+        // The route now starts a real job (not a fire-and-forget
+        // BackgroundTask), so we get a job dict back and can hop the
+        // user to the Jobs page where they can watch progress + see
+        // log lines streaming in. Mirrors the Commands-page pattern.
+        const job = await AttuneUI.api(`/api/living-docs/docs/${encodeURIComponent(id)}/regenerate`, { method: 'POST', body: '{}' });
+        AttuneUI.toast(`Started regen ${job.id ? job.id.slice(0, 8) : id}`, 'ok');
+        setTimeout(() => location.assign('/dashboard/jobs'), 600);
       } catch (e) {
         AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+        btn.disabled = false;
       }
     });
   });
