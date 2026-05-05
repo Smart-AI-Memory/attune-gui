@@ -111,7 +111,8 @@ async def page_health(request: Request) -> HTMLResponse:
 @router.get("/dashboard/templates", response_class=HTMLResponse, include_in_schema=False)
 async def page_templates(request: Request, filter: str = "all") -> HTMLResponse:
     """Render the Templates page. ``filter`` is one of all|manual|generated|stale."""
-    from attune_gui.routes import cowork_templates
+    from attune_gui import editor_corpora  # noqa: PLC0415
+    from attune_gui.routes import cowork_templates  # noqa: PLC0415
 
     data = await _safe_call(cowork_templates.list_templates()) or {
         "templates": [],
@@ -124,6 +125,23 @@ async def page_templates(request: Request, filter: str = "all") -> HTMLResponse:
         items = [t for t in items if not t["manual"]]
     elif filter == "stale":
         items = [t for t in items if t["staleness"] in ("stale", "very-stale")]
+
+    # Resolve `templates_root` to a registered corpus once per page so
+    # the row link can deep-link into the schema-driven /editor instead
+    # of the legacy raw-textarea preview. If the templates root isn't in
+    # any registered corpus, leave `editor_corpus_id` as None and the
+    # template falls back to the preview link.
+    editor_corpus_id: str | None = None
+    editor_path_prefix: str = ""  # rel path of templates_root WITHIN the corpus
+    if data["templates_root"]:
+        resolved = editor_corpora.resolve_path(data["templates_root"])
+        if resolved is not None:
+            entry, rel_root = resolved
+            editor_corpus_id = entry.id
+            # Empty when templates_root IS the corpus root; e.g. "src/help"
+            # when corpus is one level up.
+            editor_path_prefix = "" if rel_root == "." else rel_root.rstrip("/")
+
     return templates.TemplateResponse(
         request,
         "templates.html",
@@ -132,6 +150,8 @@ async def page_templates(request: Request, filter: str = "all") -> HTMLResponse:
             "templates",
             items=items,
             templates_root=data["templates_root"],
+            editor_corpus_id=editor_corpus_id,
+            editor_path_prefix=editor_path_prefix,
             active_filter=filter,
             total=len(data["templates"]),
         ),

@@ -199,3 +199,46 @@ def test_browse_no_annotation_omits_has_manifest(
     assert "has_manifest" not in body
     for entry in body["entries"]:
         assert "has_manifest" not in entry
+
+
+# ---------------------------------------------------------------------------
+# annotate=project — `.help/features.yaml` presence as a child
+# ---------------------------------------------------------------------------
+
+
+def test_browse_annotate_project_flags_dirs_with_help_manifest_inside(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """Picker UX (project mode): valid project roots are dirs with a
+    `.help/features.yaml` *child*. Distinct from `annotate=help` which
+    flags dirs that ARE `.help/` dirs."""
+    project_a = tmp_path / "project_a"
+    (project_a / ".help").mkdir(parents=True)
+    (project_a / ".help" / "features.yaml").write_text("version: 1\nfeatures: {}\n")
+    project_b = tmp_path / "project_b"
+    project_b.mkdir()  # no .help/
+
+    r = client.get(
+        "/api/fs/browse",
+        params={"path": str(tmp_path), "annotate": "project"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    by_name = {e["name"]: e for e in body["entries"]}
+    assert by_name["project_a"]["has_project_manifest"] is True
+    assert by_name["project_b"]["has_project_manifest"] is False
+    # `has_manifest` is NOT included when annotate=project (separate keys).
+    assert "has_manifest" not in by_name["project_a"]
+
+
+def test_browse_annotate_project_current_dir_marked(
+    client: TestClient, tmp_path: Path
+) -> None:
+    (tmp_path / ".help").mkdir()
+    (tmp_path / ".help" / "features.yaml").write_text("version: 1\nfeatures: {}\n")
+    r = client.get(
+        "/api/fs/browse",
+        params={"path": str(tmp_path), "annotate": "project"},
+    )
+    assert r.status_code == 200
+    assert r.json()["has_project_manifest"] is True
