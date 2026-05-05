@@ -46,7 +46,7 @@
                  'completed' badge with no idea what to do. #}
               {% if j.name == 'living-docs.regenerate' and j.status in ('completed','done','success') %}
                 <a class="row-action"
-                   href="/dashboard/living-docs#review-queue"
+                   href="/dashboard/living-docs"
                    title="Approve or revert the regenerated doc">Review →</a>
               {% endif %}
               <a class="row-action" href="/api/jobs/{{ j.id }}" target="_blank" rel="noopener">json</a>
