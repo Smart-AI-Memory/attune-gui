@@ -35,7 +35,15 @@
         {% for t in items %}
           <tr>
             <td>
-              <a href="/dashboard/preview?root=templates&path={{ t.path|urlencode }}" class="mono link">{{ t.path }}</a>
+              {% if editor_corpus_id %}
+                {# Schema-driven editor (CodeMirror + frontmatter form). Falls back to
+                   the legacy preview page when templates_root isn't in any registered
+                   corpus — see cowork_pages.page_templates. #}
+                {% set editor_path = (editor_path_prefix ~ '/' ~ t.path) if editor_path_prefix else t.path %}
+                <a href="/editor?corpus={{ editor_corpus_id|urlencode }}&path={{ editor_path|urlencode }}" class="mono link">{{ t.path }}</a>
+              {% else %}
+                <a href="/dashboard/preview?root=templates&path={{ t.path|urlencode }}" class="mono link">{{ t.path }}</a>
+              {% endif %}
             </td>
             <td class="dim">{{ t.tags|join(', ') if t.tags else '—' }}</td>
             <td>

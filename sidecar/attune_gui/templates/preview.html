@@ -5,7 +5,14 @@
 {% block actions %}
   {% if file %}
     <button class="btn ghost" id="tab-preview" data-tab="preview">Preview</button>
-    <button class="btn ghost" id="tab-edit" data-tab="edit">Edit</button>
+    {# For templates, Edit jumps to the schema-driven /editor (form +
+       CodeMirror + live lint). For other files (specs, summaries),
+       Edit toggles the legacy raw-textarea pane below. Single
+       Edit affordance per file type — no redundant tab + button. #}
+    <button class="btn ghost"
+            id="tab-edit"
+            data-tab="edit"
+            {% if file.root == 'templates' %}data-mode="editor"{% endif %}>Edit</button>
     <button class="btn primary" id="save-btn" hidden>Save</button>
   {% endif %}
 {% endblock %}
@@ -69,7 +76,33 @@
     tabEdit.classList.toggle('active', !isPreview);
   }
   tabPreview.addEventListener('click', () => setTab('preview'));
-  tabEdit.addEventListener('click', () => setTab('edit'));
+  if (tabEdit.dataset.mode === 'editor') {
+    // Templates: hop to the schema-driven /editor instead of toggling
+    // the legacy textarea pane. Resolves the abs path to
+    // (corpus, rel_path) so the editor URL is canonical.
+    tabEdit.addEventListener('click', async () => {
+      tabEdit.disabled = true;
+      try {
+        const data = await AttuneUI.api('/api/cowork/templates');
+        if (!data.templates_root) {
+          AttuneUI.toast('No templates root configured.', 'danger');
+          return;
+        }
+        const abs = `${data.templates_root}/${path}`;
+        const resolved = await AttuneUI.api('/api/corpus/resolve', {
+          method: 'POST',
+          body: JSON.stringify({abs_path: abs}),
+        });
+        const url = `/editor?corpus=${encodeURIComponent(resolved.corpus_id)}&path=${encodeURIComponent(resolved.rel_path)}`;
+        location.assign(url);
+      } catch (e) {
+        AttuneUI.toast(`Open editor failed: ${e.message}. Register the corpus via Commands → Add corpus.`, 'danger');
+        tabEdit.disabled = false;
+      }
+    });
+  } else {
+    tabEdit.addEventListener('click', () => setTab('edit'));
+  }
   setTab('preview');
 
   saveBtn.addEventListener('click', async () => {
