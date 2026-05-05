@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from attune_gui.app import create_app
 from attune_gui.living_docs_store import (
     DocEntry,
     LivingDocsStore,
@@ -15,16 +14,6 @@ from attune_gui.living_docs_store import (
     get_store,
 )
 from fastapi.testclient import TestClient
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
-
-
-@pytest.fixture
-def session_token(client: TestClient) -> str:
-    return client.get("/api/session/token").json()["token"]
 
 
 @pytest.fixture(autouse=True)

@@ -30,6 +30,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from attune_gui._fs import atomic_write
 from attune_gui.security import require_client_token
 from attune_gui.workspace import get_workspace
 
@@ -211,13 +212,6 @@ def _validate_status(status: str) -> None:
         )
 
 
-def _atomic_write(target: Path, content: str) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix(target.suffix + ".tmp")
-    tmp.write_text(content, encoding="utf-8")
-    os.replace(tmp, target)
-
-
 # ---------------------------------------------------------------------------
 # Read routes
 # ---------------------------------------------------------------------------
@@ -282,7 +276,7 @@ async def create_spec(body: CreateSpecRequest) -> dict[str, Any]:
     target = feat_dir / "requirements.md"
     text = _bootstrap_text("requirements", body.feature, _template_path())
     try:
-        _atomic_write(target, text)
+        atomic_write(target, text)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
 
@@ -338,7 +332,7 @@ async def add_phase(feature: str, body: AddPhaseRequest) -> dict[str, Any]:
 
     text = _bootstrap_text(body.phase, feature, _template_path())
     try:
-        _atomic_write(target, text)
+        atomic_write(target, text)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
 
@@ -389,7 +383,7 @@ async def update_status(
         new_text = _STATUS_RE.sub(f"**Status**: {status}", original, count=1)
 
     try:
-        _atomic_write(target, new_text)
+        atomic_write(target, new_text)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Write failed: {exc}") from exc
 

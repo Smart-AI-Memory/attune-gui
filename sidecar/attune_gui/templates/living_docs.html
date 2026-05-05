@@ -154,29 +154,51 @@
 {% block scripts %}
 <script>
   // ── Polling ───────────────────────────────────────────────────────────────
+  // Recursive setTimeout (not setInterval) so a hidden tab fully pauses
+  // instead of waking every 1.5s to no-op.
   let _pollTimer = null;
+  let _polling = false;
 
   function _startPoll() {
-    if (_pollTimer) return;
-    _pollTimer = setInterval(_poll, 1500);
+    if (_polling) return;
+    _polling = true;
+    _scheduleNextPoll(0);
   }
 
   function _stopPoll() {
-    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    _polling = false;
+    if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+  }
+
+  function _scheduleNextPoll(delay) {
+    if (!_polling || document.hidden) return;
+    _pollTimer = setTimeout(_poll, delay);
   }
 
   async function _poll() {
-    if (document.hidden) return;
-    const data = await AttuneUI.api('/api/living-docs/rows').catch(() => null);
-    if (!data) return;
-    _applyRows(data.rows);
-    if (!data.rows.some(r => r.computed_state === 'regenerating')) _stopPoll();
+    _pollTimer = null;
+    if (!_polling) return;
+    try {
+      const data = await AttuneUI.api('/api/living-docs/rows');
+      _applyRows(data.rows);
+      if (!data.rows.some(r => r.computed_state === 'regenerating')) {
+        _stopPoll();
+        return;
+      }
+    } catch (_) { /* transient — keep polling */ }
+    _scheduleNextPoll(1500);
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && _polling && !_pollTimer) _scheduleNextPoll(0);
+  });
 
   function _applyRows(rows) {
     rows.forEach(row => {
       const tr = document.querySelector(`tr[data-doc-id="${CSS.escape(row.id)}"]`);
       if (!tr) return;
+      if (tr.dataset.state === row.computed_state &&
+          tr.dataset.regenJobId === (row.regen_job_id || '')) return;
       tr.dataset.state = row.computed_state;
       tr.dataset.queueItemId = row.queue_item_id || '';
       tr.dataset.regenJobId = row.regen_job_id || '';

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 from attune_gui import editor_corpora
-from attune_gui.app import create_app
 from fastapi.testclient import TestClient
 
 
@@ -42,9 +41,6 @@ def corpus(tmp_path: Path) -> tuple[str, Path]:
     return entry.id, root
 
 
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
 # -- WebSocket -----------------------------------------------------

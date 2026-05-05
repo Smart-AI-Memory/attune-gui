@@ -24,6 +24,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from attune_gui import editor_corpora
+from attune_gui._fs import atomic_write
 
 router = APIRouter(prefix="/api/corpus", tags=["editor-template"])
 
@@ -125,28 +126,23 @@ def _split_frontmatter(text: str) -> tuple[str, str]:
     return fm, rest[body_start:]
 
 
-def _atomic_write(target: Path, text: str) -> float:
-    """Write ``text`` atomically; return the new mtime."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-    import os
-    import tempfile
+def _rename_hunks(rel_path: str, old_text: str, new_text: str):
+    """Lazy proxy for ``attune_rag.editor._rename._hunks``.
 
-    fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(text)
-        os.replace(tmp, target)
-    except Exception:
-        Path(tmp).unlink(missing_ok=True)
-        raise
-    return target.stat().st_mtime
+    Imported lazily so attune-gui's cold start does not require
+    ``attune_rag.editor`` to be present until the editor routes are
+    actually exercised. Surfaces a friendly 503 if the submodule is
+    missing (e.g. shipped attune-rag has no editor support).
+    """
+    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
+
+    rename_mod = require_editor_submodule("_rename")
+    return rename_mod._hunks(rel_path, old_text, new_text)
 
 
 def _hunks(rel_path: str, old_text: str, new_text: str) -> list[dict[str, Any]]:
     """Re-export rename module's hunk computation."""
-    from attune_rag.editor._rename import _hunks as compute  # noqa: PLC0415
-
-    return [h.to_dict() for h in compute(rel_path, old_text, new_text)]
+    return [h.to_dict() for h in _rename_hunks(rel_path, old_text, new_text)]
 
 
 def _apply_accepted_hunks(
@@ -159,10 +155,9 @@ def _apply_accepted_hunks(
     in base). This relies on ``difflib`` ordering, which is stable
     across hunks of a single diff.
     """
-    from attune_rag.editor._rename import _hunks as compute  # noqa: PLC0415
-
-    hunks = compute(rel_path, base_text, draft_text)
-    accepted = {h.hunk_id for h in hunks if h.hunk_id in set(accepted_ids)}
+    hunks = _rename_hunks(rel_path, base_text, draft_text)
+    accepted_set = set(accepted_ids)
+    accepted = {h.hunk_id for h in hunks if h.hunk_id in accepted_set}
     if not accepted:
         return base_text
 
@@ -285,8 +280,6 @@ async def save_template(corpus_id: str, req: SaveRequest) -> SaveResponse:
 
     if req.accepted_hunks is None:
         new_text = req.draft_text
-    elif not req.accepted_hunks:
-        new_text = base_text  # no hunks accepted → no change
     else:
         new_text = _apply_accepted_hunks(base_text, req.draft_text, req.accepted_hunks, req.path)
 
@@ -294,5 +287,5 @@ async def save_template(corpus_id: str, req: SaveRequest) -> SaveResponse:
         # Nothing to write.
         return SaveResponse(rel_path=req.path, new_hash=req.base_hash, mtime=target.stat().st_mtime)
 
-    mtime = _atomic_write(target, new_text)
+    mtime = atomic_write(target, new_text)
     return SaveResponse(rel_path=req.path, new_hash=_hash_text(new_text), mtime=mtime)

@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from attune_gui.app import create_app
 from attune_gui.routes import rag
 from fastapi.testclient import TestClient
 
@@ -20,14 +19,8 @@ def reset_cache() -> None:
     rag._PIPELINES.clear()
 
 
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
 
 
-@pytest.fixture
-def session_token(client: TestClient) -> str:
-    return client.get("/api/session/token").json()["token"]
 
 
 # ---------------------------------------------------------------------------

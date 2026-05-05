@@ -3,7 +3,6 @@
  *
  * Covers:
  *   - Cmd/Ctrl-S opens the save modal.
- *   - Cmd/Ctrl-K shows the "Command palette: coming in v2" toast.
  *   - Esc closes a top-level modal.
  *   - Generated-corpus advisory banner shows when `kind: "generated"`.
  *   - Save button is disabled while no diff exists; enabled after edit.
@@ -53,32 +52,6 @@ test.describe("keyboard shortcuts + advisories", () => {
       }, browserName === "webkit" ? "metaKey" : "ctrlKey");
       const modal = page.locator(".attune-modal").first();
       await expect(modal).toBeVisible();
-    } finally {
-      fx.cleanup();
-    }
-  });
-
-  test("Cmd/Ctrl-K surfaces the v2 command-palette toast", async ({ page, browserName }) => {
-    const fx = await setupCorpus("kb-palette", [
-      {
-        path: "x.md",
-        frontmatter: { type: "concept", name: "X" },
-        body: "body",
-      },
-    ]);
-    try {
-      await openEditor(page, fx.id, "x.md");
-      await page.evaluate((ctrlKey) => {
-        window.dispatchEvent(new KeyboardEvent("keydown", {
-          key: "k",
-          [ctrlKey]: true,
-          bubbles: true,
-          cancelable: true,
-        }));
-      }, browserName === "webkit" ? "metaKey" : "ctrlKey");
-      const toast = page.locator(".attune-toast-show");
-      await expect(toast).toBeVisible();
-      await expect(toast).toContainText(/Command palette: coming in v2/);
     } finally {
       fx.cleanup();
     }

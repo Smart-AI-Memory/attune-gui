@@ -206,11 +206,11 @@ export class TemplateDocument {
 
   removeField(key: string): void {
     if (!this.fields.order.includes(key)) return;
-    const { [key]: _removed, ...rest } = this.fields.values;
-    void _removed;
+    const values = { ...this.fields.values };
+    delete values[key];
     this.fields = {
       order: this.fields.order.filter((k) => k !== key),
-      values: rest,
+      values,
       originalText: this.fields.originalText,
     };
   }
