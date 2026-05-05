@@ -737,3 +737,36 @@ textarea.cmd-input {
   color: var(--text-muted, #6b7280);
   font-style: italic;
 }
+
+/* Picker — manifest annotation hints */
+.cmd-picker-status {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.cmd-picker-status-ok {
+  background: var(--ok-soft, #dcfce7);
+  color: var(--ok, #15803d);
+}
+.cmd-picker-status-warn {
+  background: #fff8c5;
+  color: #4d3800;
+}
+.cmd-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cmd-picker-item-match {
+  font-weight: 600;
+}
+.cmd-picker-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding: 0.1rem 0.45rem;
+  border-radius: 8px;
+  background: var(--ok-soft, #dcfce7);
+  color: var(--ok, #15803d);
+  letter-spacing: 0.04em;
+}

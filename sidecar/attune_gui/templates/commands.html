@@ -171,7 +171,11 @@
         browse.type = 'button';
         browse.className = 'btn cmd-path-browse';
         browse.textContent = 'Browse…';
-        browse.addEventListener('click', () => openPathPicker(input));
+        // ui:browseHint = "help" annotates dirs with `features.yaml`
+        // presence so the user can pick a real `.help/` dir at a
+        // glance. Defaults to no annotation.
+        browse.dataset.browseHint = prop['ui:browseHint'] || '';
+        browse.addEventListener('click', () => openPathPicker(input, browse.dataset.browseHint));
         wrap.appendChild(browse);
         // Append the wrapper to the row in place of the bare input.
         // Caller (the row builder) will skip its own appendChild.
@@ -423,8 +427,9 @@
      * Backed by GET /api/fs/browse (existing endpoint — directories
      * only, hidden entries suppressed except for `.help` / `.attune`).
      */
-    async function openPathPicker(targetInput) {
+    async function openPathPicker(targetInput, browseHint) {
       const start = (targetInput.value && targetInput.value.trim()) || '~';
+      const annotateParam = browseHint ? `&annotate=${encodeURIComponent(browseHint)}` : '';
 
       // Build the picker scaffolding lazily so it doesn't pollute
       // the DOM until needed.
@@ -466,10 +471,25 @@
 
       let currentPath = '';
 
+      // Status banner shown above the listing — used to call out
+      // when the *current* directory satisfies the browse hint
+      // (e.g., "this dir contains features.yaml" for help-dir picks).
+      let statusEl = picker.querySelector('#cmd-picker-status');
+      if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.id = 'cmd-picker-status';
+        statusEl.className = 'cmd-picker-status';
+        statusEl.hidden = true;
+        const bar = picker.querySelector('.cmd-picker-bar');
+        bar.parentNode.insertBefore(statusEl, bar.nextSibling);
+      }
+
       async function load(path) {
         errorEl2.hidden = true;
         try {
-          const res = await fetch(`/api/fs/browse?path=${encodeURIComponent(path)}`);
+          const res = await fetch(
+            `/api/fs/browse?path=${encodeURIComponent(path)}${annotateParam}`,
+          );
           if (!res.ok) {
             const detail = await safeDetail(res);
             errorEl2.hidden = false;
@@ -481,6 +501,21 @@
           pathLabel.textContent = currentPath;
           upBtn.disabled = !payload.parent;
           upBtn.dataset.parent = payload.parent || '';
+
+          // Current-dir status banner.
+          if (browseHint === 'help') {
+            statusEl.hidden = false;
+            if (payload.has_manifest) {
+              statusEl.className = 'cmd-picker-status cmd-picker-status-ok';
+              statusEl.textContent = '✓ This directory contains features.yaml — safe to choose.';
+            } else {
+              statusEl.className = 'cmd-picker-status cmd-picker-status-warn';
+              statusEl.textContent = '⚠ This directory has no features.yaml. Look for a child marked "✓ manifest" or navigate up.';
+            }
+          } else {
+            statusEl.hidden = true;
+          }
+
           list.innerHTML = '';
           if (payload.entries.length === 0) {
             const empty = document.createElement('li');
@@ -492,7 +527,16 @@
               const li = document.createElement('li');
               li.className = 'cmd-picker-item';
               li.dataset.path = entry.path;
-              li.textContent = entry.name + '/';
+              const nameSpan = document.createElement('span');
+              nameSpan.textContent = entry.name + '/';
+              li.appendChild(nameSpan);
+              if (browseHint === 'help' && entry.has_manifest) {
+                const badge = document.createElement('span');
+                badge.className = 'cmd-picker-badge';
+                badge.textContent = '✓ manifest';
+                li.appendChild(badge);
+                li.classList.add('cmd-picker-item-match');
+              }
               li.addEventListener('click', () => load(entry.path));
               list.appendChild(li);
             }

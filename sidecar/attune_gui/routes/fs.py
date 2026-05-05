@@ -12,7 +12,19 @@ _SHOW_HIDDEN = {".help", ".attune"}
 
 
 @router.get("/browse")
-async def browse(path: str = Query(default="~")) -> dict:
+async def browse(
+    path: str = Query(default="~"),
+    annotate: str | None = Query(
+        default=None,
+        description=(
+            "If 'help', tag each entry (and the current dir) with "
+            "`has_manifest: bool` indicating whether `features.yaml` "
+            "is present. Used by the Commands page picker to highlight "
+            "valid `.help/` dirs so users don't accidentally pick a "
+            "Jinja templates dir or other unrelated folder."
+        ),
+    ),
+) -> dict:
     """Return directory listing for *path*.
 
     Only directories are included. Hidden entries (names starting with ``.'')
@@ -31,6 +43,14 @@ async def browse(path: str = Query(default="~")) -> dict:
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
+    annotate_help = annotate == "help"
+
+    def _has_manifest(p: Path) -> bool:
+        try:
+            return (p / "features.yaml").is_file()
+        except OSError:
+            return False
+
     entries = []
     for child in children:
         if not child.is_dir():
@@ -38,12 +58,18 @@ async def browse(path: str = Query(default="~")) -> dict:
         name = child.name
         if name.startswith(".") and name not in _SHOW_HIDDEN:
             continue
-        entries.append({"name": name, "path": str(child)})
+        entry: dict = {"name": name, "path": str(child)}
+        if annotate_help:
+            entry["has_manifest"] = _has_manifest(child)
+        entries.append(entry)
 
     parent = str(resolved.parent) if resolved.parent != resolved else None
 
-    return {
+    response: dict = {
         "path": str(resolved),
         "parent": parent,
         "entries": entries,
     }
+    if annotate_help:
+        response["has_manifest"] = _has_manifest(resolved)
+    return response

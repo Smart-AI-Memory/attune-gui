@@ -268,6 +268,10 @@ COMMANDS: dict[str, CommandSpec] = {
                     "title": ".help/ path",
                     "default": ".help",
                     "ui:widget": "path",
+                    # Picker shows a "✓ has manifest" badge next to
+                    # dirs containing `features.yaml` so users don't
+                    # accidentally pick a Jinja templates dir.
+                    "ui:browseHint": "help",
                 },
                 "project_root": {
                     "type": "string",
