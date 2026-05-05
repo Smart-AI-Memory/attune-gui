@@ -1,52 +1,43 @@
 ---
-type: concept
 feature: template-editor
 depth: concept
-generated_at: 2026-05-05T02:17:15.312701+00:00
-source_hash: 58fe95b4d95e5e9d2b0dab5826fdd560c2f368a7e93f74ec1eeac297f09d7d78
+generated_at: 2026-05-05T16:26:26.395773+00:00
+source_hash: 22192e4fdfda81908ce0c7de8fd3fa74a92769f56d86d8fd07a2f69d288eb171
 status: generated
 ---
 
 # Template Editor
 
-The template editor is a web-based CodeMirror 6 interface that lets you author and edit attune-help markdown templates with real-time validation and corpus-aware file management.
+## How it works
 
-## Core capabilities
+CodeMirror 6 editor for attune-help-style markdown templates, served at /editor by the attune-gui sidecar. Schema-driven frontmatter form, debounced server-side lint, tag/alias autocomplete, per-hunk save modal, 3-way merge conflict mode via WebSocket file_changed pushes, cross-corpus rename refactor, corpus switcher with unsaved-edits guard, persistent advisory banners, and a directory picker. Pre-bundled (Vite + TypeScript) into sidecar/attune_gui/static/editor/ so PyPI consumers don't need Node..
 
-The editor provides a complete authoring environment for template development:
+The main building blocks are:
 
-- **Schema-driven editing** — YAML frontmatter forms that validate template metadata as you type
-- **Real-time feedback** — Server-side linting with debounced validation to catch structural errors
-- **Smart autocomplete** — Context-aware suggestions for template tags and cross-reference aliases
-- **Multi-corpus workflow** — Switch between different documentation corpora with unsaved-change protection
-- **Conflict resolution** — 3-way merge interface when files change on disk during editing sessions
-- **Cross-template operations** — Rename templates across an entire corpus with automatic reference updates
+- **`CorpusModel`** — core component
+- **`ListResponse`** — core component
+- **`ActiveRequest`** — core component
+- **`RegisterRequest`** — core component
+- **`ResolveRequest`** — core component
 
-## Session management
+Under the hood, this feature spans 29 source
+files covering:
 
-Each editing tab maintains its own `EditorSession` that tracks file state independently:
+- Corpora-registry routes for the template editor (M2 task #7).
+- Template GET / diff / save routes for the editor (M2 task #10).
+- Lint + autocomplete proxy routes for the template editor (M2 task #11).
 
-- **Base tracking** — The editor remembers the original file content when you open it
-- **Change detection** — WebSocket notifications alert you when someone else modifies the file
-- **Optimistic updates** — Your changes are hashed and compared to detect conflicts before saving
-- **Per-hunk saves** — You can save specific sections of a template rather than the entire file
+## What connects to it
 
-## Corpus registry
+This feature relates to: editor, templates, codemirror, websocket, frontend.
 
-The editor works with a persistent registry of documentation corpora stored in `~/.attune/corpora.json`:
+Other parts of the codebase interact with
+template editor through these interfaces:
 
-- **Multiple corpora** — Register and switch between different documentation collections
-- **Path resolution** — The editor automatically detects which corpus owns a file you're editing
-- **Active corpus** — One corpus is marked active for new template creation
-- **Edit warnings** — Some corpora can be marked to warn before allowing modifications
-
-## File management integration
-
-The editor integrates with the broader attune ecosystem through several interfaces:
-
-- **Sidecar server** — Runs as part of the attune-gui sidecar at `/editor`
-- **Healthcheck endpoint** — `/healthz` validates that the editor's portfile is current
-- **Directory corpus loading** — Instantiates full corpus objects for file operations
-- **WebSocket updates** — Real-time notifications when files change outside the editor
-
-The entire interface is pre-built with Vite and TypeScript, bundled into the sidecar's static assets so you don't need Node.js to use it.
+| Interface | Purpose | File |
+|-----------|---------|------|
+| `CorpusModel` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `ListResponse` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `ActiveRequest` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `RegisterRequest` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `ResolveRequest` | — | `sidecar/attune_gui/routes/editor_corpus.py` |

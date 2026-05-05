@@ -1,65 +1,85 @@
 ---
-type: task
 feature: template-editor
 depth: task
-generated_at: 2026-05-05T02:17:29.906501+00:00
-source_hash: 58fe95b4d95e5e9d2b0dab5826fdd560c2f368a7e93f74ec1eeac297f09d7d78
+generated_at: 2026-05-05T16:26:26.402216+00:00
+source_hash: 22192e4fdfda81908ce0c7de8fd3fa74a92769f56d86d8fd07a2f69d288eb171
 status: generated
 ---
 
 # Work with template editor
 
-Use the template editor when you need to modify or create attune-help markdown templates in a schema-driven environment with real-time validation and cross-corpus refactoring capabilities.
+Use template editor when you need to codemirror 6 editor for attune-help-style markdown templates, served at /editor by the attune-gui sidecar. schema-driven frontmatter form, debounced server-side lint, tag/alias autocomplete, per-hunk save modal, 3-way merge conflict mode via websocket file_changed pushes, cross-corpus rename refactor, corpus switcher with unsaved-edits guard, persistent advisory banners, and a directory picker. pre-bundled (vite + typescript) into sidecar/attune_gui/static/editor/ so pypi consumers don't need node..
 
 ## Prerequisites
 
 - Access to the project source code
-- The attune-gui sidecar running (serves the editor at `/editor`)
-- A registered corpus in `~/.attune/corpora.json`
+- Familiarity with the files under editor-frontend/src/main.ts
 
 ## Steps
 
-1. **Start the editor interface.**
-   Navigate to `http://localhost:<port>/editor` where the sidecar is running. The editor loads with a CodeMirror 6 interface for markdown editing.
+1. **Understand the current behavior.**
+   Read the entry points to see what template editor
+   does today before making changes.
+   The primary functions are:
+   - `editor_page()` in `sidecar/attune_gui/routes/editor_pages.py` — Render the editor HTML shell.
+   - `list_corpora()` in `sidecar/attune_gui/routes/editor_corpus.py`
+   - `set_active()` in `sidecar/attune_gui/routes/editor_corpus.py`
+   - `register()` in `sidecar/attune_gui/routes/editor_corpus.py`
+   - `resolve()` in `sidecar/attune_gui/routes/editor_corpus.py`
+2. **Locate the right function to change.**
+   Each function has a single responsibility. Read its
+   docstring, parameters, and return type to confirm it
+   owns the behavior you need to modify.
 
-2. **Select your working corpus.**
-   Use the corpus switcher in the top bar to choose which documentation corpus you want to edit. The editor will warn you if you have unsaved changes before switching.
+3. **Make your change.**
+   Follow existing patterns in the file — naming
+   conventions, error handling style, and logging.
 
-3. **Open or create a template file.**
-   Click the directory picker to browse your corpus files, or create a new template using the schema-driven frontmatter form. The editor validates YAML frontmatter against the template type schema.
+4. **Run the related tests.**
+   This catches regressions before they reach other
+   developers. Target with `pytest -k "template-editor"`.
 
-4. **Edit the template content.**
-   Write your markdown content in the main editor. The system provides:
-   - Real-time lint feedback via debounced server-side validation
-   - Tag and alias autocomplete for frontmatter fields
-   - Syntax highlighting for attune-help markdown extensions
+## Key files
 
-5. **Save your changes.**
-   Use the per-hunk save modal to review and commit specific changes. The editor shows a diff view of your modifications before saving.
+- `editor-frontend/src/main.ts`
+- `editor-frontend/src/editor.ts`
+- `editor-frontend/src/api.ts`
+- `editor-frontend/src/document-model.ts`
+- `editor-frontend/src/frontmatter-form.ts`
+- `editor-frontend/src/save-flow.ts`
+- `editor-frontend/src/save-modal.ts`
+- `editor-frontend/src/lint.ts`
+- `editor-frontend/src/autocomplete.ts`
+- `editor-frontend/src/diagnostics-strip.ts`
+- `editor-frontend/src/diff-gutter.ts`
+- `editor-frontend/src/ws.ts`
+- `editor-frontend/src/three-way-merge.ts`
+- `editor-frontend/src/conflict-mode.ts`
+- `editor-frontend/src/rename-modal.ts`
+- `editor-frontend/src/corpus-switcher.ts`
+- `editor-frontend/src/advisory-banner.ts`
+- `editor-frontend/src/grammar/markdown-extension.ts`
+- `sidecar/attune_gui/routes/editor_pages.py`
+- `sidecar/attune_gui/routes/editor_corpus.py`
+- `sidecar/attune_gui/routes/editor_template.py`
+- `sidecar/attune_gui/routes/editor_lint.py`
+- `sidecar/attune_gui/routes/editor_schema.py`
+- `sidecar/attune_gui/routes/editor_health.py`
+- `sidecar/attune_gui/routes/editor_ws.py`
+- `sidecar/attune_gui/editor_corpora.py`
+- `sidecar/attune_gui/editor_session.py`
+- `sidecar/attune_gui/editor_sidecar.py`
+- `sidecar/attune_gui/templates/editor.html`
 
-6. **Handle file conflicts (if needed).**
-   If another process modifies the file while you're editing, the editor enters 3-way merge conflict mode via WebSocket notifications. Resolve conflicts using the visual merge interface.
+## Common modifications
 
-## Verify success
+Functions you are most likely to modify:
 
-- Your template appears in the corpus file browser
-- The frontmatter validates without lint errors
-- The template renders correctly when accessed through the help system
-- File changes are reflected on disk in your corpus directory
-
-## Key components
-
-The editor consists of:
-
-**Frontend** (TypeScript/Vite bundle):
-- `main.ts` — Application entry point
-- `editor.ts` — CodeMirror configuration
-- `frontmatter-form.ts` — Schema-driven YAML editing
-- `save-flow.ts` — Change persistence workflow
-- `three-way-merge.ts` — Conflict resolution interface
-
-**Backend** (Python routes):
-- `editor_corpora.py` — Corpus registry management
-- `editor_session.py` — Per-tab editing state
-- `editor_lint.py` — Server-side validation
-- `editor_ws.py` — WebSocket file change notifications
+- `editor_page()` in `sidecar/attune_gui/routes/editor_pages.py`
+- `list_corpora()` in `sidecar/attune_gui/routes/editor_corpus.py`
+- `set_active()` in `sidecar/attune_gui/routes/editor_corpus.py`
+- `register()` in `sidecar/attune_gui/routes/editor_corpus.py`
+- `resolve()` in `sidecar/attune_gui/routes/editor_corpus.py`
+- `get_template()` in `sidecar/attune_gui/routes/editor_template.py`
+- `diff_template()` in `sidecar/attune_gui/routes/editor_template.py`
+- `save_template()` in `sidecar/attune_gui/routes/editor_template.py`

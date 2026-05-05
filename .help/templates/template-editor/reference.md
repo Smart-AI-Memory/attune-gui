@@ -1,121 +1,106 @@
 ---
-type: reference
 feature: template-editor
 depth: reference
-generated_at: 2026-05-05T02:17:50.665062+00:00
-source_hash: 58fe95b4d95e5e9d2b0dab5826fdd560c2f368a7e93f74ec1eeac297f09d7d78
+generated_at: 2026-05-05T16:26:26.406568+00:00
+source_hash: 22192e4fdfda81908ce0c7de8fd3fa74a92769f56d86d8fd07a2f69d288eb171
 status: generated
 ---
 
 # Template Editor reference
 
-Manage corpus registrations, track editing sessions, and handle file operations for the web-based template editor.
+## Classes
 
-## Dataclass Fields
-
-### CorpusEntry
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `id` | `str` | | Unique identifier for the corpus |
-| `name` | `str` | | Human-readable corpus name |
-| `path` | `str` | | Filesystem path to corpus directory |
-| `kind` | `CorpusKind` | `'source'` | Type of corpus content |
-| `warn_on_edit` | `bool` | `False` | Whether to warn before allowing edits |
-
-### Registry
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `active` | `str \| None` | `None` | ID of the currently active corpus |
-| `corpora` | `list[CorpusEntry]` | `field(default_factory=list)` | List of registered corpora |
-
-### EditorSession
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `abs_path` | `Path` | | Absolute path to the file being edited |
-| `base_text` | `str` | | Original content when session started |
-| `base_hash` | `str` | | SHA256 hash of base content |
-| `draft_text` | `str` | `field(init=False)` | Current draft content |
-| `poll_interval` | `float` | `0.1` | Filesystem polling interval in seconds |
-
-### PortfileData
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `pid` | `int` | | Process ID of the running sidecar |
-| `port` | `int` | | Port number the sidecar is listening on |
-| `token` | `str` | | Authentication token for sidecar access |
-
-## Methods
-
-### CorpusEntry
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `to_dict(self)` | `dict[str, Any]` | Serialize corpus entry to dictionary |
-
-### Registry
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `to_dict(self)` | `dict[str, Any]` | Serialize registry to dictionary |
-
-### EditorSession
-
-| Method | Parameters | Returns | Description |
-|--------|------------|---------|-------------|
-| `load(cls, abs_path, *, poll_interval=0.1)` | `abs_path: Path, poll_interval: float = 0.1` | `EditorSession` | Create session for file at given path |
-| `update_draft(self, text)` | `text: str` | `None` | Update the draft content |
-| `current_disk_hash(self)` | | `str \| None` | Get hash of file's current disk content |
-| `matches_base(self)` | | `bool` | Check if draft matches original base content |
-| `rebase(self)` | | `None` | Update base content to current disk state |
-| `start(self)` | | `None` | Begin filesystem polling |
-| `stop(self)` | | `None` | Stop filesystem polling |
-| `next_event(self)` | | `dict` | Get next filesystem change event |
+| Class | Description | File |
+|-------|-------------|------|
+| `CorpusModel` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `ListResponse` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `ActiveRequest` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `RegisterRequest` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `ResolveRequest` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `ResolveResponse` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `TemplateResponse` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `DiffRequest` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `HunkModel` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `DiffResponse` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `SaveRequest` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `SaveResponse` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `LintRequest` | — | `sidecar/attune_gui/routes/editor_lint.py` |
+| `DiagnosticModel` | — | `sidecar/attune_gui/routes/editor_lint.py` |
+| `AliasInfoModel` | — | `sidecar/attune_gui/routes/editor_lint.py` |
+| `RenameRequest` | — | `sidecar/attune_gui/routes/editor_ws.py` |
+| `CorpusEntry` | — | `sidecar/attune_gui/editor_corpora.py` |
+| `Registry` | In-memory snapshot of ``~/.attune/corpora.json``. | `sidecar/attune_gui/editor_corpora.py` |
+| `EditorSession` | In-process state for a single ``(corpus, path)`` editing tab. | `sidecar/attune_gui/editor_session.py` |
+| `PortfileData` | — | `sidecar/attune_gui/editor_sidecar.py` |
 
 ## Functions
 
-### Registry Management
+| Function | Description | File |
+|----------|-------------|------|
+| `editor_page()` | Render the editor HTML shell. | `sidecar/attune_gui/routes/editor_pages.py` |
+| `list_corpora()` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `set_active()` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `register()` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `resolve()` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
+| `get_template()` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `diff_template()` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `save_template()` | — | `sidecar/attune_gui/routes/editor_template.py` |
+| `lint()` | — | `sidecar/attune_gui/routes/editor_lint.py` |
+| `autocomplete()` | — | `sidecar/attune_gui/routes/editor_lint.py` |
+| `template_schema()` | Return the JSON schema bundled with attune-rag. | `sidecar/attune_gui/routes/editor_schema.py` |
+| `healthz()` | Return ``{"status": "ok"}`` if ``token`` matches this sidecar. | `sidecar/attune_gui/routes/editor_health.py` |
+| `corpus_ws()` | File-watch + presence channel for one ``(corpus, path)`` editor tab. | `sidecar/attune_gui/routes/editor_ws.py` |
+| `rename_preview()` | — | `sidecar/attune_gui/routes/editor_ws.py` |
+| `rename_apply()` | — | `sidecar/attune_gui/routes/editor_ws.py` |
+| `load_registry()` | Read the registry file. Returns an empty Registry if absent. | `sidecar/attune_gui/editor_corpora.py` |
+| `save_registry()` | Write the registry to disk. Creates ``~/.attune/`` if needed. | `sidecar/attune_gui/editor_corpora.py` |
+| `list_corpora()` | — | `sidecar/attune_gui/editor_corpora.py` |
+| `get_corpus()` | — | `sidecar/attune_gui/editor_corpora.py` |
+| `get_active()` | — | `sidecar/attune_gui/editor_corpora.py` |
+| `set_active()` | Mark ``corpus_id`` as active. Raises ``KeyError`` if unknown. | `sidecar/attune_gui/editor_corpora.py` |
+| `register()` | Register a corpus. Returns the new entry; raises ``ValueError`` if | `sidecar/attune_gui/editor_corpora.py` |
+| `resolve_path()` | Find the registered corpus owning ``abs_path``. | `sidecar/attune_gui/editor_corpora.py` |
+| `load_corpus()` | Instantiate a :class:`attune_rag.DirectoryCorpus` for ``corpus_id``. | `sidecar/attune_gui/editor_corpora.py` |
+| `hash_text()` | Return the 16-char sha256 prefix used as the session's optimistic | `sidecar/attune_gui/editor_session.py` |
+| `write_portfile()` | Write ``{pid, port, token}`` to the portfile (overwriting). | `sidecar/attune_gui/editor_sidecar.py` |
+| `read_portfile()` | Return the parsed portfile or ``None`` if missing/corrupt. | `sidecar/attune_gui/editor_sidecar.py` |
+| `delete_portfile()` | Remove the portfile if it exists. No-op when absent. | `sidecar/attune_gui/editor_sidecar.py` |
+| `is_pid_alive()` | Return True if a process with ``pid`` is currently running. | `sidecar/attune_gui/editor_sidecar.py` |
+| `is_portfile_stale()` | Return True if no fresh sidecar is reachable via the portfile. | `sidecar/attune_gui/editor_sidecar.py` |
+| `portfile_context()` | Write the portfile on enter, remove on exit. Always cleans up. | `sidecar/attune_gui/editor_sidecar.py` |
 
-| Function | Parameters | Returns | Raises | Description |
-|----------|------------|---------|---------|-------------|
-| `load_registry()` | | `Registry` | | Read the registry file or return empty Registry if absent |
-| `save_registry(reg)` | `reg: Registry` | `None` | | Write the registry to disk, creating `~/.attune/` if needed |
-| `list_corpora()` | | `list[CorpusEntry]` | | Get all registered corpora |
-| `get_corpus(corpus_id)` | `corpus_id: str` | `CorpusEntry \| None` | | Find corpus by ID |
-| `get_active()` | | `CorpusEntry \| None` | | Get the currently active corpus |
-| `set_active(corpus_id)` | `corpus_id: str` | `CorpusEntry` | `KeyError` — 'Unknown corpus id: {...}' | Mark corpus as active |
-| `register(name, path, *, kind='source', warn_on_edit=None)` | `name: str, path: str, kind: CorpusKind = 'source', warn_on_edit: bool \| None = None` | `CorpusEntry` | `ValueError` — 'Not a directory: {...}' | Register a new corpus |
-| `resolve_path(abs_path)` | `abs_path: str` | `tuple[CorpusEntry, str] \| None` | | Find the registered corpus owning the absolute path |
-| `load_corpus(corpus_id)` | `corpus_id: str` | | `KeyError` — 'Unknown corpus id: {...}' | Instantiate a DirectoryCorpus for corpus ID |
 
-### Session Management
+## Source files
 
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `hash_text(text)` | `text: str` | `str` | Return the 16-char SHA256 prefix for session tracking |
-
-### Portfile Operations
-
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `write_portfile()` | | | Write process info to portfile, overwriting existing |
-| `read_portfile()` | | `PortfileData \| None` | Return parsed portfile data or None if missing/corrupt |
-| `delete_portfile()` | | | Remove portfile if it exists |
-| `is_pid_alive()` | | `bool` | Check if process is currently running |
-| `is_portfile_stale()` | | `bool` | Check if no fresh sidecar is reachable via portfile |
-| `portfile_context()` | | | Context manager to write portfile on enter, remove on exit |
-
-### HTTP Route Handlers
-
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `healthz()` | | `dict` | Return status check for sidecar freshness |
-| `editor_page()` | | | Render the editor HTML shell |
-| `template_schema()` | | | Return the JSON schema bundled with attune-rag |
-| `corpus_ws()` | | | File-watch and presence channel for editor tabs |
+- `editor-frontend/src/main.ts`
+- `editor-frontend/src/editor.ts`
+- `editor-frontend/src/api.ts`
+- `editor-frontend/src/document-model.ts`
+- `editor-frontend/src/frontmatter-form.ts`
+- `editor-frontend/src/save-flow.ts`
+- `editor-frontend/src/save-modal.ts`
+- `editor-frontend/src/lint.ts`
+- `editor-frontend/src/autocomplete.ts`
+- `editor-frontend/src/diagnostics-strip.ts`
+- `editor-frontend/src/diff-gutter.ts`
+- `editor-frontend/src/ws.ts`
+- `editor-frontend/src/three-way-merge.ts`
+- `editor-frontend/src/conflict-mode.ts`
+- `editor-frontend/src/rename-modal.ts`
+- `editor-frontend/src/corpus-switcher.ts`
+- `editor-frontend/src/advisory-banner.ts`
+- `editor-frontend/src/grammar/markdown-extension.ts`
+- `sidecar/attune_gui/routes/editor_pages.py`
+- `sidecar/attune_gui/routes/editor_corpus.py`
+- `sidecar/attune_gui/routes/editor_template.py`
+- `sidecar/attune_gui/routes/editor_lint.py`
+- `sidecar/attune_gui/routes/editor_schema.py`
+- `sidecar/attune_gui/routes/editor_health.py`
+- `sidecar/attune_gui/routes/editor_ws.py`
+- `sidecar/attune_gui/editor_corpora.py`
+- `sidecar/attune_gui/editor_session.py`
+- `sidecar/attune_gui/editor_sidecar.py`
+- `sidecar/attune_gui/templates/editor.html`
 
 ## Tags
 
