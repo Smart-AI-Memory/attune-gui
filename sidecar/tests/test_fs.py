@@ -143,3 +143,59 @@ def test_browse_unreadable_dir_returns_403(
     r = client.get("/api/fs/browse", params={"path": str(target)})
     assert r.status_code == 403
     assert "denied" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# annotate=help — features.yaml presence
+# ---------------------------------------------------------------------------
+
+
+def test_browse_annotate_help_flags_dirs_with_features_yaml(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """Picker UX: dirs containing `features.yaml` show as valid `.help/`
+    candidates so users don't accidentally pick a Jinja templates dir."""
+    real_help = tmp_path / "real_help"
+    real_help.mkdir()
+    (real_help / "features.yaml").write_text("version: 1\nfeatures: {}\n")
+    bogus = tmp_path / "templates"
+    bogus.mkdir()
+    (bogus / "stuff.html").write_text("not a manifest")
+
+    r = client.get(
+        "/api/fs/browse",
+        params={"path": str(tmp_path), "annotate": "help"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    by_name = {e["name"]: e for e in body["entries"]}
+    assert by_name["real_help"]["has_manifest"] is True
+    assert by_name["templates"]["has_manifest"] is False
+    # The current directory itself is annotated too.
+    assert body["has_manifest"] is False
+
+
+def test_browse_annotate_help_current_dir_marked(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """When browsing a `.help/` dir directly, the current-dir flag fires."""
+    (tmp_path / "features.yaml").write_text("version: 1\nfeatures: {}\n")
+    r = client.get(
+        "/api/fs/browse",
+        params={"path": str(tmp_path), "annotate": "help"},
+    )
+    assert r.status_code == 200
+    assert r.json()["has_manifest"] is True
+
+
+def test_browse_no_annotation_omits_has_manifest(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """Default path (no annotate param) preserves the original wire shape."""
+    (tmp_path / "child").mkdir()
+    r = client.get("/api/fs/browse", params={"path": str(tmp_path)})
+    assert r.status_code == 200
+    body = r.json()
+    assert "has_manifest" not in body
+    for entry in body["entries"]:
+        assert "has_manifest" not in entry

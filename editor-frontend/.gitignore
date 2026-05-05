@@ -1,0 +1,6 @@
+node_modules/
+.vite/
+*.tsbuildinfo
+e2e/.tmp/
+playwright-report/
+test-results/

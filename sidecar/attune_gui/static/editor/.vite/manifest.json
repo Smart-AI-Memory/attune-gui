@@ -1,0 +1,12 @@
+{
+  "src/main.ts": {
+    "file": "editor-XyBdXw35.js",
+    "name": "editor",
+    "src": "src/main.ts",
+    "isEntry": true
+  },
+  "style.css": {
+    "file": "editor-ClBjD01n.css",
+    "src": "style.css"
+  }
+}

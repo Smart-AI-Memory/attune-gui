@@ -20,33 +20,564 @@
             {% if c.domain %}<span class="badge accent-soft">{{ c.domain }}</span>{% endif %}
           </header>
           {% if c.description %}<p class="cmd-desc">{{ c.description }}</p>{% endif %}
-          <button class="btn primary cmd-run" data-name="{{ c.name }}">Run</button>
+          <button class="btn primary cmd-run"
+                  data-name="{{ c.name }}"
+                  data-title="{{ c.title }}">Run</button>
+          {# Inline the schema as JSON so the JS doesn't need a fetch.
+             tojson + an HTML attribute don't compose (tojson returns
+             Markup-safe content, which bypasses |e and leaves raw `"`
+             that breaks the attribute). A <script type="application/
+             json"> tag sidesteps the escaping problem entirely. #}
+          <script type="application/json" class="cmd-schema" data-name="{{ c.name }}">{{ c.args_schema | tojson }}</script>
         </article>
       {% endfor %}
     </div>
   {% else %}
     <p class="empty">No commands available for the <strong>{{ profile }}</strong> profile.</p>
   {% endif %}
+
+  <!-- Form-modal scaffold; populated dynamically when Run is clicked. -->
+  <div id="cmd-modal" class="cmd-modal" hidden>
+    <div class="cmd-modal-overlay" data-close></div>
+    <form class="cmd-modal-dialog" id="cmd-form">
+      <header class="cmd-modal-head">
+        <h3 id="cmd-modal-title">Run command</h3>
+        <button type="button" class="cmd-modal-close" data-close aria-label="Close">×</button>
+      </header>
+      <div class="cmd-modal-body" id="cmd-modal-body"></div>
+      <div class="cmd-modal-error" id="cmd-modal-error" hidden></div>
+      <footer class="cmd-modal-foot">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn primary" id="cmd-modal-submit">Run</button>
+      </footer>
+    </form>
+  </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  document.querySelectorAll('.cmd-run').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const name = btn.getAttribute('data-name');
+  /**
+   * Commands page Run flow.
+   *
+   * Each command card carries its `args_schema` on a data attribute.
+   * Clicking Run opens a modal with one input per schema property,
+   * defaults pre-filled, required fields gated client-side. On submit
+   * we build the `args` object and POST `/api/jobs`.
+   *
+   * Commands with no `properties` skip the modal — POST `args: {}`
+   * directly (preserves the original one-click behavior).
+   */
+  (function () {
+    const modal = document.getElementById('cmd-modal');
+    const form = document.getElementById('cmd-form');
+    const body = document.getElementById('cmd-modal-body');
+    const title = document.getElementById('cmd-modal-title');
+    const errorEl = document.getElementById('cmd-modal-error');
+    const submitBtn = document.getElementById('cmd-modal-submit');
+    let activeCommand = null;
+
+    function closeModal() {
+      modal.hidden = true;
+      body.innerHTML = '';
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Run';
+      activeCommand = null;
+      document.removeEventListener('keydown', onEsc);
+    }
+
+    function onEsc(ev) {
+      if (ev.key === 'Escape') closeModal();
+    }
+
+    modal.querySelectorAll('[data-close]').forEach(el => {
+      el.addEventListener('click', closeModal);
+    });
+
+    function fieldRow(key, prop, required) {
+      const row = document.createElement('label');
+      row.className = 'cmd-field';
+      const lbl = document.createElement('span');
+      lbl.className = 'cmd-field-label';
+      lbl.textContent = prop.title || key;
+      if (required) {
+        const star = document.createElement('em');
+        star.className = 'cmd-field-required';
+        star.textContent = ' *';
+        lbl.appendChild(star);
+      }
+      row.appendChild(lbl);
+
+      let input;
+      if (Array.isArray(prop.enum)) {
+        input = document.createElement('select');
+        if (!required) {
+          const blank = document.createElement('option');
+          blank.value = '';
+          blank.textContent = '—';
+          input.appendChild(blank);
+        }
+        for (const v of prop.enum) {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          input.appendChild(opt);
+        }
+      } else if (prop.type === 'boolean') {
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        if (prop.default === true) input.checked = true;
+        row.classList.add('cmd-field-checkbox');
+      } else if (prop.type === 'integer' || prop.type === 'number') {
+        input = document.createElement('input');
+        input.type = 'number';
+        if (prop.minimum !== undefined) input.min = String(prop.minimum);
+        if (prop.maximum !== undefined) input.max = String(prop.maximum);
+        if (prop.default !== undefined) input.value = String(prop.default);
+      } else if (prop['ui:widget'] === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = 4;
+        if (prop.default !== undefined) input.value = String(prop.default);
+      } else {
+        input = document.createElement('input');
+        input.type = 'text';
+        if (prop.default !== undefined) input.value = String(prop.default);
+        if (prop['ui:widget'] === 'path') input.placeholder = 'Path (absolute or relative to sidecar cwd)';
+        // Fields with a `ui:choicesUrl` extension get a <datalist>
+        // populated from a live endpoint. The URL can reference
+        // sibling fields with `{name}` placeholders; values are
+        // substituted from the form's current state when the modal
+        // opens (and re-fetched when a referenced field changes).
+        if (typeof prop['ui:choicesUrl'] === 'string') {
+          const listId = `cmd-choices-${key}`;
+          const datalist = document.createElement('datalist');
+          datalist.id = listId;
+          row.appendChild(datalist);
+          input.setAttribute('list', listId);
+          input.dataset.choicesUrl = prop['ui:choicesUrl'];
+        }
+      }
+      // Path widgets get a Browse… button next to the input that
+      // opens a directory picker — typing absolute paths blind is
+      // both user-hostile and easy to get wrong (relative paths
+      // resolve against the sidecar's cwd, not the project root).
+      if (prop['ui:widget'] === 'path') {
+        const wrap = document.createElement('div');
+        wrap.className = 'cmd-path-wrap';
+        // Move the input into the wrapper.
+        wrap.appendChild(input);
+        const browse = document.createElement('button');
+        browse.type = 'button';
+        browse.className = 'btn cmd-path-browse';
+        browse.textContent = 'Browse…';
+        // ui:browseHint = "help" annotates dirs with `features.yaml`
+        // presence so the user can pick a real `.help/` dir at a
+        // glance. Defaults to no annotation.
+        browse.dataset.browseHint = prop['ui:browseHint'] || '';
+        browse.addEventListener('click', () => openPathPicker(input, browse.dataset.browseHint));
+        wrap.appendChild(browse);
+        // Append the wrapper to the row in place of the bare input.
+        // Caller (the row builder) will skip its own appendChild.
+        input.dataset.wrapped = '1';
+        row.appendChild(wrap);
+      }
+      input.name = key;
+      input.className = 'cmd-input';
+      if (required) input.required = true;
+      if (prop.description) input.title = prop.description;
+      if (!input.dataset.wrapped) row.appendChild(input);
+
+      if (prop.description) {
+        const help = document.createElement('small');
+        help.className = 'cmd-field-help';
+        help.textContent = prop.description;
+        row.appendChild(help);
+      }
+      return row;
+    }
+
+    function buildForm(schema) {
+      body.innerHTML = '';
+      const props = schema.properties || {};
+      const required = new Set(schema.required || []);
+      const keys = Object.keys(props);
+      if (keys.length === 0) {
+        const note = document.createElement('p');
+        note.className = 'empty';
+        note.textContent = 'This command takes no arguments.';
+        body.appendChild(note);
+        return;
+      }
+      for (const key of keys) {
+        body.appendChild(fieldRow(key, props[key], required.has(key)));
+      }
+      wireChoicesEndpoints();
+    }
+
+    /** Substitute `{name}` placeholders in `urlTemplate` with the
+     * trimmed value of the form's `<input name="name">`. Returns
+     * `null` if any required placeholder resolves to an empty
+     * string — signals "wait until that field has a value". */
+    function expandChoicesUrl(urlTemplate) {
+      let resolved = urlTemplate;
+      let abort = false;
+      resolved = resolved.replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, name) => {
+        const el = form.elements.namedItem(name);
+        const v = el && 'value' in el ? String(el.value).trim() : '';
+        if (v === '') abort = true;
+        return encodeURIComponent(v);
+      });
+      return abort ? null : resolved;
+    }
+
+    /** For every input with a `data-choices-url`, fetch and populate
+     * its sibling `<datalist>`. Re-runs on each call (cheap; the
+     * server caches the manifest read). */
+    async function wireChoicesEndpoints() {
+      const inputs = body.querySelectorAll('input[data-choices-url]');
+      const refresh = async (input) => {
+        const url = expandChoicesUrl(input.dataset.choicesUrl);
+        const dl = document.getElementById(input.getAttribute('list'));
+        if (!dl) return;
+        if (url === null) {
+          dl.innerHTML = '';
+          input.placeholder = `(fill the related field first to load suggestions)`;
+          return;
+        }
+        try {
+          const res = await fetch(url, { method: 'GET' });
+          if (!res.ok) {
+            dl.innerHTML = '';
+            input.placeholder = `(no suggestions — ${res.status})`;
+            return;
+          }
+          const payload = await res.json();
+          const choices = Array.isArray(payload?.choices) ? payload.choices : [];
+          dl.innerHTML = '';
+          for (const c of choices) {
+            const opt = document.createElement('option');
+            opt.value = c;
+            dl.appendChild(opt);
+          }
+          input.placeholder = choices.length > 0
+            ? `${choices.length} suggestion${choices.length === 1 ? '' : 's'} — type or pick`
+            : '(no suggestions found)';
+        } catch (e) {
+          dl.innerHTML = '';
+          input.placeholder = `(suggestions unavailable: ${e.message})`;
+        }
+      };
+
+      // Initial load.
+      for (const inp of inputs) refresh(inp);
+
+      // Re-fetch when a sibling field that's referenced in the URL
+      // changes. Listen on every form input; only the affected
+      // datalists re-render.
+      form.addEventListener('input', (ev) => {
+        const target = ev.target;
+        if (!(target && target.name)) return;
+        const placeholder = `{${target.name}}`;
+        for (const inp of inputs) {
+          if (inp === target) continue;
+          if (inp.dataset.choicesUrl.includes(placeholder)) refresh(inp);
+        }
+      });
+    }
+
+    function collectArgs(schema) {
+      const props = schema.properties || {};
+      const required = new Set(schema.required || []);
+      const args = {};
+      const missing = [];
+      for (const key of Object.keys(props)) {
+        const prop = props[key];
+        const el = form.elements.namedItem(key);
+        if (!el) continue;
+        let value;
+        if (prop.type === 'boolean') {
+          value = el.checked;
+          args[key] = value;
+        } else if (prop.type === 'integer') {
+          if (el.value === '') {
+            if (prop.default !== undefined) args[key] = prop.default;
+          } else {
+            value = parseInt(el.value, 10);
+            if (Number.isNaN(value)) {
+              missing.push(`${key}: not a valid integer`);
+              continue;
+            }
+            args[key] = value;
+          }
+        } else if (prop.type === 'number') {
+          if (el.value === '') {
+            if (prop.default !== undefined) args[key] = prop.default;
+          } else {
+            value = parseFloat(el.value);
+            if (Number.isNaN(value)) {
+              missing.push(`${key}: not a valid number`);
+              continue;
+            }
+            args[key] = value;
+          }
+        } else {
+          value = el.value.trim();
+          if (value === '') {
+            if (required.has(key)) {
+              missing.push(key);
+              continue;
+            }
+            // Optional empty: include default if defined; else omit.
+            if (prop.default !== undefined && prop.default !== '') args[key] = prop.default;
+          } else {
+            args[key] = value;
+          }
+        }
+      }
+      return { args, missing };
+    }
+
+    function readSchema(btn) {
+      const card = btn.closest('.cmd-card') || document;
+      const node = card.querySelector(`script.cmd-schema[data-name="${btn.dataset.name}"]`);
+      if (!node) throw new Error('schema script tag not found');
+      return JSON.parse(node.textContent || '{}');
+    }
+
+    document.querySelectorAll('.cmd-run').forEach(btn => {
+      btn.addEventListener('click', () => {
+        let schema;
+        try {
+          schema = readSchema(btn);
+        } catch (e) {
+          AttuneUI.toast(`Bad schema for ${btn.dataset.name}: ${e.message}`, 'danger');
+          return;
+        }
+        const props = schema.properties || {};
+        const hasAnyProps = Object.keys(props).length > 0;
+        // No properties → keep the one-click flow.
+        if (!hasAnyProps) {
+          fireRun(btn.dataset.name, btn, {});
+          return;
+        }
+        activeCommand = { name: btn.dataset.name, schema, btn };
+        title.textContent = `Run ${btn.dataset.title || btn.dataset.name}`;
+        buildForm(schema);
+        modal.hidden = false;
+        document.addEventListener('keydown', onEsc);
+        // Focus the first input.
+        const first = body.querySelector('input, select, textarea');
+        if (first) first.focus();
+      });
+    });
+
+    form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      if (!activeCommand) return;
+      errorEl.hidden = true;
+      const { args, missing } = collectArgs(activeCommand.schema);
+      if (missing.length > 0) {
+        errorEl.hidden = false;
+        errorEl.textContent = `Missing or invalid: ${missing.join(', ')}`;
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Starting…';
+      const ok = await fireRun(activeCommand.name, activeCommand.btn, args);
+      if (ok) closeModal();
+      else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Run';
+      }
+    });
+
+    async function fireRun(name, btn, args) {
       btn.disabled = true;
       try {
         const job = await AttuneUI.api('/api/jobs', {
           method: 'POST',
-          body: JSON.stringify({ name, args: {} }),
+          body: JSON.stringify({ name, args }),
         });
         AttuneUI.toast(`Started job ${job.id || name}`, 'ok');
         setTimeout(() => location.assign('/dashboard/jobs'), 800);
+        return true;
       } catch (e) {
-        AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+        const msg = e.message || String(e);
+        if (modal.hidden) {
+          AttuneUI.toast(`Failed: ${msg}`, 'danger');
+          btn.disabled = false;
+        } else {
+          errorEl.hidden = false;
+          errorEl.textContent = `Failed: ${msg}`;
+        }
         btn.disabled = false;
+        return false;
       }
-    });
-  });
+    }
+
+    // ---- Path picker modal -------------------------------------
+
+    /**
+     * Open a directory picker rooted at the input's current value
+     * (or `~` if empty). User can navigate via the parent button or
+     * by clicking subdirectories; "Choose this directory" sets the
+     * input value to the currently-shown path.
+     *
+     * Backed by GET /api/fs/browse (existing endpoint — directories
+     * only, hidden entries suppressed except for `.help` / `.attune`).
+     */
+    async function openPathPicker(targetInput, browseHint) {
+      const start = (targetInput.value && targetInput.value.trim()) || '~';
+      const annotateParam = browseHint ? `&annotate=${encodeURIComponent(browseHint)}` : '';
+
+      // Build the picker scaffolding lazily so it doesn't pollute
+      // the DOM until needed.
+      let picker = document.getElementById('cmd-picker');
+      if (!picker) {
+        picker = document.createElement('div');
+        picker.id = 'cmd-picker';
+        picker.className = 'cmd-modal';
+        picker.hidden = true;
+        picker.innerHTML = `
+          <div class="cmd-modal-overlay" data-picker-close></div>
+          <div class="cmd-modal-dialog">
+            <header class="cmd-modal-head">
+              <h3 id="cmd-picker-title">Choose a directory</h3>
+              <button type="button" class="cmd-modal-close" data-picker-close aria-label="Close">×</button>
+            </header>
+            <div class="cmd-picker-bar">
+              <button type="button" class="btn cmd-picker-up" id="cmd-picker-up" title="Parent directory">↑</button>
+              <code id="cmd-picker-path" class="cmd-picker-path"></code>
+            </div>
+            <ul class="cmd-picker-list" id="cmd-picker-list"></ul>
+            <div class="cmd-modal-error" id="cmd-picker-error" hidden></div>
+            <footer class="cmd-modal-foot">
+              <button type="button" class="btn" data-picker-close>Cancel</button>
+              <button type="button" class="btn primary" id="cmd-picker-choose">Choose this directory</button>
+            </footer>
+          </div>
+        `;
+        document.body.appendChild(picker);
+        picker.querySelectorAll('[data-picker-close]').forEach(el => {
+          el.addEventListener('click', closePicker);
+        });
+      }
+      const pathLabel = picker.querySelector('#cmd-picker-path');
+      const list = picker.querySelector('#cmd-picker-list');
+      const upBtn = picker.querySelector('#cmd-picker-up');
+      const chooseBtn = picker.querySelector('#cmd-picker-choose');
+      const errorEl2 = picker.querySelector('#cmd-picker-error');
+
+      let currentPath = '';
+
+      // Status banner shown above the listing — used to call out
+      // when the *current* directory satisfies the browse hint
+      // (e.g., "this dir contains features.yaml" for help-dir picks).
+      let statusEl = picker.querySelector('#cmd-picker-status');
+      if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.id = 'cmd-picker-status';
+        statusEl.className = 'cmd-picker-status';
+        statusEl.hidden = true;
+        const bar = picker.querySelector('.cmd-picker-bar');
+        bar.parentNode.insertBefore(statusEl, bar.nextSibling);
+      }
+
+      async function load(path) {
+        errorEl2.hidden = true;
+        try {
+          const res = await fetch(
+            `/api/fs/browse?path=${encodeURIComponent(path)}${annotateParam}`,
+          );
+          if (!res.ok) {
+            const detail = await safeDetail(res);
+            errorEl2.hidden = false;
+            errorEl2.textContent = `Can't open ${path}: ${detail}`;
+            return;
+          }
+          const payload = await res.json();
+          currentPath = payload.path;
+          pathLabel.textContent = currentPath;
+          upBtn.disabled = !payload.parent;
+          upBtn.dataset.parent = payload.parent || '';
+
+          // Current-dir status banner.
+          if (browseHint === 'help') {
+            statusEl.hidden = false;
+            if (payload.has_manifest) {
+              statusEl.className = 'cmd-picker-status cmd-picker-status-ok';
+              statusEl.textContent = '✓ This directory contains features.yaml — safe to choose.';
+            } else {
+              statusEl.className = 'cmd-picker-status cmd-picker-status-warn';
+              statusEl.textContent = '⚠ This directory has no features.yaml. Look for a child marked "✓ manifest" or navigate up.';
+            }
+          } else {
+            statusEl.hidden = true;
+          }
+
+          list.innerHTML = '';
+          if (payload.entries.length === 0) {
+            const empty = document.createElement('li');
+            empty.className = 'cmd-picker-empty';
+            empty.textContent = '(no subdirectories)';
+            list.appendChild(empty);
+          } else {
+            for (const entry of payload.entries) {
+              const li = document.createElement('li');
+              li.className = 'cmd-picker-item';
+              li.dataset.path = entry.path;
+              const nameSpan = document.createElement('span');
+              nameSpan.textContent = entry.name + '/';
+              li.appendChild(nameSpan);
+              if (browseHint === 'help' && entry.has_manifest) {
+                const badge = document.createElement('span');
+                badge.className = 'cmd-picker-badge';
+                badge.textContent = '✓ manifest';
+                li.appendChild(badge);
+                li.classList.add('cmd-picker-item-match');
+              }
+              li.addEventListener('click', () => load(entry.path));
+              list.appendChild(li);
+            }
+          }
+        } catch (e) {
+          errorEl2.hidden = false;
+          errorEl2.textContent = `Network error: ${e.message}`;
+        }
+      }
+
+      upBtn.onclick = () => {
+        if (upBtn.dataset.parent) load(upBtn.dataset.parent);
+      };
+      chooseBtn.onclick = () => {
+        targetInput.value = currentPath;
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        closePicker();
+      };
+      function onPickerKey(ev) {
+        if (ev.key === 'Escape') closePicker();
+      }
+      function closePicker() {
+        picker.hidden = true;
+        document.removeEventListener('keydown', onPickerKey);
+      }
+      document.addEventListener('keydown', onPickerKey);
+
+      picker.hidden = false;
+      load(start);
+    }
+
+    async function safeDetail(res) {
+      try {
+        const j = await res.json();
+        if (typeof j.detail === 'string') return j.detail;
+        if (j.detail && j.detail.message) return j.detail.message;
+        return JSON.stringify(j);
+      } catch {
+        return `HTTP ${res.status}`;
+      }
+    }
+  })();
 </script>
 {% endblock %}

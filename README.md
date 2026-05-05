@@ -22,6 +22,76 @@ Sidebar nav with seven pages, each consuming the existing JSON API:
 Click any spec or template to open the **Preview / Edit** panel — server-side
 Markdown rendering plus a raw `<textarea>` for editing.
 
+## Template editor (`/editor`)
+
+A first-class CodeMirror 6 editor for attune-help-style markdown templates.
+Triggered by `attune-author edit <path>` or by navigating to
+`/editor?corpus=<id>&path=<rel>`. Reads from / writes back to any registered
+corpus on disk, with all retrieval/lint/refactor smarts coming from
+[`attune-rag`](https://pypi.org/project/attune-rag/)'s `editor` toolkit.
+
+Developer features:
+
+| Feature | What it does |
+|---------|---------------|
+| **Schema-driven frontmatter form** | Reads `attune_rag.editor.load_schema()` at request time and renders typed inputs (select / chip-input / textarea / text). Unknown frontmatter keys are preserved verbatim. Raw-YAML toggle round-trips byte-for-byte. |
+| **CodeMirror 6 + Lezer extension** | Composes the standard `@codemirror/lang-markdown` with a custom Lezer extension for YAML frontmatter delimiters, `## Depth N` markers, and `[[alias]]` refs (excluding fenced code, supporting `\[[` escape). |
+| **Server-side lint** | 300 ms debounced POST to `/api/corpus/<id>/lint`. Diagnostics paint as squiggles in the editor + a clickable strip at the bottom. Local fast-path skips the round-trip for YAML parse errors. |
+| **Tag + alias autocomplete** | Context-aware completions inside `tags:` / `aliases:` frontmatter fields and `[[…]]` body refs. Per-prefix LRU cache invalidates on WS file-change events. |
+| **Per-hunk save modal** | `/api/corpus/<id>/template/diff` returns stable hunk ids; the modal shows each hunk with a checkbox and runs a *projected-state* lint so a partial save can't write known-broken frontmatter. Atomic save via `/template/save` (409 on `base_hash` mismatch → conflict mode). |
+| **3-way merge conflict mode** | A WebSocket at `/ws/corpus/<id>?path=<rel>` pushes `file_changed` events from `watchfiles`. On conflict (or 409), a banner offers Reload / Keep / Resolve. Resolve uses [`node-diff3`](https://github.com/bhousel/node-diff3) for per-region accept-disk / accept-editor / keep-both. |
+| **Cross-corpus rename refactor** | Right-click any tag/alias chip → "Rename …". `/api/corpus/<id>/refactor/rename/preview` returns a multi-file diff; apply is atomic across files (per-file tempfile + sequential rename + drift-detection rollback). 409 with `owning_path` on alias collisions. |
+| **Corpus switcher** | Top-bar dropdown lists registered corpora (`~/.attune/corpora.json`). Search input materializes above 10 corpora. "+ Add corpus…" registers a new root via `/api/corpus/register`. Switching with unsaved edits prompts Save / Discard / Cancel. |
+| **Generated-corpus advisory** | Persistent, non-dismissible banner when the active corpus has `kind: "generated"` — flags that edits will be overwritten on the next `attune-author maintain`. |
+| **Read-only on duplicate session** | A second tab opening the same `(corpus, path)` receives a `duplicate_session` WS message and goes read-only with a banner — first tab keeps full control. |
+| **Keyboard shortcuts** | `⌘/Ctrl-S` opens the save modal; `⌘/Ctrl-K` is reserved for the v2 command palette (currently surfaces a "coming in v2" toast). `beforeunload` warns on unsaved edits. |
+| **Pre-bundled, no Node at install** | `editor-frontend/` is Vite + TypeScript; `make build-editor` produces a hashed-filename bundle into `sidecar/attune_gui/static/editor/` that's checked into the repo. PyPI consumers don't need `npm`. |
+
+### Editor frontend dev loop
+
+```bash
+# In one shell — sidecar with auto-reload:
+uv run attune-gui --port 8765 --reload
+
+# In another — vitest watch (94 unit tests, ~2s):
+cd editor-frontend && npm run test --watch
+
+# Rebuild the bundle (deterministic; output committed):
+make build-editor
+
+# Run the 4 golden-flow Playwright e2e tests against a fresh sidecar
+# (auto-spawned by playwright.config.ts) — ~3s end-to-end:
+cd editor-frontend && npm run e2e
+```
+
+The editor bundle is ~210 KB gzipped (budget: 600 KB). Schema and Lezer
+grammar parse fixtures live in `editor-frontend/src/grammar/`; merge
+correctness in `three-way-merge.test.ts`. The Playwright suite under
+`editor-frontend/e2e/` exercises the four end-to-end flows
+(open→edit→save, conflict resolve via WS-pushed `file_changed`, rename
+refactor preview+apply, corpus switcher with unsaved-edits guard) — it
+spins up a real sidecar with an isolated `ATTUNE_CORPORA_REGISTRY` so
+your dev registry isn't touched.
+
+### Endpoint summary
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET    | `/editor?corpus=<id>&path=<rel>` | Editor shell (Jinja) |
+| GET    | `/api/editor/template-schema` | Frontmatter JSON Schema |
+| GET    | `/api/corpus` | List registered corpora + active id |
+| POST   | `/api/corpus/active` | Switch active corpus |
+| POST   | `/api/corpus/register` | Add a new corpus root |
+| POST   | `/api/corpus/resolve` | Map an absolute path → `(corpus_id, rel_path)` |
+| GET    | `/api/corpus/<id>/template?path=<rel>` | Read template + base hash + mtime |
+| POST   | `/api/corpus/<id>/template/diff` | Compute unified-diff hunks vs disk |
+| POST   | `/api/corpus/<id>/template/save` | Atomic save (`base_hash` 409-guarded) |
+| POST   | `/api/corpus/<id>/lint` | Lint a template body |
+| GET    | `/api/corpus/<id>/autocomplete?kind=tag\|alias&prefix=…` | Autocomplete |
+| POST   | `/api/corpus/<id>/refactor/rename/preview` | Multi-file rename plan |
+| POST   | `/api/corpus/<id>/refactor/rename/apply` | Atomic rename across files |
+| WS     | `/ws/corpus/<id>?path=<rel>` | `file_changed` + `duplicate_session` push |
+
 > Looking for AI dev workflows (code review, security audits, refactor
 > planning, multi-agent orchestration)? Those live in
 > [`attune-ai`](https://pypi.org/project/attune-ai/) — a separate

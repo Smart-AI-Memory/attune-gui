@@ -102,14 +102,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.open:
         webbrowser.open(url)
 
-    uvicorn.run(
-        "attune_gui.app:create_app",
-        factory=True,
-        host="127.0.0.1",
-        port=port,
-        reload=args.reload,
-        log_level=args.log_level,
-    )
+    # Write the portfile so attune-author's `edit` CLI can find this
+    # sidecar via ~/.attune/sidecar.port. Cleaned up on shutdown.
+    from attune_gui.editor_sidecar import portfile_context  # noqa: PLC0415
+    from attune_gui.security import current_session_token  # noqa: PLC0415
+
+    with portfile_context(port=port, token=current_session_token()):
+        uvicorn.run(
+            "attune_gui.app:create_app",
+            factory=True,
+            host="127.0.0.1",
+            port=port,
+            reload=args.reload,
+            log_level=args.log_level,
+        )
     return 0
 
 

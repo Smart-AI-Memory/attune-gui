@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import secrets
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Header, HTTPException
+from starlette.requests import HTTPConnection
 
 # Generated once per process start. A new sidecar run invalidates old
 # tokens, which is fine — the UI reloads and picks up the new one.
@@ -54,15 +55,19 @@ def require_client_token(
         )
 
 
-async def origin_guard(request: Request) -> None:
+async def origin_guard(connection: HTTPConnection) -> None:
     """Reject requests whose Origin isn't a localhost form.
+
+    Accepts either an HTTP ``Request`` or a ``WebSocket`` (both are
+    ``HTTPConnection`` subclasses), so the same dependency works for
+    JSON routes and the editor's WebSocket route.
 
     Requests with no Origin header (e.g., curl, server-to-server calls
     from uvicorn tooling, uvicorn's own health probes) are allowed —
     the real guard is binding to 127.0.0.1. Origin checking is about
     browser drive-by protection.
     """
-    origin = request.headers.get("origin")
+    origin = connection.headers.get("origin")
     if origin is None:
         return
 

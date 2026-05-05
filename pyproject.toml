@@ -62,6 +62,14 @@ packages = ["sidecar/attune_gui"]
 include = [
     "sidecar/attune_gui",
     "sidecar/tests",
+    "editor-frontend/package.json",
+    "editor-frontend/tsconfig.json",
+    "editor-frontend/vite.config.ts",
+    "editor-frontend/eslint.config.js",
+    "editor-frontend/index.html",
+    "editor-frontend/src",
+    "editor-frontend/README.md",
+    "Makefile",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
@@ -76,6 +84,12 @@ target-version = "py310"
 select = ["E", "F", "I", "N", "W", "UP", "B", "S", "BLE001"]
 ignore = [
     "S101",  # assert used (fine in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"sidecar/tests/*" = [
+    "S105",  # possible hardcoded password — fine for fake tokens in fixtures
+    "S106",
 ]
 
 [tool.pytest.ini_options]

@@ -16,11 +16,19 @@ from fastapi.staticfiles import StaticFiles
 
 from attune_gui import __version__
 from attune_gui.routes import (  # noqa: F401
+    choices,
     cowork_files,
     cowork_health,
     cowork_pages,
     cowork_specs,
     cowork_templates,
+    editor_corpus,
+    editor_health,
+    editor_lint,
+    editor_pages,
+    editor_schema,
+    editor_template,
+    editor_ws,
     fs,
     help,
     jobs,
@@ -36,6 +44,10 @@ logger = logging.getLogger(__name__)
 
 # Cowork dashboard CSS/JS lives next to the package.
 _CW_STATIC_DIR = Path(__file__).parent / "static_cw"
+
+# Template-editor frontend bundle (Vite output from editor-frontend/).
+# Built artifacts are committed; consumers do not need Node at install time.
+_EDITOR_STATIC_DIR = Path(__file__).parent / "static" / "editor"
 
 
 def create_app() -> FastAPI:
@@ -62,10 +74,22 @@ def create_app() -> FastAPI:
     app.include_router(fs.router)
     app.include_router(rag.router)
     app.include_router(jobs.router)
+    app.include_router(choices.router)
     app.include_router(help.router)
     app.include_router(search.router)
     app.include_router(profile.router)
     app.include_router(living_docs.router)
+    app.include_router(editor_corpus.router)
+    app.include_router(editor_health.router)
+    app.include_router(editor_lint.router)
+    app.include_router(editor_schema.router)
+    app.include_router(editor_template.router)
+    app.include_router(editor_ws.router)
+
+    # ---- Template editor HTML shell -----------------------------------------
+    # Registered after the JSON routes (which use /api/* prefixes) so the
+    # /editor page handler is unambiguous.
+    app.include_router(editor_pages.router)
 
     # ---- Cowork JSON APIs ----------------------------------------------------
     app.include_router(cowork_health.router)
@@ -76,6 +100,14 @@ def create_app() -> FastAPI:
     # ---- Cowork dashboard CSS/JS --------------------------------------------
     if _CW_STATIC_DIR.is_dir():
         app.mount("/cw-static", StaticFiles(directory=_CW_STATIC_DIR), name="cw-static")
+
+    # ---- Template-editor frontend bundle ------------------------------------
+    if _EDITOR_STATIC_DIR.is_dir():
+        app.mount(
+            "/static/editor",
+            StaticFiles(directory=_EDITOR_STATIC_DIR),
+            name="editor-static",
+        )
 
     # ---- robots --------------------------------------------------------------
     @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
