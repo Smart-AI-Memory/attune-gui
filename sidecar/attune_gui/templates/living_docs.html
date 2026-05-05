@@ -75,8 +75,8 @@
   </section>
 
   <section class="section">
-    <h2 class="section-title">Documents <span class="dim small">({{ docs|length }})</span></h2>
-    {% if docs %}
+    <h2 class="section-title">Documents <span class="dim small">({{ rows|length }})</span></h2>
+    {% if rows %}
       <div class="table-wrap">
         <table class="data-table">
           <thead>
@@ -90,21 +90,54 @@
             </tr>
           </thead>
           <tbody>
-            {% for d in docs %}
-            <tr>
-              <td class="mono">{{ d.feature }}</td>
-              <td class="mono">{{ d.depth }}</td>
-              <td>{{ d.persona }}</td>
-              <td>
-                {% if d.status == 'current' %}<span class="badge ok">current</span>
-                {% elif d.status == 'stale' %}<span class="badge warn">stale</span>
-                {% elif d.status == 'missing' %}<span class="badge danger">missing</span>
-                {% else %}<span class="badge dim">{{ d.status }}</span>{% endif %}
+            {% for row in rows %}
+            <tr data-doc-id="{{ row.id }}"
+                data-state="{{ row.computed_state }}"
+                data-queue-item-id="{{ row.queue_item_id or '' }}"
+                data-regen-job-id="{{ row.regen_job_id or '' }}">
+              <td class="mono">{{ row.feature }}</td>
+              <td class="mono">{{ row.depth }}</td>
+              <td>{{ row.persona }}</td>
+              <td data-slot="badge">
+                {% if row.computed_state == 'current' %}
+                  <span class="badge ok">current</span>
+                {% elif row.computed_state == 'stale' %}
+                  <span class="badge warn">stale</span>
+                {% elif row.computed_state == 'missing' %}
+                  <span class="badge danger">missing</span>
+                {% elif row.computed_state == 'pending-review' %}
+                  <span class="badge accent-soft">pending review</span>
+                {% elif row.computed_state == 'regenerating' %}
+                  <span class="badge accent">regenerating</span>
+                {% elif row.computed_state == 'errored' %}
+                  <span class="badge danger">errored</span>
+                {% endif %}
               </td>
-              <td class="dim">{{ d.reason or '—' }}</td>
-              <td>
-                {% if d.status != 'current' %}
-                  <button class="btn ghost btn-regen" data-id="{{ d.id }}">Regenerate</button>
+              <td class="dim">{{ row.reason or '—' }}</td>
+              <td data-slot="actions">
+                {% if row.computed_state in ('stale', 'missing') %}
+                  <button class="btn ghost btn-regen"
+                          data-id="{{ row.id }}">Regenerate</button>
+                {% elif row.computed_state == 'pending-review' %}
+                  <div class="row-actions">
+                    <button class="btn primary btn-approve"
+                            data-id="{{ row.queue_item_id }}">Approve</button>
+                    <button class="btn ghost btn-revert"
+                            data-id="{{ row.queue_item_id }}">Revert</button>
+                  </div>
+                  {% if row.diff_summary %}
+                    <div class="diff-summary dim small">{{ row.diff_summary }}</div>
+                  {% endif %}
+                {% elif row.computed_state == 'regenerating' %}
+                  <span class="dim small">regenerating…</span>
+                {% elif row.computed_state == 'errored' %}
+                  <div class="row-actions">
+                    <span class="badge danger small">
+                      {{ (row.regen_job_error or 'error')[:60] }}
+                    </span>
+                    <button class="btn ghost btn-regen"
+                            data-id="{{ row.id }}">Retry</button>
+                  </div>
                 {% endif %}
               </td>
             </tr>
@@ -116,32 +149,147 @@
       <p class="empty">No documents found in the current workspace.</p>
     {% endif %}
   </section>
-
-  {% if queue %}
-  <section class="section">
-    <h2 class="section-title">Review queue <span class="dim small">({{ queue|length }})</span></h2>
-    {% for item in queue %}
-      <article class="queue-item{% if item.reviewed %} reviewed{% endif %}">
-        <header>
-          <code class="mono">{{ item.doc_id }}</code>
-          <span class="dim">{{ item.persona }}</span>
-          <span class="badge accent-soft">{{ item.trigger }}</span>
-        </header>
-        {% if item.diff_summary %}<pre class="diff">{{ item.diff_summary }}</pre>{% endif %}
-        {% if not item.reviewed %}
-          <div class="row-actions">
-            <button class="btn primary btn-approve" data-id="{{ item.id }}">Approve</button>
-            <button class="btn ghost btn-revert" data-id="{{ item.id }}">Revert</button>
-          </div>
-        {% else %}<span class="badge ok">reviewed</span>{% endif %}
-      </article>
-    {% endfor %}
-  </section>
-  {% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
+  // ── Polling ───────────────────────────────────────────────────────────────
+  let _pollTimer = null;
+
+  function _startPoll() {
+    if (_pollTimer) return;
+    _pollTimer = setInterval(_poll, 1500);
+  }
+
+  function _stopPoll() {
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  }
+
+  async function _poll() {
+    if (document.hidden) return;
+    const data = await AttuneUI.api('/api/living-docs/rows').catch(() => null);
+    if (!data) return;
+    _applyRows(data.rows);
+    if (!data.rows.some(r => r.computed_state === 'regenerating')) _stopPoll();
+  }
+
+  function _applyRows(rows) {
+    rows.forEach(row => {
+      const tr = document.querySelector(`tr[data-doc-id="${CSS.escape(row.id)}"]`);
+      if (!tr) return;
+      tr.dataset.state = row.computed_state;
+      tr.dataset.queueItemId = row.queue_item_id || '';
+      tr.dataset.regenJobId = row.regen_job_id || '';
+      _renderBadge(tr.querySelector('[data-slot="badge"]'), row);
+      _renderActions(tr.querySelector('[data-slot="actions"]'), row);
+    });
+  }
+
+  function _renderBadge(cell, row) {
+    if (!cell) return;
+    const labels = {
+      'current': ['ok', 'current'],
+      'stale': ['warn', 'stale'],
+      'missing': ['danger', 'missing'],
+      'pending-review': ['accent-soft', 'pending review'],
+      'regenerating': ['accent', 'regenerating'],
+      'errored': ['danger', 'errored'],
+    };
+    const [cls, text] = labels[row.computed_state] || ['dim', row.computed_state];
+    cell.innerHTML = `<span class="badge ${cls}">${text}</span>`;
+  }
+
+  function _renderActions(cell, row) {
+    if (!cell) return;
+    const id = CSS.escape(row.id);
+    const qid = row.queue_item_id || '';
+    const err = (row.regen_job_error || 'error').slice(0, 60);
+    const diff = row.diff_summary ? `<div class="diff-summary dim small">${row.diff_summary}</div>` : '';
+
+    if (row.computed_state === 'stale' || row.computed_state === 'missing') {
+      cell.innerHTML = `<button class="btn ghost btn-regen" data-id="${row.id}">Regenerate</button>`;
+    } else if (row.computed_state === 'pending-review') {
+      cell.innerHTML = `<div class="row-actions">
+        <button class="btn primary btn-approve" data-id="${qid}">Approve</button>
+        <button class="btn ghost btn-revert" data-id="${qid}">Revert</button>
+      </div>${diff}`;
+    } else if (row.computed_state === 'regenerating') {
+      cell.innerHTML = `<span class="dim small">regenerating…</span>`;
+    } else if (row.computed_state === 'errored') {
+      cell.innerHTML = `<div class="row-actions">
+        <span class="badge danger small">${err}</span>
+        <button class="btn ghost btn-regen" data-id="${row.id}">Retry</button>
+      </div>`;
+    } else {
+      cell.innerHTML = '';
+    }
+    _bindActionButtons(cell);
+  }
+
+  // ── Action button wiring ──────────────────────────────────────────────────
+  function _bindActionButtons(root) {
+    root.querySelectorAll('.btn-regen').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        btn.disabled = true;
+        try {
+          await AttuneUI.api(
+            `/api/living-docs/docs/${encodeURIComponent(id)}/regenerate`,
+            { method: 'POST', body: '{}' }
+          );
+          AttuneUI.toast('Regen started', 'ok');
+          const tr = btn.closest('tr[data-doc-id]');
+          if (tr) {
+            tr.dataset.state = 'regenerating';
+            const badgeCell = tr.querySelector('[data-slot="badge"]');
+            const actCell = tr.querySelector('[data-slot="actions"]');
+            if (badgeCell) badgeCell.innerHTML = '<span class="badge accent">regenerating</span>';
+            if (actCell) actCell.innerHTML = '<span class="dim small">regenerating…</span>';
+          }
+          _startPoll();
+        } catch (e) {
+          AttuneUI.toast(`Failed: ${e.message}`, 'danger');
+          btn.disabled = false;
+        }
+      });
+    });
+
+    root.querySelectorAll('.btn-approve').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        try {
+          await AttuneUI.api(
+            `/api/living-docs/queue/${encodeURIComponent(id)}/approve`,
+            { method: 'POST', body: '{}' }
+          );
+          AttuneUI.toast('Approved.', 'ok');
+          _poll();
+        } catch (e) { AttuneUI.toast(`Failed: ${e.message}`, 'danger'); }
+      });
+    });
+
+    root.querySelectorAll('.btn-revert').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        try {
+          await AttuneUI.api(
+            `/api/living-docs/queue/${encodeURIComponent(id)}/revert`,
+            { method: 'POST', body: '{}' }
+          );
+          AttuneUI.toast('Reverted.', 'ok');
+          _poll();
+        } catch (e) { AttuneUI.toast(`Failed: ${e.message}`, 'danger'); }
+      });
+    });
+  }
+
+  // ── Initial bind (server-rendered buttons) ────────────────────────────────
+  document.querySelectorAll('td[data-slot="actions"]').forEach(_bindActionButtons);
+
+  // ── Start poller if any row is already regenerating ───────────────────────
+  if (document.querySelector('tr[data-state="regenerating"]')) _startPoll();
+
+  // ── Workspace form ────────────────────────────────────────────────────────
   document.getElementById('ws-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const ws = document.getElementById('ws-input').value.trim();
@@ -158,53 +306,18 @@
     }
   });
 
+  // ── Scan button ───────────────────────────────────────────────────────────
   document.getElementById('scan-btn').addEventListener('click', async () => {
     try {
-      await AttuneUI.api('/api/living-docs/scan', { method: 'POST', body: JSON.stringify({ trigger: 'manual' }) });
+      await AttuneUI.api('/api/living-docs/scan', {
+        method: 'POST',
+        body: JSON.stringify({ trigger: 'manual' }),
+      });
       AttuneUI.toast('Scan queued.', 'ok');
-      setTimeout(() => location.reload(), 1500);
+      setTimeout(() => _poll(), 1500);
     } catch (e) {
       AttuneUI.toast(`Scan failed: ${e.message}`, 'danger');
     }
-  });
-
-  document.querySelectorAll('.btn-regen').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      btn.disabled = true;
-      try {
-        // The route now starts a real job (not a fire-and-forget
-        // BackgroundTask), so we get a job dict back and can hop the
-        // user to the Jobs page where they can watch progress + see
-        // log lines streaming in. Mirrors the Commands-page pattern.
-        const job = await AttuneUI.api(`/api/living-docs/docs/${encodeURIComponent(id)}/regenerate`, { method: 'POST', body: '{}' });
-        AttuneUI.toast(`Started regen ${job.id ? job.id.slice(0, 8) : id}`, 'ok');
-        setTimeout(() => location.assign('/dashboard/jobs'), 600);
-      } catch (e) {
-        AttuneUI.toast(`Failed: ${e.message}`, 'danger');
-        btn.disabled = false;
-      }
-    });
-  });
-  document.querySelectorAll('.btn-approve').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      try {
-        await AttuneUI.api(`/api/living-docs/queue/${encodeURIComponent(id)}/approve`, { method: 'POST', body: '{}' });
-        AttuneUI.toast('Approved.', 'ok');
-        setTimeout(() => location.reload(), 400);
-      } catch (e) { AttuneUI.toast(`Failed: ${e.message}`, 'danger'); }
-    });
-  });
-  document.querySelectorAll('.btn-revert').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      try {
-        await AttuneUI.api(`/api/living-docs/queue/${encodeURIComponent(id)}/revert`, { method: 'POST', body: '{}' });
-        AttuneUI.toast('Reverted.', 'ok');
-        setTimeout(() => location.reload(), 400);
-      } catch (e) { AttuneUI.toast(`Failed: ${e.message}`, 'danger'); }
-    });
   });
 </script>
 {% endblock %}

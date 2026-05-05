@@ -270,12 +270,11 @@ async def page_preview(
 
 @router.get("/dashboard/living-docs", response_class=HTMLResponse, include_in_schema=False)
 async def page_living_docs(request: Request) -> HTMLResponse:
-    """Render the Living Docs page — health, doc registry, review queue, workspace config."""
+    """Render the Living Docs page — health, composed doc rows, workspace config."""
     from attune_gui.routes import living_docs as ld
 
     health = await _safe_call(ld.health()) or {}
-    docs_data = await _safe_call(ld.list_docs()) or {"docs": []}
-    queue_data = await _safe_call(ld.list_queue()) or {"queue": []}
+    rows_data = await _safe_call(ld.list_rows()) or {"rows": []}
     config_data = await _safe_call(ld.get_config()) or {}
 
     return templates.TemplateResponse(
@@ -285,8 +284,7 @@ async def page_living_docs(request: Request) -> HTMLResponse:
             request,
             "living-docs",
             health=health,
-            docs=docs_data["docs"],
-            queue=queue_data["queue"],
+            rows=rows_data["rows"],
             config=config_data,
         ),
     )
