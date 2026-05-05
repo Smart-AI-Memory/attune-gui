@@ -151,19 +151,3 @@ function splitLines(text: string): string[] {
   return parts;
 }
 
-/**
- * Counts of region kinds — used by the UI to decide which banner to
- * render (no-op vs auto-mergeable vs needs-resolution).
- */
-export function summarize(result: MergeResult): {
-  conflicts: number;
-  autoRegions: number;
-} {
-  let conflicts = 0;
-  let autoRegions = 0;
-  for (const r of result.regions) {
-    if (r.kind === "conflict") conflicts++;
-    else autoRegions++;
-  }
-  return { conflicts, autoRegions };
-}

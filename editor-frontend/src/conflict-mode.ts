@@ -26,7 +26,6 @@ import {
   threeWayMerge,
   applyResolutions,
   preferredTrailingNewline,
-  summarize,
   type ConflictChoice,
   type MergeRegion,
 } from "./three-way-merge";
@@ -70,7 +69,10 @@ export interface ShowConflictOptions {
 
 export function showConflict(opts: ShowConflictOptions): ConflictBanner {
   const merge = threeWayMerge(opts.diskText, opts.baseText, opts.editorText);
-  const stats = summarize(merge);
+  const conflictCount = merge.regions.reduce(
+    (n, r) => n + (r.kind === "conflict" ? 1 : 0),
+    0,
+  );
   const hasConflict = merge.hasConflict;
 
   // Header banner
@@ -80,7 +82,7 @@ export function showConflict(opts: ShowConflictOptions): ConflictBanner {
   const msg = document.createElement("span");
   msg.className = "attune-banner-msg";
   msg.textContent = hasConflict
-    ? `This file changed on disk. ${stats.conflicts} conflict${stats.conflicts === 1 ? "" : "s"} need your decision.`
+    ? `This file changed on disk. ${conflictCount} conflict${conflictCount === 1 ? "" : "s"} need your decision.`
     : "This file changed on disk. Your edits don't overlap — you can reload, keep, or auto-merge.";
 
   const reloadBtn = document.createElement("button");

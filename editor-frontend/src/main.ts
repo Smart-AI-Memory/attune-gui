@@ -183,6 +183,9 @@ async function bootstrap(): Promise<void> {
       // `attune edit <path>` from there.
       window.location.assign("/editor");
     },
+    onError: (err) => {
+      showToast(ui.toast, `Switch failed: ${(err as Error).message}`, "err");
+    },
   });
 
   if (!boot.corpusId || !boot.relPath) {
@@ -242,6 +245,27 @@ async function bootstrap(): Promise<void> {
     }
     const draft = editor.view.state.doc.toString();
     ui.saveBtn.disabled = draft === baseText;
+  }
+
+  /**
+   * Adopt ``text``+``hash`` as the new disk state: install in editor,
+   * rebase the diff base, refresh the form, and write a status line.
+   * The four sites that needed this exact dance (reload, resolve,
+   * accept-disk, reload-from-disk) used to inline ~10 lines each.
+   */
+  function rebaseTo(text: string, hash: string, statusVerb: string): void {
+    baseText = text;
+    baseHash = hash;
+    doc.setText(text);
+    suppressEditorChange = true;
+    editor!.setText(text);
+    editor!.setBase(text);
+    suppressEditorChange = false;
+    suppressFormRefresh = true;
+    form.refresh();
+    suppressFormRefresh = false;
+    ui.status.textContent = `${statusVerb} · base ${hash}`;
+    refreshSaveButton();
   }
 
   let activeRenameModal: { close(): void } | null = null;
@@ -356,18 +380,7 @@ async function bootstrap(): Promise<void> {
       editorText,
       diskBaseHash: fresh.base_hash,
       onReload: () => {
-        baseText = fresh.text;
-        baseHash = fresh.base_hash;
-        doc.setText(fresh.text);
-        suppressEditorChange = true;
-        editor!.setText(fresh.text);
-        editor!.setBase(fresh.text);
-        suppressEditorChange = false;
-        suppressFormRefresh = true;
-        form.refresh();
-        suppressFormRefresh = false;
-        ui.status.textContent = `reloaded · base ${baseHash}`;
-        refreshSaveButton();
+        rebaseTo(fresh.text, fresh.base_hash, "reloaded");
         activeConflict = null;
       },
       onKeep: () => {
@@ -379,55 +392,22 @@ async function bootstrap(): Promise<void> {
         activeConflict = null;
       },
       onResolve: (mergedText, newBaseHash) => {
-        baseText = mergedText;
-        baseHash = newBaseHash;
-        doc.setText(mergedText);
-        suppressEditorChange = true;
-        editor!.setText(mergedText);
-        editor!.setBase(mergedText);
-        suppressEditorChange = false;
-        suppressFormRefresh = true;
-        form.refresh();
-        suppressFormRefresh = false;
-        ui.status.textContent = `merged · base ${baseHash}`;
+        rebaseTo(mergedText, newBaseHash, "merged");
         showToast(ui.toast, "Conflicts resolved. Review the editor and save.");
-        refreshSaveButton();
         activeConflict = null;
       },
     });
   }
 
   function acceptDiskAsBase(diskText: string, diskBaseHash: string): void {
-    baseText = diskText;
-    baseHash = diskBaseHash;
-    doc.setText(diskText);
-    suppressEditorChange = true;
-    editor!.setText(diskText);
-    editor!.setBase(diskText);
-    suppressEditorChange = false;
-    suppressFormRefresh = true;
-    form.refresh();
-    suppressFormRefresh = false;
-    ui.status.textContent = `synced · base ${baseHash}`;
-    refreshSaveButton();
+    rebaseTo(diskText, diskBaseHash, "synced");
   }
 
   async function reloadFromDisk(): Promise<void> {
     try {
       const fresh = await api.loadTemplate(boot.corpusId, boot.relPath);
-      baseText = fresh.text;
-      baseHash = fresh.base_hash;
-      doc.setText(fresh.text);
-      suppressEditorChange = true;
-      editor!.setText(fresh.text);
-      editor!.setBase(fresh.text);
-      suppressEditorChange = false;
-      suppressFormRefresh = true;
-      form.refresh();
-      suppressFormRefresh = false;
+      rebaseTo(fresh.text, fresh.base_hash, "reloaded");
       ui.banner.hidden = true;
-      ui.status.textContent = `reloaded · base ${baseHash}`;
-      refreshSaveButton();
     } catch (err) {
       showToast(ui.toast, `Reload failed: ${(err as Error).message}`, "err");
     }
@@ -473,8 +453,18 @@ async function bootstrap(): Promise<void> {
         // After save, the new on-disk text is what the server wrote —
         // re-fetch so the editor's base stays accurate (handles
         // partial-hunk saves where the on-disk text differs from the
-        // current draft).
-        const fresh = await api.loadTemplate(boot.corpusId, boot.relPath);
+        // current draft). If this reload fails the save still landed,
+        // so reflect that in the status and let the user retry.
+        let fresh;
+        try {
+          fresh = await api.loadTemplate(boot.corpusId, boot.relPath);
+        } catch (err) {
+          ui.status.textContent = `saved · ${result.new_hash} (reload failed)`;
+          showToast(ui.toast, `Saved, but reload failed: ${(err as Error).message}`, "err");
+          baseHash = result.new_hash;
+          refreshSaveButton();
+          return;
+        }
         baseText = fresh.text;
         baseHash = fresh.base_hash;
         editor!.setBase(fresh.text);
@@ -525,18 +515,10 @@ async function bootstrap(): Promise<void> {
   });
 
   // Cmd/Ctrl-S opens the save modal. Trap before the browser does.
-  // Cmd/Ctrl-K is a placeholder for the v2 command palette — for now
-  // we just acknowledge the keystroke with a toast so users learn the
-  // shortcut exists.
   window.addEventListener("keydown", (ev) => {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "s") {
       ev.preventDefault();
       if (!ui.saveBtn.disabled) void openSave();
-      return;
-    }
-    if ((ev.metaKey || ev.ctrlKey) && ev.key === "k") {
-      ev.preventDefault();
-      showToast(ui.toast, "Command palette: coming in v2.");
     }
   });
 

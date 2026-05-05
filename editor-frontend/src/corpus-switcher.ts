@@ -48,6 +48,8 @@ export interface SwitcherOptions {
   onSwitchRequested: (target: CorpusEntry) => boolean | Promise<boolean>;
   /** Called after a successful switch so the host can navigate. */
   onSwitched: (target: CorpusEntry) => void;
+  /** Optional: called when ``setActiveCorpus`` rejects so the host can toast. */
+  onError?: (err: unknown) => void;
 }
 
 export interface CorpusSwitcher {
@@ -226,9 +228,9 @@ export function mountCorpusSwitcher(opts: SwitcherOptions): CorpusSwitcher {
     if (!ok) return;
     try {
       await opts.api.setActiveCorpus(target.id);
-    } catch {
-      // Surface failure but don't crash — the host stays on the
-      // current corpus and can retry.
+    } catch (err) {
+      // Host stays on the current corpus and can retry.
+      opts.onError?.(err);
       return;
     }
     registryActiveId = target.id;

@@ -3,6 +3,40 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Editor backend dependency** — the template editor depends on
+  `attune_rag.editor`, which was unpublished when 0.5.0 shipped. The
+  pin now requires `attune-rag>=0.1.12`, and a runtime guard converts
+  the legacy `ModuleNotFoundError` into a clean HTTP 503 with an
+  actionable message if a user lands on a stale install.
+- **Living-docs polling** — the page used `setInterval(1500ms)` and
+  no-op'd on hidden tabs, so a backgrounded page still woke up every
+  1.5s. Replaced with a `setTimeout` chain that pauses fully on
+  hidden tabs and re-arms on `visibilitychange`. Transient API errors
+  now keep polling instead of stopping silently.
+- **Editor save → reload** — if the post-save reload failed, the
+  editor was left with a saved file but stale base state and no
+  surfaced error. Now the failed reload toasts and updates the status
+  line so the user can retry.
+- **Corpus switch errors** — `setActiveCorpus` rejections were
+  silently swallowed. The switcher now surfaces them via an `onError`
+  callback so the host can toast.
+
+### Changed
+
+- **Polish pass** across the editor + living-docs surfaces — ~170 net
+  lines removed without changing behaviour. Notable: collapsed four
+  near-identical "rebase the editor" blocks in `main.ts` into one
+  helper; deleted the unused `summarize()` from `three-way-merge.ts`;
+  removed the dead `EditorSession.rebase()` method (production never
+  called it); dropped the legacy-bundle fallback in `editor_pages.py`;
+  unified `attune_rag.editor._rename._hunks` lazy imports.
+
+---
+
 ## [0.5.0] — 2026-05-04
 
 ### Removed — legacy React UI

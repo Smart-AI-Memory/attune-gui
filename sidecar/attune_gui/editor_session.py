@@ -97,16 +97,6 @@ class EditorSession:
         """``True`` iff disk still matches the base snapshot."""
         return self.current_disk_hash() == self.base_hash
 
-    def rebase(self) -> None:
-        """Adopt the current disk text as the new base. Used after a
-        save lands or after the user accepts ``Reload from disk`` in
-        conflict mode."""
-        text = self.abs_path.read_text(encoding="utf-8")
-        self.base_text = text
-        self.base_hash = hash_text(text)
-        self.draft_text = text
-        self._last_disk_hash = self.base_hash
-
     # ---- watcher -----------------------------------------------------
 
     def start(self) -> None:

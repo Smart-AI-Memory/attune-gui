@@ -28,9 +28,6 @@ export interface SaveModalBindings {
   onClose?(): void;
 }
 
-const BLOCKING_SEVERITIES: ReadonlySet<ServerDiagnostic["severity"]> = new Set([
-  "error",
-]);
 /** Diagnostic codes that block save (only frontmatter errors per spec). */
 const BLOCKING_CODES = /^(missing-required|bad-enum|bad-type|too-short|duplicate-items|not-a-mapping|malformed-yaml)$/;
 
@@ -158,17 +155,16 @@ export function openSaveModal(bindings: SaveModalBindings): SaveModal {
     }
     if (myToken !== lintToken) return;
 
-    const blocking = diags.filter(
-      (d) => BLOCKING_SEVERITIES.has(d.severity) && BLOCKING_CODES.test(d.code),
-    );
+    const isBlocking = (d: ServerDiagnostic) =>
+      d.severity === "error" && BLOCKING_CODES.test(d.code);
+    const blocking = diags.filter(isBlocking);
     // Advisory = error/warning that does NOT block (e.g. broken-alias).
     // Some drafts intentionally reference an alias the user is about
     // to create — we let that through with a clear heads-up rather
     // than hard-blocking the save.
-    const advisory = diags.filter((d) => {
-      if (d.severity !== "error" && d.severity !== "warning") return false;
-      return !(BLOCKING_SEVERITIES.has(d.severity) && BLOCKING_CODES.test(d.code));
-    });
+    const advisory = diags.filter(
+      (d) => (d.severity === "error" || d.severity === "warning") && !isBlocking(d),
+    );
 
     blocked = blocking.length > 0;
     if (blocked) {

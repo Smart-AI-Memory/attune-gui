@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 from attune_gui.routes.living_docs import _project_doc_state
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

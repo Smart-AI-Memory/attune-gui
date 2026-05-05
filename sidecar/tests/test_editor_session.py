@@ -99,21 +99,3 @@ async def test_stop_cancels_watcher(template_file: Path) -> None:
     # is cancelled. (next_event would block forever; we just check the
     # watcher task is gone.)
     assert session._watch_task is None
-
-
-@pytest.mark.asyncio
-async def test_rebase_after_save(template_file: Path) -> None:
-    """Saves work by writing to disk + rebasing the session."""
-    session = EditorSession.load(template_file, poll_interval=0.02)
-    session.start()
-    try:
-        new_text = "post-save content\n"
-        template_file.write_text(new_text, encoding="utf-8")
-        # Drain the file_changed event the watcher emits for our write.
-        await asyncio.wait_for(session.next_event(), timeout=2.0)
-        # Caller "saved" — adopt new disk state as the new base.
-        session.rebase()
-        assert session.base_hash == hash_text(new_text)
-        assert session.matches_base() is True
-    finally:
-        await session.stop()

@@ -3,7 +3,6 @@ import {
   threeWayMerge,
   applyResolutions,
   preferredTrailingNewline,
-  summarize,
   type ConflictChoice,
   type MergeRegion,
 } from "./three-way-merge";
@@ -125,22 +124,6 @@ describe("preferredTrailingNewline", () => {
   it("falls back to base when both disk and editor are empty", () => {
     expect(preferredTrailingNewline("", "base\n", "")).toBe(true);
     expect(preferredTrailingNewline("", "base", "")).toBe(false);
-  });
-});
-
-describe("summarize", () => {
-  it("counts conflict and auto regions independently", () => {
-    const disk = "alpha\nbeta\nDISK\ndelta\nepsilon\n";
-    const editor = "alpha\nbeta\nED\ndelta\nepsilon\n";
-    const r = threeWayMerge(disk, base, editor);
-    const s = summarize(r);
-    expect(s.conflicts).toBe(1);
-    expect(s.autoRegions).toBeGreaterThan(0);
-  });
-
-  it("reports zero conflicts on identical inputs", () => {
-    const r = threeWayMerge(base, base, base);
-    expect(summarize(r).conflicts).toBe(0);
   });
 });
 

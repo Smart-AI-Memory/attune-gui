@@ -76,10 +76,6 @@ def _get_workspace() -> Path:
     return get_workspace() or Path.cwd()
 
 
-def _set_workspace(path: str) -> Path:
-    return set_workspace(path)
-
-
 # ---------------------------------------------------------------------------
 # Config endpoint
 # ---------------------------------------------------------------------------
@@ -100,7 +96,7 @@ async def get_config() -> dict[str, Any]:
 async def set_config(body: ConfigUpdate, background_tasks: BackgroundTasks) -> dict[str, Any]:
     """Persist a new workspace path and queue a manual rescan. 400 if the path isn't a directory."""
     try:
-        resolved = await asyncio.to_thread(_set_workspace, body.workspace)
+        resolved = await asyncio.to_thread(set_workspace, body.workspace)
     except ValueError as e:
         raise HTTPException(
             status_code=400,
@@ -168,21 +164,23 @@ async def list_rows() -> dict[str, Any]:
         job = regen_jobs.get(doc_id)
         state = _project_doc_state(doc, qi, job)
         live = state in ("regenerating", "errored")
-        rows.append({
-            "id": doc_id,
-            "feature": doc["feature"],
-            "depth": doc["depth"],
-            "persona": doc["persona"],
-            "base_status": doc["status"],
-            "computed_state": state,
-            "reason": doc.get("reason"),
-            "last_modified": doc.get("last_modified"),
-            "regen_job_id": job["id"] if live and job else None,
-            "regen_job_status": job["status"] if live and job else None,
-            "regen_job_error": job.get("error") if state == "errored" and job else None,
-            "queue_item_id": qi["id"] if state == "pending-review" and qi else None,
-            "diff_summary": qi.get("diff_summary") if state == "pending-review" and qi else None,
-        })
+        rows.append(
+            {
+                "id": doc_id,
+                "feature": doc["feature"],
+                "depth": doc["depth"],
+                "persona": doc["persona"],
+                "base_status": doc["status"],
+                "computed_state": state,
+                "reason": doc.get("reason"),
+                "last_modified": doc.get("last_modified"),
+                "regen_job_id": job["id"] if live else None,
+                "regen_job_status": job["status"] if live else None,
+                "regen_job_error": job.get("error") if state == "errored" else None,
+                "queue_item_id": qi["id"] if state == "pending-review" else None,
+                "diff_summary": qi.get("diff_summary") if state == "pending-review" else None,
+            }
+        )
     return {"rows": rows}
 
 
@@ -216,12 +214,7 @@ async def trigger_scan(req: ScanRequest, background_tasks: BackgroundTasks) -> d
 
 
 async def _regenerate_doc_executor(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    """Job-system executor for `living-docs.regenerate`.
-
-    Same effective work as the legacy `_regenerate_doc` background task,
-    but progress is now visible on the Jobs page via `ctx.log` calls
-    instead of disappearing into a fire-and-forget BackgroundTask.
-    """
+    """Job-system executor for `living-docs.regenerate`."""
     doc_id = str(args["doc_id"])
     trigger = str(args.get("trigger", "manual"))
     parts = doc_id.split("/", 1)
@@ -240,12 +233,6 @@ async def _regenerate_doc_executor(args: dict[str, Any], ctx: JobContext) -> dic
 
     ctx.log("loading manifest…")
     manifest = await asyncio.to_thread(load_manifest, help_dir)
-    # `manifest.features` is `dict[str, Feature]`, not a list — the
-    # legacy BackgroundTask version was iterating it as a list, which
-    # silently produced str keys instead of Feature objects and crashed
-    # in `getattr(f, 'name', ...)`. The error never surfaced because
-    # BackgroundTask exceptions only logged. Surfaced now via the Jobs
-    # page; fix the lookup.
     feat = manifest.features.get(feature_name)
     if feat is None:
         available = ", ".join(sorted(manifest.features.keys())) or "(none)"
@@ -274,13 +261,7 @@ async def _regenerate_doc_executor(args: dict[str, Any], ctx: JobContext) -> dic
 
 @router.post("/docs/{doc_id:path}/regenerate", dependencies=[Depends(require_client_token)])
 async def regenerate_doc(doc_id: str) -> dict[str, Any]:
-    """Start a regeneration job for a single doc (``feature/depth``).
-
-    Returns the job dict so the frontend can navigate to the Jobs page
-    and watch progress — the previous BackgroundTask version had no
-    visibility, leaving users staring at a "queued" toast with no idea
-    whether the work was running.
-    """
+    """Start a regeneration job for a single doc (``feature/depth``); returns the job dict."""
     job = await get_registry().start(
         name="living-docs.regenerate",
         args={"doc_id": doc_id, "trigger": "manual"},

@@ -43,12 +43,9 @@ def _read_bundle_assets() -> tuple[str, str]:
     tiny (<1 KB) and only changes on rebuild, so a cache layer would
     add complexity for no measurable win.
 
-    Falls back to the legacy unhashed names (``editor.js`` /
-    ``editor.css``) if the manifest is missing — handy during a stale
-    install where the old deterministic-named bundle is still on disk.
-    Returns sentinel ``("dev.js", "dev.css")`` if neither is present so
-    the page still renders (with a broken bundle URL the browser will
-    surface clearly).
+    Returns sentinel ``("dev.js", "dev.css")`` if the manifest is
+    missing so the page still renders (with a broken bundle URL the
+    browser will surface clearly).
     """
     if _MANIFEST_PATH.is_file():
         try:
@@ -61,11 +58,6 @@ def _read_bundle_assets() -> tuple[str, str]:
                 return js, css
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning("Failed to read editor manifest: %s", exc)
-
-    legacy_js = _BUNDLE_DIR / "editor.js"
-    legacy_css = _BUNDLE_DIR / "editor.css"
-    if legacy_js.is_file() and legacy_css.is_file():
-        return "editor.js", "editor.css"
 
     return "dev.js", "dev.css"
 

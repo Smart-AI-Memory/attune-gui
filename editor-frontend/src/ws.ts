@@ -77,10 +77,6 @@ export function openEditorWebSocket(opts: WsClientOptions): WsClient {
       reconnectTimer = setTimeout(connect, backoff);
       backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
     });
-    socket.addEventListener("error", () => {
-      // Browsers emit an error before the close event; nothing useful
-      // is exposed in `ev`, so we let the close handler drive recovery.
-    });
   }
 
   connect();
