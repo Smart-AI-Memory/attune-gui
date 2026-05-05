@@ -41,6 +41,14 @@
               {% if j.status in ('running', 'pending') %}
                 <button class="btn ghost btn-cancel" data-id="{{ j.id }}">Cancel</button>
               {% endif %}
+              {# Per-name follow-up links so users land on the right
+                 next-step surface instead of staring at a green
+                 'completed' badge with no idea what to do. #}
+              {% if j.name == 'living-docs.regenerate' and j.status in ('completed','done','success') %}
+                <a class="row-action"
+                   href="/dashboard/living-docs#review-queue"
+                   title="Approve or revert the regenerated doc">Review →</a>
+              {% endif %}
               <a class="row-action" href="/api/jobs/{{ j.id }}" target="_blank" rel="noopener">json</a>
             </td>
           </tr>
