@@ -109,7 +109,7 @@ def _write_file(data: dict[str, object]) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=2, sort_keys=True)
         os.replace(tmp_path, CONFIG_PATH)
-    except Exception:
+    except Exception:  # noqa: BLE001 — clean up the tempfile on any write failure, then re-raise
         try:
             os.unlink(tmp_path)
         except OSError:

@@ -32,7 +32,7 @@ async def browse(
     """
     try:
         resolved = Path(path).expanduser().resolve()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — any path-resolve failure surfaces as 400 invalid-path
         raise HTTPException(status_code=400, detail=f"Invalid path: {exc}") from exc
 
     if not resolved.is_dir():
