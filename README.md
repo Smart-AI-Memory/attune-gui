@@ -130,15 +130,30 @@ ATTUNE_SPECS_ROOT=/path/to/your/repo/specs
 ATTUNE_WORKSPACE=/path/to/your/project
 ```
 
-### Workspace + specs root
+### `~/.attune-gui/config.json`
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `ATTUNE_WORKSPACE` | persisted to `~/.attune-gui/config.json` | The project the sidecar watches (Living Docs, templates) |
-| `ATTUNE_SPECS_ROOT` | `<workspace>/specs/`, then walks up from cwd | Where the **Specs** page reads from |
+A single typed config file holds the keys below. Each key has a matching
+environment variable that overrides the file at runtime — useful for CI
+or one-off runs. Precedence: **env > file > default**.
 
-Workspace can also be set via **Living Docs → Workspace** in the UI; it
-persists to `~/.attune-gui/config.json` and survives restarts.
+| Key | Env var | Purpose |
+|-----|---------|---------|
+| `workspace` | `ATTUNE_WORKSPACE` | Project the sidecar watches (Living Docs, templates) |
+| `corpora_registry` | `ATTUNE_CORPORA_REGISTRY` | Path to corpora registry (default: `~/.attune/corpora.json`) |
+| `specs_root` | `ATTUNE_SPECS_ROOT` | Where the **Specs** page reads from (default: `<workspace>/specs/`, then walks up from cwd) |
+
+Manage the file from the CLI — no hand-editing JSON:
+
+```bash
+attune-gui config list                               # show resolved values + source
+attune-gui config get workspace                      # print one value
+attune-gui config set workspace /path/to/project     # persist a value
+attune-gui config unset specs_root                   # remove a key
+```
+
+`config set workspace` validates that the path is a real directory; the
+others trust you. Workspace can also be set via **Living Docs →
+Workspace** in the UI — both surfaces write to the same file.
 
 ## Development
 

@@ -27,10 +27,11 @@ def reset_store(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Set ~/.attune-gui/config.json to point at a tmp workspace."""
-    from attune_gui import workspace as ws
+    from attune_gui import config
 
     cfg = tmp_path / "config.json"
-    monkeypatch.setattr(ws, "_CONFIG_PATH", cfg)
+    monkeypatch.setattr(config, "CONFIG_PATH", cfg)
+    monkeypatch.delenv("ATTUNE_WORKSPACE", raising=False)
     cfg.parent.mkdir(parents=True, exist_ok=True)
     project = tmp_path / "project"
     project.mkdir()

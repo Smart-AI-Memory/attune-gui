@@ -83,12 +83,94 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--log-level", default="info", choices=["critical", "error", "warning", "info", "debug"]
     )
+
+    sub = p.add_subparsers(dest="command")
+
+    config_p = sub.add_parser(
+        "config",
+        help="Show or modify ~/.attune-gui/config.json (workspace, corpora_registry, specs_root).",
+    )
+    config_sub = config_p.add_subparsers(dest="config_action", required=True)
+    config_sub.add_parser("list", help="Print all keys with their resolved value and source.")
+    get_p = config_sub.add_parser("get", help="Print the resolved value for a single key.")
+    get_p.add_argument("key")
+    set_p = config_sub.add_parser("set", help="Persist a value to the config file.")
+    set_p.add_argument("key")
+    set_p.add_argument("value")
+    unset_p = config_sub.add_parser("unset", help="Remove a key from the config file.")
+    unset_p.add_argument("key")
+
     return p
+
+
+def _config_command(args: argparse.Namespace) -> int:
+    """Handle ``attune-gui config <action>``. Returns process exit code."""
+    from attune_gui import config  # noqa: PLC0415
+
+    action = args.config_action
+    if action == "list":
+        for key in config.known_keys():
+            value = config.get(key)
+            source = config.get_source(key)
+            display = value if value is not None else "<unset>"
+            print(f"{key} = {display}  ({source}; env={config.env_var_for(key)})")
+        return 0
+
+    if action == "get":
+        if not config.is_valid_key(args.key):
+            print(
+                f"unknown key: {args.key!r}. valid: {', '.join(config.known_keys())}",
+                file=sys.stderr,
+            )
+            return 2
+        value = config.get(args.key)
+        if value is None:
+            return 1
+        print(value)
+        return 0
+
+    if action == "set":
+        if not config.is_valid_key(args.key):
+            print(
+                f"unknown key: {args.key!r}. valid: {', '.join(config.known_keys())}",
+                file=sys.stderr,
+            )
+            return 2
+        if args.key == "workspace":
+            # workspace carries directory-existence validation; route through it
+            from attune_gui.workspace import set_workspace  # noqa: PLC0415
+
+            try:
+                resolved = set_workspace(args.value)
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 1
+            print(f"workspace = {resolved}")
+            return 0
+        config.set_value(args.key, args.value)
+        print(f"{args.key} = {args.value}")
+        return 0
+
+    if action == "unset":
+        if not config.is_valid_key(args.key):
+            print(
+                f"unknown key: {args.key!r}. valid: {', '.join(config.known_keys())}",
+                file=sys.stderr,
+            )
+            return 2
+        removed = config.unset_value(args.key)
+        print(f"removed {args.key}" if removed else f"{args.key} was not set")
+        return 0
+
+    return 2
 
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: parse args, pick a port, print SIDECAR_URL, run uvicorn."""
     args = _build_parser().parse_args(argv)
+
+    if args.command == "config":
+        return _config_command(args)
 
     _load_dotenv()
 

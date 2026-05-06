@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-06T01:32:33.454431+00:00
-source_hash: 6cf2ec1dea9a074d0cc9830a3dd6a31eb9696ebfd5fe85f42cbb10d54afc2067
+generated_at: 2026-05-06T03:22:24.082781+00:00
+source_hash: 9a45296c182496f7a010644896af3e7b8be6dca9a5412ea5145a2d2e9d9944ab
 status: generated
 ---
 
@@ -13,6 +13,7 @@ status: generated
 | Class | Description | File |
 |-------|-------------|------|
 | `CommandSpec` | — | `sidecar/attune_gui/commands.py` |
+| `Config` | Resolved config snapshot. Values are post-precedence. | `sidecar/attune_gui/config.py` |
 | `CorpusEntry` | — | `sidecar/attune_gui/editor_corpora.py` |
 | `Registry` | In-memory snapshot of ``~/.attune/corpora.json``. | `sidecar/attune_gui/editor_corpora.py` |
 | `EditorSession` | In-process state for a single ``(corpus, path)`` editing tab. | `sidecar/attune_gui/editor_session.py` |
@@ -60,6 +61,9 @@ status: generated
 | `TestAuthorExecutors` | — | `sidecar/tests/test_commands.py` |
 | `TestAuthorRegen` | — | `sidecar/tests/test_commands.py` |
 | `TestAuthorSetup` | — | `sidecar/tests/test_commands.py` |
+| `TestPrecedence` | — | `sidecar/tests/test_config.py` |
+| `TestFileHandling` | — | `sidecar/tests/test_config.py` |
+| `TestConfigCli` | — | `sidecar/tests/test_config.py` |
 | `TestLivingDocsRoutes` | — | `sidecar/tests/test_living_docs.py` |
 | `TestPipelineCache` | — | `sidecar/tests/test_routes_rag.py` |
 | `TestRagQuery` | — | `sidecar/tests/test_routes_rag.py` |
@@ -76,6 +80,14 @@ status: generated
 | `create_app()` | Build the FastAPI app with origin-guard, CORS, and all routers wired. | `sidecar/attune_gui/app.py` |
 | `get_command()` | Return the CommandSpec for ``name``, or None if it isn't registered. | `sidecar/attune_gui/commands.py` |
 | `list_commands()` | Return registered commands as JSON-serializable dicts. | `sidecar/attune_gui/commands.py` |
+| `is_valid_key()` | — | `sidecar/attune_gui/config.py` |
+| `known_keys()` | — | `sidecar/attune_gui/config.py` |
+| `env_var_for()` | — | `sidecar/attune_gui/config.py` |
+| `get()` | Return the resolved value for ``key``, applying env > file > default. | `sidecar/attune_gui/config.py` |
+| `get_source()` | Tell the user where the resolved value came from. Used by ``config --list``. | `sidecar/attune_gui/config.py` |
+| `load()` | Resolve all keys at once. | `sidecar/attune_gui/config.py` |
+| `set_value()` | Persist ``value`` to the config file. Does not validate semantics | `sidecar/attune_gui/config.py` |
+| `unset_value()` | Remove ``key`` from the config file. Returns True if it was present. | `sidecar/attune_gui/config.py` |
 | `load_registry()` | Read the registry file. Returns an empty Registry if absent. | `sidecar/attune_gui/editor_corpora.py` |
 | `save_registry()` | Write the registry to disk. Creates ``~/.attune/`` if needed. | `sidecar/attune_gui/editor_corpora.py` |
 | `list_corpora()` | — | `sidecar/attune_gui/editor_corpora.py` |
@@ -165,8 +177,8 @@ status: generated
 | `current_session_token()` | Return the in-process session token (exposed via /api/session/token). | `sidecar/attune_gui/security.py` |
 | `require_client_token()` | Raise 403 if the X-Attune-Client header doesn't match the session token. | `sidecar/attune_gui/security.py` |
 | `origin_guard()` | Reject requests whose Origin isn't a localhost form. | `sidecar/attune_gui/security.py` |
-| `get_workspace()` | Return the configured workspace path, or None if unset / invalid. | `sidecar/attune_gui/workspace.py` |
-| `set_workspace()` | Persist a new workspace path. Raises ValueError if not a directory. | `sidecar/attune_gui/workspace.py` |
+| `get_workspace()` | Return the configured workspace path, or ``None`` if unset / invalid. | `sidecar/attune_gui/workspace.py` |
+| `set_workspace()` | Persist a new workspace path. Raises ``ValueError`` if not a directory. | `sidecar/attune_gui/workspace.py` |
 | `client()` | — | `sidecar/tests/conftest.py` |
 | `session_token()` | Mint a session token for routes guarded by ``X-Attune-Client``. | `sidecar/tests/conftest.py` |
 | `test_features_listed_from_help_dir()` | — | `sidecar/tests/test_choices.py` |
@@ -178,6 +190,7 @@ status: generated
 | `test_manifest_malformed_returns_400()` | — | `sidecar/tests/test_choices.py` |
 | `test_choicesurl_present_in_author_generate_schema()` | Regression: the dashboard form relies on this extension to | `sidecar/tests/test_choices.py` |
 | `ctx()` | — | `sidecar/tests/test_commands.py` |
+| `isolated()` | — | `sidecar/tests/test_config.py` |
 | `test_read_specs_file()` | — | `sidecar/tests/test_cowork_files.py` |
 | `test_read_404_for_missing_file()` | — | `sidecar/tests/test_cowork_files.py` |
 | `test_read_blocks_path_traversal()` | — | `sidecar/tests/test_cowork_files.py` |
@@ -376,6 +389,16 @@ status: generated
 | `test_reason_none_serialises_as_null()` | — | `sidecar/tests/test_living_docs_store.py` |
 | `test_getattr_fallback_on_report_without_stale_reasons()` | getattr(report, "stale_reasons", {}) must return {} when attribute absent. | `sidecar/tests/test_living_docs_store.py` |
 | `test_scan_sync_produces_reason_none_when_no_help_dir()` | _scan_sync completes without error when .help/ is absent. | `sidecar/tests/test_living_docs_store.py` |
+| `test_load_state_missing_file_starts_empty()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_load_state_corrupt_json_starts_empty()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_load_state_wrong_version_starts_empty()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_load_state_unexpected_shape_starts_empty()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_save_state_round_trips_queue_and_quality()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_save_state_writes_schema_version()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_save_state_skips_malformed_queue_entry()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_add_to_queue_persists()` | add_to_queue should persist; a second store instance sees the item. | `sidecar/tests/test_living_docs_store.py` |
+| `test_set_quality_persists()` | — | `sidecar/tests/test_living_docs_store.py` |
+| `test_approve_persists_reviewed_flag()` | — | `sidecar/tests/test_living_docs_store.py` |
 | `test_loads_simple_kv()` | — | `sidecar/tests/test_load_dotenv.py` |
 | `test_overwrites_empty_env_value()` | Empty/whitespace-only existing values should be replaced. | `sidecar/tests/test_load_dotenv.py` |
 | `test_does_not_overwrite_real_existing_value()` | — | `sidecar/tests/test_load_dotenv.py` |
@@ -464,7 +487,7 @@ status: generated
 | `clear_rag_cache()` | — | `sidecar/tests/test_unified_search.py` |
 | `test_e2e_seeded_workspace()` | Seed two templates in a workspace; both appear in unified search results. | `sidecar/tests/test_unified_search.py` |
 | `test_engine_failure_degrades_gracefully()` | _help_search catches its own errors and returns []; RAG results still come through. | `sidecar/tests/test_unified_search.py` |
-| `isolated_config()` | Point _CONFIG_PATH at a tmp file so tests don't touch the real home dir. | `sidecar/tests/test_workspace.py` |
+| `isolated_config()` | Point CONFIG_PATH at a tmp file and clear env overrides. | `sidecar/tests/test_workspace.py` |
 
 
 ## Source files

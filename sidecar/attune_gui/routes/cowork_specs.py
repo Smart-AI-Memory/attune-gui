@@ -22,7 +22,6 @@ Write endpoints (require X-Attune-Client):
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 from typing import Any
@@ -90,15 +89,18 @@ def _specs_root() -> Path | None:
     """Find the workspace ``specs/`` directory.
 
     Search order:
-      1. ``ATTUNE_SPECS_ROOT`` env var (if set and a real dir)
+      1. ``specs_root`` from :mod:`attune_gui.config`
+         (env ``ATTUNE_SPECS_ROOT`` → file → default)
       2. ``<workspace>/specs/``
       3. ``<workspace>/.help/specs/``
       4. ``Path.cwd() / "specs"``
       5. Walk up from cwd looking for the first ``specs/`` dir
     """
-    env = os.environ.get("ATTUNE_SPECS_ROOT")
-    if env:
-        p = Path(env).expanduser()
+    from attune_gui import config  # noqa: PLC0415
+
+    override = config.get("specs_root")
+    if override:
+        p = Path(override).expanduser()
         if p.is_dir():
             return p
 

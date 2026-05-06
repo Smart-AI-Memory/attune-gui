@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Typed config + `attune-gui config` CLI.** A single
+  `~/.attune-gui/config.json` now holds `workspace`,
+  `corpora_registry`, and `specs_root`. Each key has a matching env
+  var (`ATTUNE_*`) that overrides the file. Manage from the CLI:
+  `attune-gui config list / get / set / unset`. The two ad-hoc env
+  vars (`ATTUNE_CORPORA_REGISTRY`, `ATTUNE_SPECS_ROOT`) are now
+  documented overrides instead of hidden defaults.
 - **Living Docs review queue + quality scores now persist across
   restarts.** Both pieces of state are written atomically to
   `~/.attune-gui/living_docs.json` (schema-versioned JSON, tempfile +

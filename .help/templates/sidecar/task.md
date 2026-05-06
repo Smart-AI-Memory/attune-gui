@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: task
-generated_at: 2026-05-06T01:32:33.449490+00:00
-source_hash: 6cf2ec1dea9a074d0cc9830a3dd6a31eb9696ebfd5fe85f42cbb10d54afc2067
+generated_at: 2026-05-06T03:22:24.078182+00:00
+source_hash: 9a45296c182496f7a010644896af3e7b8be6dca9a5412ea5145a2d2e9d9944ab
 status: generated
 ---
 
@@ -52,6 +52,6 @@ Functions you are most likely to modify:
 - `create_app()` in `sidecar/attune_gui/app.py`
 - `get_command()` in `sidecar/attune_gui/commands.py`
 - `list_commands()` in `sidecar/attune_gui/commands.py`
-- `load_registry()` in `sidecar/attune_gui/editor_corpora.py`
-- `save_registry()` in `sidecar/attune_gui/editor_corpora.py`
-- `list_corpora()` in `sidecar/attune_gui/editor_corpora.py`
+- `is_valid_key()` in `sidecar/attune_gui/config.py`
+- `known_keys()` in `sidecar/attune_gui/config.py`
+- `env_var_for()` in `sidecar/attune_gui/config.py`
