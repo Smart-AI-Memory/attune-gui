@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-05T16:26:26.465662+00:00
-source_hash: 46b45f3e1ca3cb6ad2d599cfd73bcd4889415b1e3f0a3ab0c887faaaa0503b10
+generated_at: 2026-05-06T01:32:33.454431+00:00
+source_hash: 6cf2ec1dea9a074d0cc9830a3dd6a31eb9696ebfd5fe85f42cbb10d54afc2067
 status: generated
 ---
 
@@ -99,7 +99,7 @@ status: generated
 | `read_file()` | Return raw file contents (UTF-8) plus the `manual` frontmatter flag for `.md` files. | `sidecar/attune_gui/routes/cowork_files.py` |
 | `render_file()` | Render a Markdown file (or raw text) to an HTML fragment for the preview pane. | `sidecar/attune_gui/routes/cowork_files.py` |
 | `write_file()` | Atomically replace file contents from `body["content"]`. 422 if not a string. | `sidecar/attune_gui/routes/cowork_files.py` |
-| `toggle_pin()` | Set or clear the ``manual: true`` frontmatter flag on a template (templates-root only). | `sidecar/attune_gui/routes/cowork_files.py` |
+| `toggle_pin()` | Set or clear ``status: manual`` on a template (templates-root only). | `sidecar/attune_gui/routes/cowork_files.py` |
 | `layer_health()` | Return version + importability for each attune layer. | `sidecar/attune_gui/routes/cowork_health.py` |
 | `corpus_health()` | Return current workspace, template count, and summaries.json presence. | `sidecar/attune_gui/routes/cowork_health.py` |
 | `root_redirect()` | Redirect ``/`` to the default Health page. | `sidecar/attune_gui/routes/cowork_pages.py` |
@@ -186,8 +186,9 @@ status: generated
 | `test_write_round_trip()` | — | `sidecar/tests/test_cowork_files.py` |
 | `test_write_requires_token()` | — | `sidecar/tests/test_cowork_files.py` |
 | `test_write_rejects_non_string_content()` | — | `sidecar/tests/test_cowork_files.py` |
-| `test_pin_sets_manual_true_in_frontmatter()` | — | `sidecar/tests/test_cowork_files.py` |
-| `test_pin_clears_manual_flag()` | — | `sidecar/tests/test_cowork_files.py` |
+| `test_pin_sets_status_manual_in_frontmatter()` | — | `sidecar/tests/test_cowork_files.py` |
+| `test_pin_clears_status_manual()` | — | `sidecar/tests/test_cowork_files.py` |
+| `test_pin_migrates_legacy_manual_true()` | Old files with the buggy ``manual: true`` flag get migrated to | `sidecar/tests/test_cowork_files.py` |
 | `test_pin_only_valid_for_templates_root()` | — | `sidecar/tests/test_cowork_files.py` |
 | `test_layers_returns_all_known_packages()` | — | `sidecar/tests/test_cowork_health.py` |
 | `test_layers_handles_missing_package()` | A missing optional dep should report importable=false, not 500. | `sidecar/tests/test_cowork_health.py` |
