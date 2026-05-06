@@ -14,10 +14,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from attune_gui import editor_corpora
+from attune_gui.security import require_client_token
 
 router = APIRouter(prefix="/api/corpus", tags=["editor-corpus"])
 
@@ -74,7 +75,11 @@ async def list_corpora() -> ListResponse:
     )
 
 
-@router.post("/active", response_model=CorpusModel)
+@router.post(
+    "/active",
+    response_model=CorpusModel,
+    dependencies=[Depends(require_client_token)],
+)
 async def set_active(req: ActiveRequest) -> CorpusModel:
     try:
         entry = editor_corpora.set_active(req.id)
@@ -83,7 +88,11 @@ async def set_active(req: ActiveRequest) -> CorpusModel:
     return _to_model(entry)
 
 
-@router.post("/register", response_model=CorpusModel)
+@router.post(
+    "/register",
+    response_model=CorpusModel,
+    dependencies=[Depends(require_client_token)],
+)
 async def register(req: RegisterRequest) -> CorpusModel:
     try:
         entry = editor_corpora.register(
@@ -97,7 +106,11 @@ async def register(req: RegisterRequest) -> CorpusModel:
     return _to_model(entry)
 
 
-@router.post("/resolve", response_model=ResolveResponse)
+@router.post(
+    "/resolve",
+    response_model=ResolveResponse,
+    dependencies=[Depends(require_client_token)],
+)
 async def resolve(req: ResolveRequest) -> ResolveResponse:
     abs_path = str(Path(req.abs_path).expanduser())
     found = editor_corpora.resolve_path(abs_path)

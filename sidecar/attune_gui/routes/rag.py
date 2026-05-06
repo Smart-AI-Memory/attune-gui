@@ -67,7 +67,9 @@ async def query(req: RagQueryRequest) -> RagQueryResponse:
     """Run retrieval for a query and return hits + augmented prompt."""
     try:
         pipeline = _get_pipeline(_workspace_from_request())
-    except Exception as exc:
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 — attune-rag init can fail for many reasons; surface as 500
         logger.exception("RagPipeline construction failed")
         raise HTTPException(
             status_code=500,
@@ -83,7 +85,9 @@ async def query(req: RagQueryRequest) -> RagQueryResponse:
         raise HTTPException(
             status_code=400, detail={"code": "bad_query", "message": str(exc)}
         ) from exc
-    except Exception as exc:
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 — pipeline run failures convert to 500 with logged exception
         logger.exception("RagPipeline.run failed")
         raise HTTPException(
             status_code=500,
@@ -115,7 +119,7 @@ async def corpus_info() -> dict:
     try:
         pipeline = _get_pipeline(_workspace_from_request())
         entries = list(pipeline.corpus.entries())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — corpus iteration failures convert to a clean 500
         raise HTTPException(
             status_code=500,
             detail={"code": "corpus_info_failed", "message": str(exc)},

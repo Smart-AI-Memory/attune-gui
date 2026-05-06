@@ -28,7 +28,7 @@ async def list_topics(
         engine = _engine(template_dir)
         topics = engine.list_topics(type_filter=type_filter)
         return {"topics": topics, "count": len(topics)}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — convert any attune_help internal error to a clean 500
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -43,5 +43,5 @@ async def search_topics(
         engine = _engine(template_dir)
         results = engine.search(q, limit=limit)
         return {"query": q, "results": results, "count": len(results)}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — convert any attune_help internal error to a clean 500
         raise HTTPException(status_code=500, detail=str(exc)) from exc

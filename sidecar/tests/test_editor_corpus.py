@@ -22,7 +22,9 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("ATTUNE_GUI_TEST", "1")
-    return TestClient(create_app())
+    c = TestClient(create_app())
+    c.headers["X-Attune-Client"] = c.get("/api/session/token").json()["token"]
+    return c
 
 
 def _make_corpus_dir(tmp_path: Path, name: str = "templates") -> Path:
@@ -30,6 +32,15 @@ def _make_corpus_dir(tmp_path: Path, name: str = "templates") -> Path:
     p.mkdir(parents=True, exist_ok=True)
     (p / "a.md").write_text("---\ntype: concept\nname: A\n---\nbody\n", encoding="utf-8")
     return p
+
+
+def test_corpus_register_requires_session_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """POST /api/corpus/register must reject calls without the token."""
+    monkeypatch.setenv("ATTUNE_GUI_TEST", "1")
+    plain = TestClient(create_app())
+    placeholder_path = "/tmp"  # noqa: S108 — auth rejects before path is read
+    r = plain.post("/api/corpus/register", json={"name": "x", "path": placeholder_path})
+    assert r.status_code in (401, 403)
 
 
 # -- registry helpers (unit) ----------------------------------------

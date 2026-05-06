@@ -21,7 +21,7 @@ def atomic_write(target: Path, text: str) -> float:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
         os.replace(tmp, target)
-    except Exception:
+    except Exception:  # noqa: BLE001 — clean up the tempfile on any write failure, then re-raise
         Path(tmp).unlink(missing_ok=True)
         raise
     return target.stat().st_mtime

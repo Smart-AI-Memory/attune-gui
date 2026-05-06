@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from attune_gui import editor_corpora
+from attune_gui.security import require_client_token
 
 router = APIRouter(prefix="/api/corpus", tags=["editor-lint"])
 
@@ -38,7 +39,11 @@ class AliasInfoModel(BaseModel):
     template_name: str
 
 
-@router.post("/{corpus_id}/lint", response_model=list[DiagnosticModel])
+@router.post(
+    "/{corpus_id}/lint",
+    response_model=list[DiagnosticModel],
+    dependencies=[Depends(require_client_token)],
+)
 async def lint(corpus_id: str, req: LintRequest) -> list[DiagnosticModel]:
     from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
 

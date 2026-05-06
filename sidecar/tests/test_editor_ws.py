@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from attune_gui import editor_corpora
+from attune_gui.app import create_app
 from fastapi.testclient import TestClient
 
 
@@ -18,6 +19,28 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         tmp_path / ".attune" / "corpora.json",
         raising=False,
     )
+
+
+@pytest.fixture
+def client() -> TestClient:
+    """Override conftest client to attach the X-Attune-Client token.
+
+    The rename refactor routes now require the token. The unauth check
+    below uses a fresh TestClient.
+    """
+    c = TestClient(create_app())
+    c.headers["X-Attune-Client"] = c.get("/api/session/token").json()["token"]
+    return c
+
+
+def test_rename_apply_requires_session_token() -> None:
+    """POST /api/corpus/<id>/refactor/rename/apply must reject without the token."""
+    plain = TestClient(create_app())
+    r = plain.post(
+        "/api/corpus/x/refactor/rename/apply",
+        json={"old": "a", "new": "b", "kind": "alias"},
+    )
+    assert r.status_code in (401, 403)
 
 
 @pytest.fixture
@@ -39,8 +62,6 @@ def corpus(tmp_path: Path) -> tuple[str, Path]:
     )
     entry = editor_corpora.register("Test", str(root))
     return entry.id, root
-
-
 
 
 # -- WebSocket -----------------------------------------------------
