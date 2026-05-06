@@ -12,6 +12,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `/editor` is a Vite SPA, every other dashboard is server-rendered Jinja,
   new UI defaults to Jinja unless it needs editor-grade interactivity.
 
+### Pending upstream
+
+- **`attune_rag.editor` PyPI publication.** When upstream `attune-rag`
+  ships the `editor` submodule in a public release, follow the
+  step-by-step removal note in `sidecar/attune_gui/_editor_dep.py`:
+  bump the pin, replace the 6 lazy `require_editor_submodule(...)`
+  callsites in `routes/editor_*.py` with direct imports, delete
+  `_editor_dep.py` and its tests.
+
 ## [0.5.2] — 2026-05-05
 
 ### Fixed
