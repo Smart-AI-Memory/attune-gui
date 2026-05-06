@@ -189,7 +189,7 @@ def test_write_rejects_non_string_content(
 # ---------------------------------------------------------------------------
 
 
-def test_pin_sets_manual_true_in_frontmatter(
+def test_pin_sets_status_manual_in_frontmatter(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -210,10 +210,12 @@ def test_pin_sets_manual_true_in_frontmatter(
     assert r.json()["manual"] is True
 
     raw = (root / "concept.md").read_text()
-    assert "manual: true" in raw
+    assert "status: manual" in raw
+    # Legacy top-level key must NOT be written.
+    assert "\nmanual: true" not in raw
 
 
-def test_pin_clears_manual_flag(
+def test_pin_clears_status_manual(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -221,7 +223,7 @@ def test_pin_clears_manual_flag(
 ) -> None:
     root = tmp_path / "templates"
     root.mkdir()
-    (root / "concept.md").write_text("---\nmanual: true\n---\nbody")
+    (root / "concept.md").write_text("---\nstatus: manual\n---\nbody")
 
     _patch_templates_root(monkeypatch, root)
 
@@ -232,7 +234,33 @@ def test_pin_clears_manual_flag(
     )
     assert r.status_code == 200
     raw = (root / "concept.md").read_text()
-    assert "manual:" not in raw
+    assert "status: manual" not in raw
+
+
+def test_pin_migrates_legacy_manual_true(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    session_token: str,
+) -> None:
+    """Old files with the buggy ``manual: true`` flag get migrated to
+    ``status: manual`` on the next pin write."""
+    root = tmp_path / "templates"
+    root.mkdir()
+    (root / "concept.md").write_text("---\nmanual: true\ntype: concept\n---\nbody")
+
+    _patch_templates_root(monkeypatch, root)
+
+    r = client.post(
+        "/api/cowork/files/pin/templates/concept.md",
+        json={"manual": True},
+        headers={"Origin": "http://localhost:5173", "X-Attune-Client": session_token},
+    )
+    assert r.status_code == 200
+
+    raw = (root / "concept.md").read_text()
+    assert "status: manual" in raw
+    assert "\nmanual: true" not in raw
 
 
 def test_pin_only_valid_for_templates_root(
