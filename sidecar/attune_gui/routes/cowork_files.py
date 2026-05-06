@@ -90,12 +90,10 @@ async def read_file(root: str, path: str) -> dict[str, Any]:
     manual = False
     if target.suffix == ".md":
         try:
-            post = frontmatter.loads(raw)
-            # ``status: manual`` is what attune-author honours as the
-            # don't-regenerate signal. Old files may carry the buggy
-            # ``manual: true`` top-level flag; treat both as "manual"
-            # here so the GUI displays an accurate pin badge.
-            meta = post.metadata
+            meta = frontmatter.loads(raw).metadata
+            # Accept both keys: status: manual is the canonical (and
+            # the one attune-author reads); manual: true is the
+            # legacy GUI flag, kept on read until files migrate.
             manual = meta.get("status") == "manual" or bool(meta.get("manual"))
         except Exception:  # noqa: BLE001
             manual = False
@@ -171,11 +169,8 @@ async def toggle_pin(
 ) -> dict[str, Any]:
     """Set or clear ``status: manual`` on a template (templates-root only).
 
-    ``status: manual`` is the canonical signal that attune-author
-    honours when deciding which templates to skip during ``generate``
-    or ``regenerate``. Earlier versions of this endpoint wrote a
-    top-level ``manual: true`` flag that attune-author did not read,
-    so pinning had no effect on regeneration — fixed here.
+    ``status: manual`` is the key attune-author honours when skipping
+    templates during generate/regenerate.
     """
     if root != "templates":
         raise HTTPException(status_code=400, detail="Pin is only valid for the `templates` root.")
@@ -191,15 +186,12 @@ async def toggle_pin(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Could not parse frontmatter: {exc}") from exc
 
-    # Drop the legacy top-level ``manual`` key on every write so
-    # files migrated from the old behaviour stop carrying it.
+    # Drop the legacy ``manual: true`` key on every write so files
+    # migrate forward on first save.
     post.metadata.pop("manual", None)
     if manual:
         post.metadata["status"] = "manual"
     elif post.metadata.get("status") == "manual":
-        # Unpin: remove the manual marker. Don't restore "generated"
-        # — let the next attune-author run write that itself if/when
-        # it regenerates the file.
         post.metadata.pop("status", None)
 
     new_text = frontmatter.dumps(post) + "\n"

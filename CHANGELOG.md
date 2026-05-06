@@ -3,6 +3,27 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2] — 2026-05-05
+
+### Fixed
+
+- **Templates page pin toggle now actually protects from regen.**
+  The pin button was writing a top-level `manual: true` flag that
+  attune-author does not read. Templates pinned through the dashboard
+  were silently overwritten on the next `attune-author generate` /
+  `regenerate`. Pin now writes `status: manual` (the canonical key
+  attune-author honours). Reads still accept the legacy flag so
+  existing files keep their badge; pin writes scrub the legacy key
+  so files migrate forward on first save.
+
+### Changed
+
+- Refreshed `.help/templates/` for `sidecar`, `attune_gui-entry`,
+  `scripts`, and `ui` after the 0.5.1 polish landed (12 templates,
+  pure attune-author output, no hand edits).
+
+---
+
 ## [0.5.1] — 2026-05-05
 
 ### Fixed
