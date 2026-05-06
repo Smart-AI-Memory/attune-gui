@@ -161,3 +161,36 @@ class TestConfigCli:
         rc = _config_command(parser.parse_args(["config", "unset", "specs_root"]))
         assert rc == 0
         assert config.get("specs_root") is None
+
+    def test_set_rejects_unknown_key(self, isolated: Path, capsys) -> None:
+        parser = _build_parser()
+        rc = _config_command(parser.parse_args(["config", "set", "nope", "value"]))
+        err = capsys.readouterr().err
+        assert rc == 2
+        assert "unknown key" in err
+
+    def test_unset_rejects_unknown_key(self, isolated: Path, capsys) -> None:
+        parser = _build_parser()
+        rc = _config_command(parser.parse_args(["config", "unset", "nope"]))
+        err = capsys.readouterr().err
+        assert rc == 2
+        assert "unknown key" in err
+
+    def test_unset_returns_0_when_key_absent(self, isolated: Path, capsys) -> None:
+        """unset on a key that was never set still exits cleanly with rc=0."""
+        parser = _build_parser()
+        rc = _config_command(parser.parse_args(["config", "unset", "specs_root"]))
+        out = capsys.readouterr().out
+        assert rc == 0
+        assert "was not set" in out
+
+    def test_set_workspace_invalid_path_prints_to_stderr(
+        self, isolated: Path, tmp_path: Path, capsys
+    ) -> None:
+        parser = _build_parser()
+        rc = _config_command(
+            parser.parse_args(["config", "set", "workspace", str(tmp_path / "nope")])
+        )
+        err = capsys.readouterr().err
+        assert rc == 1
+        assert "Not a directory" in err

@@ -3,6 +3,44 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Security
+
+- **9 mutating endpoints now require `X-Attune-Client`.** A deep-review
+  pass surfaced that the editor's corpus, template, lint, rename, and
+  profile mutating routes had been relying on the global `origin_guard`
+  alone, missing the per-process session-token check used elsewhere
+  (`living_docs.py` was already correct). All POST/PUT routes that mutate
+  state or write to disk now wire `Depends(require_client_token)`. New
+  401/403-check tests added per route file.
+
+### Changed
+
+- **Broad `except Exception`-to-500 blocks now carry `# noqa: BLE001` plus
+  a one-line reason** (`routes/help.py`, `routes/rag.py`, `routes/fs.py`)
+  so future ruff bumps do not surface them as new findings, and the intent
+  is on the page. Cleanup-and-reraise blocks in `_fs.py` and `config.py`
+  get the same treatment.
+- **Documented the WS auth model in `routes/editor_ws.py`.** Token-based
+  auth is intentionally not enforced on `/ws/corpus/<id>`: browsers cannot
+  set custom headers on the WS handshake, the global `origin_guard` covers
+  the realistic threat, and a localhost-running attacker process can read
+  the token anyway.
+- **Return annotation on `editor_corpora.load_corpus()`** (`-> Any`, since
+  `attune_rag.DirectoryCorpus` is imported lazily and isn't typeable at
+  module-import time).
+
+### Tests
+
+- **`test_editor_pages.py`** — new file. Lifts `editor_pages.py` coverage
+  from 55% to 94% by exercising the Vite-manifest read paths (sentinel
+  fallback, hashed filenames, explicit style.css entry, corrupt manifest).
+- **`test_config.py`** — new error-branch tests for `attune-gui config
+  set/unset` with unknown keys, and `set workspace` with an invalid path
+  (lifts `main.py` coverage from 77% to 81%).
+- **412 tests pass, 90% overall coverage** (was 399 / 89%).
+
 ## [0.5.3] — 2026-05-05
 
 ### Added

@@ -226,12 +226,13 @@ def resolve_path(abs_path: str) -> tuple[CorpusEntry, str] | None:
     return entry, rel_path.as_posix()
 
 
-def load_corpus(corpus_id: str):
+def load_corpus(corpus_id: str) -> Any:
     """Instantiate a :class:`attune_rag.DirectoryCorpus` for ``corpus_id``.
 
-    Imports lazily so attune-gui can start without attune-rag's editor
-    deps being importable. Raises :class:`KeyError` if the id is
-    unknown.
+    Returns ``Any`` because :class:`attune_rag.DirectoryCorpus` is imported
+    lazily — the type isn't available at module-import time. Imports lazily
+    so attune-gui can start without attune-rag's editor deps being
+    importable. Raises :class:`KeyError` if the id is unknown.
     """
     from attune_rag import DirectoryCorpus  # noqa: PLC0415
 
