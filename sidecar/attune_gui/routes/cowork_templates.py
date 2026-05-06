@@ -14,7 +14,9 @@ the legacy attune-gui template browser:
     - stale:      14 ≤ age < 60 days
     - very-stale: ≥ 60 days
 
-Manual flag is read from YAML frontmatter (``manual: true``).
+Manual flag is read from YAML frontmatter (``status: manual``, the
+key attune-author honours; legacy ``manual: true`` files still read
+true for the badge but get migrated on the next pin write).
 """
 
 from __future__ import annotations
@@ -103,7 +105,7 @@ async def list_templates() -> dict[str, Any]:
                 "type": meta.get("type") or "",
                 "staleness": stale,
                 "last_modified": last_modified,
-                "manual": bool(meta.get("manual")),
+                "manual": meta.get("status") == "manual" or bool(meta.get("manual")),
             }
         )
 

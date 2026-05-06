@@ -24,6 +24,7 @@ def _seed_template(
     tags: list[str] | None = None,
     summary: str | None = None,
     manual: bool = False,
+    legacy_manual: bool = False,
 ) -> None:
     fm: list[str] = ["---"]
     if tags is not None:
@@ -31,6 +32,8 @@ def _seed_template(
     if summary is not None:
         fm.append(f"summary: {summary!r}")
     if manual:
+        fm.append("status: manual")
+    if legacy_manual:
         fm.append("manual: true")
     fm.append("---")
     fm.append(body)
@@ -53,6 +56,9 @@ def test_templates_lists_with_metadata(
         summary="Alpha doc.",
     )
     _seed_template(root / "tasks" / "beta.md", manual=True)
+    # Old files still using the buggy ``manual: true`` flag should
+    # report manual=True too — keeps badges accurate during migration.
+    _seed_template(root / "tasks" / "legacy.md", legacy_manual=True)
 
     monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
 
@@ -66,6 +72,7 @@ def test_templates_lists_with_metadata(
     assert items["concepts/alpha.md"]["manual"] is False
 
     assert items["tasks/beta.md"]["manual"] is True
+    assert items["tasks/legacy.md"]["manual"] is True
 
 
 def test_templates_staleness_thresholds(
