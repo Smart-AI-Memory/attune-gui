@@ -84,7 +84,7 @@ ai = [
 
 [[package]]
 name = "attune-gui"
-version = "0.5.1"
+version = "0.5.2"
 source = { editable = "." }
 dependencies = [
     { name = "attune-author", extra = ["ai"] },

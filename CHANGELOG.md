@@ -3,6 +3,41 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Typed config + `attune-gui config` CLI.** A single
+  `~/.attune-gui/config.json` now holds `workspace`,
+  `corpora_registry`, and `specs_root`. Each key has a matching env
+  var (`ATTUNE_*`) that overrides the file. Manage from the CLI:
+  `attune-gui config list / get / set / unset`. The two ad-hoc env
+  vars (`ATTUNE_CORPORA_REGISTRY`, `ATTUNE_SPECS_ROOT`) are now
+  documented overrides instead of hidden defaults.
+- **Living Docs review queue + quality scores now persist across
+  restarts.** Both pieces of state are written atomically to
+  `~/.attune-gui/living_docs.json` (schema-versioned JSON, tempfile +
+  `os.replace`). Missing or corrupt files start empty with a logged
+  warning rather than crashing. The doc registry is still rescanned
+  on demand and stays in-memory; jobs (`jobs.py`) remain in-memory
+  by design.
+
+### Documentation
+
+- **Frontend boundary codified.** Added a "Frontend boundary" section
+  to the README spelling out the rule contributors had to reverse-engineer:
+  `/editor` is a Vite SPA, every other dashboard is server-rendered Jinja,
+  new UI defaults to Jinja unless it needs editor-grade interactivity.
+
+### Pending upstream
+
+- **`attune_rag.editor` PyPI publication.** When upstream `attune-rag`
+  ships the `editor` submodule in a public release, follow the
+  step-by-step removal note in `sidecar/attune_gui/_editor_dep.py`:
+  bump the pin, replace the 6 lazy `require_editor_submodule(...)`
+  callsites in `routes/editor_*.py` with direct imports, delete
+  `_editor_dep.py` and its tests.
+
 ## [0.5.2] — 2026-05-05
 
 ### Fixed

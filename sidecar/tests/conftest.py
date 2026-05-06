@@ -10,8 +10,24 @@ their scope is genuinely test-suite-specific.
 from __future__ import annotations
 
 import pytest
+from attune_gui import living_docs_store
 from attune_gui.app import create_app
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def _isolated_living_docs_state(tmp_path, monkeypatch):
+    """Redirect the living-docs persistence file to a tmp path.
+
+    Without this, any test that constructs ``LivingDocsStore()`` with no
+    arguments would read from / write to the developer's real
+    ``~/.attune-gui/living_docs.json``.
+    """
+    monkeypatch.setattr(
+        living_docs_store,
+        "_DEFAULT_STATE_PATH",
+        tmp_path / "living_docs.json",
+    )
 
 
 @pytest.fixture

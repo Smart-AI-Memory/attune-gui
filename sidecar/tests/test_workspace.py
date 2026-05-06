@@ -6,14 +6,17 @@ import json
 from pathlib import Path
 
 import pytest
-from attune_gui import workspace
+from attune_gui import config, workspace
 
 
 @pytest.fixture
 def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point _CONFIG_PATH at a tmp file so tests don't touch the real home dir."""
+    """Point CONFIG_PATH at a tmp file and clear env overrides."""
     cfg = tmp_path / ".attune-gui" / "config.json"
-    monkeypatch.setattr(workspace, "_CONFIG_PATH", cfg)
+    monkeypatch.setattr(config, "CONFIG_PATH", cfg)
+    monkeypatch.delenv("ATTUNE_WORKSPACE", raising=False)
+    monkeypatch.delenv("ATTUNE_CORPORA_REGISTRY", raising=False)
+    monkeypatch.delenv("ATTUNE_SPECS_ROOT", raising=False)
     return cfg
 
 

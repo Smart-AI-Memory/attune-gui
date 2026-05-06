@@ -12,6 +12,23 @@ backend unavailable: install a newer attune-rag`` instead of a stack
 trace. Once an attune-rag release ships with the editor submodule and
 attune-gui's pin is bumped to require it, this guard becomes dead and
 can be deleted.
+
+TODO(attune_rag.editor): When attune-rag ships a release containing
+the ``editor`` submodule on PyPI, do the following in one PR and then
+delete this file:
+
+1. Bump the ``attune-rag`` pin in ``pyproject.toml`` to require the
+   release (e.g. ``attune-rag>=X.Y.Z,<...``).
+2. In each consumer module — ``routes/editor_ws.py`` (2 callsites),
+   ``routes/editor_schema.py``, ``routes/editor_template.py``, and
+   ``routes/editor_lint.py`` (2 callsites) — replace the lazy
+   ``require_editor_submodule(...)`` calls with top-level
+   ``from attune_rag import editor as editor_mod`` (or the appropriate
+   submodule, e.g. ``attune_rag.editor._rename``).
+3. Remove the ``# noqa: PLC0415`` comments that justify the lazy import.
+4. Delete this file (``_editor_dep.py``) and its tests.
+
+Tracker: see CHANGELOG "Unreleased" → "Pending upstream".
 """
 
 from __future__ import annotations

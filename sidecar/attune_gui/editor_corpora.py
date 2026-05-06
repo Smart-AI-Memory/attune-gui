@@ -29,7 +29,6 @@ the caller supplies and only ensures uniqueness on register.
 from __future__ import annotations
 
 import json
-import os
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -42,11 +41,14 @@ _VERSION = 1
 def _registry_path() -> Path:
     """Return the on-disk corpora-registry path.
 
-    Defaults to ``~/.attune/corpora.json``; tests and CI can override
-    via the ``ATTUNE_CORPORA_REGISTRY`` env var so they don't trample
-    the user's real registry.
+    Resolution order (highest priority first):
+      1. ``ATTUNE_CORPORA_REGISTRY`` env var (CI / one-off)
+      2. ``corpora_registry`` in ``~/.attune-gui/config.json``
+      3. Default: ``~/.attune/corpora.json``
     """
-    override = os.environ.get("ATTUNE_CORPORA_REGISTRY")
+    from attune_gui import config  # noqa: PLC0415 — local import keeps this hot path lean
+
+    override = config.get("corpora_registry")
     if override:
         return Path(override).expanduser()
     return Path.home() / ".attune" / "corpora.json"
