@@ -6,8 +6,10 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from attune_gui.security import require_client_token
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ async def get_profile() -> dict[str, str]:
     return {"profile": _read_profile()}
 
 
-@router.put("/profile")
+@router.put("/profile", dependencies=[Depends(require_client_token)])
 async def set_profile(body: ProfileUpdate) -> dict[str, str]:
     """Persist a new UI profile. 400 if the value isn't in the allowed set."""
     if body.profile not in _VALID_PROFILES:

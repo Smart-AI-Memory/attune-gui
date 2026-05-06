@@ -25,12 +25,13 @@ import logging
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 from starlette.websockets import WebSocketState
 
 from attune_gui import editor_corpora
 from attune_gui.editor_session import EditorSession
+from attune_gui.security import require_client_token
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,18 @@ def _broadcast_to_others(
 
 @router.websocket("/ws/corpus/{corpus_id}")
 async def corpus_ws(websocket: WebSocket, corpus_id: str, path: str) -> None:
-    """File-watch + presence channel for one ``(corpus, path)`` editor tab."""
+    """File-watch + presence channel for one ``(corpus, path)`` editor tab.
+
+    Auth model: the global ``origin_guard`` (see app.py) runs on this
+    connection too and rejects WS opens from non-localhost origins,
+    which is the realistic attack vector for a single-user localhost
+    sidecar. Token-based auth (``X-Attune-Client``) is not enforced
+    here because browsers cannot set custom headers on the WS
+    handshake; routing the token through a query param would change
+    the front-end contract for no real win against the threat model.
+    A localhost-running attacker process can already read the token
+    from the in-memory state, so the gain is zero.
+    """
     entry = editor_corpora.get_corpus(corpus_id)
     if entry is None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="unknown corpus")
@@ -176,7 +188,10 @@ class RenameRequest(BaseModel):
     kind: Literal["alias", "tag", "template_path"] = "alias"
 
 
-@router.post("/api/corpus/{corpus_id}/refactor/rename/preview")
+@router.post(
+    "/api/corpus/{corpus_id}/refactor/rename/preview",
+    dependencies=[Depends(require_client_token)],
+)
 async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
     from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
 
@@ -204,7 +219,10 @@ async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
     return plan.to_dict()
 
 
-@router.post("/api/corpus/{corpus_id}/refactor/rename/apply")
+@router.post(
+    "/api/corpus/{corpus_id}/refactor/rename/apply",
+    dependencies=[Depends(require_client_token)],
+)
 async def rename_apply(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
     from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
 

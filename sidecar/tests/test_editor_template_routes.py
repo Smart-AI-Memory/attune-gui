@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from attune_gui import editor_corpora
+from attune_gui.app import create_app
 from fastapi.testclient import TestClient
 
 
@@ -17,6 +18,35 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         tmp_path / ".attune" / "corpora.json",
         raising=False,
     )
+
+
+@pytest.fixture
+def client() -> TestClient:
+    """Override conftest client to attach the X-Attune-Client token.
+
+    Template diff/save and lint now require the token; tests in this file
+    exercise those routes. The unauth tests below use fresh TestClients.
+    """
+    c = TestClient(create_app())
+    c.headers["X-Attune-Client"] = c.get("/api/session/token").json()["token"]
+    return c
+
+
+def test_template_save_requires_session_token() -> None:
+    """POST /api/corpus/<id>/template/save must reject calls without the token."""
+    plain = TestClient(create_app())
+    r = plain.post(
+        "/api/corpus/x/template/save",
+        json={"path": "x.md", "draft_text": "x", "base_hash": "0" * 64},
+    )
+    assert r.status_code in (401, 403)
+
+
+def test_lint_requires_session_token() -> None:
+    """POST /api/corpus/<id>/lint must reject calls without the token."""
+    plain = TestClient(create_app())
+    r = plain.post("/api/corpus/x/lint", json={"path": "x.md", "text": ""})
+    assert r.status_code in (401, 403)
 
 
 @pytest.fixture
@@ -34,8 +64,6 @@ def corpus_id(tmp_path: Path) -> str:
     )
     entry = editor_corpora.register("Test", str(root))
     return entry.id
-
-
 
 
 # -- GET /template --------------------------------------------------

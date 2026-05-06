@@ -6,8 +6,21 @@ import json
 from pathlib import Path
 
 import pytest
+from attune_gui.app import create_app
 from attune_gui.routes import profile
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture
+def client() -> TestClient:
+    """Override conftest client to attach the X-Attune-Client token by default.
+
+    Profile PUT now requires the token; most tests in this file mutate state.
+    The unauth check below uses a fresh TestClient.
+    """
+    c = TestClient(create_app())
+    c.headers["X-Attune-Client"] = c.get("/api/session/token").json()["token"]
+    return c
 
 
 @pytest.fixture
@@ -15,6 +28,13 @@ def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     cfg = tmp_path / ".attune-gui" / "config.json"
     monkeypatch.setattr(profile, "_CONFIG_PATH", cfg)
     return cfg
+
+
+def test_set_profile_requires_session_token() -> None:
+    """PUT /api/profile must reject calls without X-Attune-Client."""
+    plain = TestClient(create_app())
+    r = plain.put("/api/profile", json={"profile": "developer"})
+    assert r.status_code in (401, 403)
 
 
 # ---------------------------------------------------------------------------

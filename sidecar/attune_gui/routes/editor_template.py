@@ -20,11 +20,12 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from attune_gui import editor_corpora
 from attune_gui._fs import atomic_write
+from attune_gui.security import require_client_token
 
 router = APIRouter(prefix="/api/corpus", tags=["editor-template"])
 
@@ -240,7 +241,11 @@ async def get_template(
     )
 
 
-@router.post("/{corpus_id}/template/diff", response_model=DiffResponse)
+@router.post(
+    "/{corpus_id}/template/diff",
+    response_model=DiffResponse,
+    dependencies=[Depends(require_client_token)],
+)
 async def diff_template(corpus_id: str, req: DiffRequest) -> DiffResponse:
     _, target = _resolve(corpus_id, req.path)
     if not target.is_file():
@@ -263,7 +268,11 @@ async def diff_template(corpus_id: str, req: DiffRequest) -> DiffResponse:
     )
 
 
-@router.post("/{corpus_id}/template/save", response_model=SaveResponse)
+@router.post(
+    "/{corpus_id}/template/save",
+    response_model=SaveResponse,
+    dependencies=[Depends(require_client_token)],
+)
 async def save_template(corpus_id: str, req: SaveRequest) -> SaveResponse:
     _, target = _resolve(corpus_id, req.path)
     if not target.is_file():
