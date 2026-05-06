@@ -183,6 +183,23 @@ uv run ruff check .          # lint
 └──────────────────────────────────────┘
 ```
 
+### Frontend boundary
+
+Two rendering surfaces, one rule:
+
+- **Template editor at `/editor`** is a Vite + TypeScript SPA
+  (CodeMirror 6, WebSocket conflict mode, per-hunk diff). Source in
+  `editor-frontend/`, pre-bundled into `sidecar/attune_gui/static/editor/`
+  and committed so PyPI consumers do not need Node.
+- **Everything else** (Health, Templates, Specs, Summaries, Living Docs,
+  Commands, Jobs) is server-rendered Jinja2 with light vanilla-JS for
+  inline actions and polling.
+
+**New UI defaults to Jinja.** Reach for the SPA only when the surface
+needs editor-grade interactivity — rich text editing, real-time conflict
+resolution, multi-file refactor previews. Inline actions, polling, and
+form-driven dashboards stay server-rendered.
+
 ## Security notes
 
 This is a **single-user, local-only** app. Not designed for multi-user
