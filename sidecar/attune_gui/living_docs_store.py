@@ -1,20 +1,43 @@
-"""In-memory state for the Living Docs dashboard.
+"""State for the Living Docs dashboard.
 
-Tracks the doc registry (scanned from the workspace), the review queue
-(auto-applied changes awaiting human sign-off), and quality scores from
-the last smoke eval run. All state resets on sidecar restart — that is
-intentional for the prototype; a persistent backend can be added later.
+Tracks three things:
+
+- **Doc registry** (scanned from the workspace) — in-memory only; rescanned
+  on demand, so persistence buys nothing.
+- **Review queue** (auto-applied changes awaiting human sign-off) — persisted
+  to ``~/.attune-gui/living_docs.json``. Losing this on restart forces the
+  user to redo review work, so it earns its keep.
+- **Quality scores** (latest smoke-eval results) — persisted alongside the
+  queue for the same reason.
+
+Persistence is JSON, written atomically via tempfile + ``os.replace``.
+JSON beats SQLite at this volume (tens of items, no queries beyond a flat
+filter) on every axis: zero schema-migration burden, human-readable, no
+new dependency.
+
+Jobs (`jobs.py`) are deliberately *not* persisted — see that module's
+docstring for why.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
+import logging
+import os
 import subprocess
+import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+_STATE_SCHEMA_VERSION = 1
+_DEFAULT_STATE_PATH = Path.home() / ".attune-gui" / "living_docs.json"
 
 # ---------------------------------------------------------------------------
 # Depth → persona mapping
@@ -105,13 +128,94 @@ class ReviewItem:
 
 
 class LivingDocsStore:
-    def __init__(self) -> None:
+    def __init__(self, state_path: Path | None = None) -> None:
         self._lock = asyncio.Lock()
         self._docs: list[DocEntry] = []
         self._queue: list[ReviewItem] = []
         self._quality: dict[str, Any] = {}
         self._last_scan_at: str | None = None
         self._scanning: bool = False
+        self._state_path = state_path if state_path is not None else _DEFAULT_STATE_PATH
+        self._load_state()
+
+    # -- Persistence --------------------------------------------------------
+
+    def _load_state(self) -> None:
+        """Load queue + quality from the state file. Missing or corrupt → empty start.
+
+        Doc registry is intentionally not persisted: it's rescanned from the
+        workspace on demand. Only the review queue and quality scores have
+        cross-restart value to the user.
+        """
+        try:
+            raw = self._state_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            logger.warning("living-docs state unreadable at %s: %s", self._state_path, exc)
+            return
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "living-docs state at %s is corrupt (%s); starting fresh",
+                self._state_path,
+                exc,
+            )
+            return
+        if not isinstance(data, dict):
+            logger.warning(
+                "living-docs state at %s has unexpected shape; starting fresh",
+                self._state_path,
+            )
+            return
+        version = data.get("version")
+        if version != _STATE_SCHEMA_VERSION:
+            logger.warning(
+                "living-docs state version %r != expected %d; starting fresh",
+                version,
+                _STATE_SCHEMA_VERSION,
+            )
+            return
+        queue_data = data.get("queue", [])
+        quality_data = data.get("quality", {})
+        if isinstance(queue_data, list):
+            for entry in queue_data:
+                try:
+                    self._queue.append(ReviewItem(**entry))
+                except TypeError:
+                    logger.warning("skipping malformed queue entry: %r", entry)
+        if isinstance(quality_data, dict):
+            self._quality = quality_data
+
+    def _save_state(self) -> None:
+        """Atomically write queue + quality to the state file.
+
+        Tempfile in the same directory + ``os.replace`` gives us atomic
+        replacement on POSIX and Windows. Caller must hold ``self._lock``.
+        """
+        payload = {
+            "version": _STATE_SCHEMA_VERSION,
+            "queue": [item.to_dict() for item in self._queue],
+            "quality": self._quality,
+        }
+        try:
+            self._state_path.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(
+                prefix=".living_docs.",
+                suffix=".json.tmp",
+                dir=str(self._state_path.parent),
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    json.dump(payload, fh, indent=2)
+                os.replace(tmp_path, self._state_path)
+            except Exception:
+                with contextlib.suppress(OSError):
+                    os.unlink(tmp_path)
+                raise
+        except OSError as exc:
+            logger.warning("could not persist living-docs state: %s", exc)
 
     # -- Scan ----------------------------------------------------------------
 
@@ -275,6 +379,7 @@ class LivingDocsStore:
         )
         async with self._lock:
             self._queue.append(item)
+            self._save_state()
         return item
 
     def _git_diff_summary(self, project_root: Path, feature: str, depth: str) -> str:
@@ -314,6 +419,7 @@ class LivingDocsStore:
             for item in self._queue:
                 if item.id == item_id:
                     item.reviewed = True
+                    self._save_state()
                     return True
         return False
 
@@ -341,6 +447,7 @@ class LivingDocsStore:
             if result.returncode == 0:
                 async with self._lock:
                     self._queue = [i for i in self._queue if i.id != item_id]
+                    self._save_state()
                 return {"ok": True}
             return {"ok": False, "error": result.stderr.strip() or "git checkout failed"}
         except (OSError, subprocess.SubprocessError) as e:
@@ -352,6 +459,7 @@ class LivingDocsStore:
         """Replace the latest RAG quality scores (e.g. faithfulness, strict accuracy)."""
         async with self._lock:
             self._quality = scores
+            self._save_state()
 
 
 # ---------------------------------------------------------------------------

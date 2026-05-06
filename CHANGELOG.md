@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Living Docs review queue + quality scores now persist across
+  restarts.** Both pieces of state are written atomically to
+  `~/.attune-gui/living_docs.json` (schema-versioned JSON, tempfile +
+  `os.replace`). Missing or corrupt files start empty with a logged
+  warning rather than crashing. The doc registry is still rescanned
+  on demand and stays in-memory; jobs (`jobs.py`) remain in-memory
+  by design.
+
 ### Documentation
 
 - **Frontend boundary codified.** Added a "Frontend boundary" section
