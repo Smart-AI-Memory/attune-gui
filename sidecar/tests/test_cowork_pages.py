@@ -17,8 +17,6 @@ from fastapi.testclient import TestClient
 HDR = {"Origin": "http://localhost:5173"}
 
 
-
-
 # ---------------------------------------------------------------------------
 # Root + nav
 # ---------------------------------------------------------------------------
@@ -34,8 +32,9 @@ def test_dashboard_renders_sidebar(client: TestClient) -> None:
     r = client.get("/dashboard", headers=HDR)
     assert r.status_code == 200
     assert "Attune" in r.text
-    # All seven nav items present
+    # All eight nav items present
     for label in (
+        "Home",
         "Health",
         "Templates",
         "Specs",
@@ -47,11 +46,27 @@ def test_dashboard_renders_sidebar(client: TestClient) -> None:
         assert label in r.text
 
 
-def test_dashboard_health_marks_active(client: TestClient) -> None:
+def test_dashboard_home_marks_active(client: TestClient) -> None:
+    """``/dashboard`` is the new Home page; nav highlight must reflect it."""
     r = client.get("/dashboard", headers=HDR)
-    assert 'data-slug="health"' in r.text
-    # active class applied to the health nav link
+    assert 'data-slug="home"' in r.text
     assert 'class="nav-link active"' in r.text
+
+
+def test_dashboard_home_shows_kpi_grid(client: TestClient) -> None:
+    """KPI tiles for templates / fresh ratio / jobs / family must render."""
+    r = client.get("/dashboard", headers=HDR)
+    assert r.status_code == 200
+    assert "kpi-grid" in r.text
+    for label in ("Templates", "Fresh ratio", "Jobs today", "Family"):
+        assert label in r.text
+
+
+def test_dashboard_health_route_still_works(client: TestClient) -> None:
+    """Health was demoted from ``/dashboard`` to ``/dashboard/health``."""
+    r = client.get("/dashboard/health", headers=HDR)
+    assert r.status_code == 200
+    assert 'data-slug="health"' in r.text
 
 
 # ---------------------------------------------------------------------------
