@@ -66,3 +66,62 @@ def test_explicit_project_root_skips_workspace(tmp_path, monkeypatch):
     )
     assert root == tmp_path
     assert help_dir == tmp_path / ".help"
+
+
+# -- features.yaml auto-promotion ------------------------------------
+
+
+def test_help_dir_autopromotes_when_picker_landed_on_subdir(tmp_path):
+    """If help_dir resolves to .help/templates but features.yaml is in
+    .help, the resolver promotes to the parent.
+    """
+    help_root = tmp_path / ".help"
+    help_root.mkdir()
+    (help_root / "features.yaml").write_text("version: 1\nfeatures: {}\n")
+    templates = help_root / "templates"
+    templates.mkdir()
+
+    root, help_dir = _resolve_project_paths(
+        {"project_root": str(tmp_path), "help_dir": str(templates)}
+    )
+    assert root == tmp_path
+    assert help_dir == help_root
+
+
+def test_help_dir_unchanged_when_features_yaml_present(tmp_path):
+    """If features.yaml is already in the chosen help_dir, no promotion."""
+    help_root = tmp_path / ".help"
+    help_root.mkdir()
+    (help_root / "features.yaml").write_text("version: 1\nfeatures: {}\n")
+
+    root, help_dir = _resolve_project_paths(
+        {"project_root": str(tmp_path), "help_dir": str(help_root)}
+    )
+    assert help_dir == help_root
+
+
+def test_help_dir_unchanged_when_neither_dir_has_manifest(tmp_path):
+    """Walk only goes one level — if neither the chosen dir nor its
+    parent has features.yaml, return the original path unchanged so the
+    downstream loader produces the same FileNotFoundError as before.
+    """
+    help_root = tmp_path / ".help"
+    templates = help_root / "templates"
+    templates.mkdir(parents=True)
+
+    root, help_dir = _resolve_project_paths(
+        {"project_root": str(tmp_path), "help_dir": str(templates)}
+    )
+    assert help_dir == templates
+
+
+def test_project_path_autopromotes_help_dir(tmp_path):
+    """project_path convenience key also gets the auto-promotion check
+    when .help itself is a stub (rare but possible if a layout lib
+    rewrites the canonical name)."""
+    # Here .help has no features.yaml; verify resolver still returns
+    # .help unchanged because the parent (tmp_path) doesn't have one
+    # either — i.e. we don't accidentally promote past the help dir.
+    (tmp_path / ".help").mkdir()
+    root, help_dir = _resolve_project_paths({"project_path": str(tmp_path)})
+    assert help_dir == tmp_path / ".help"

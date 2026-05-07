@@ -43,6 +43,29 @@ def _require_absolute(field: str, raw: str) -> None:
     )
 
 
+def _autopromote_to_manifest_dir(help_dir: Path) -> Path:
+    """If ``help_dir`` doesn't contain features.yaml but its parent does,
+    promote to the parent.
+
+    Common UX pitfall: the path picker lands on ``.help/templates`` (the
+    children dir) instead of ``.help`` (the manifest dir). Without this,
+    every downstream loader fails with a confusing FileNotFoundError.
+    The walk only goes one level — deeper accidents stay errors so we
+    don't silently rewrite paths that look nothing like a help dir.
+    """
+    if (help_dir / "features.yaml").exists():
+        return help_dir
+    parent = help_dir.parent
+    if parent != help_dir and (parent / "features.yaml").exists():
+        logger.info(
+            "Auto-promoted help_dir from %s to %s (features.yaml lives in parent)",
+            help_dir,
+            parent,
+        )
+        return parent
+    return help_dir
+
+
 def _resolve_project_paths(args: dict[str, Any]) -> tuple[Path, Path]:
     """Return (project_root, help_dir) from args.
 
@@ -52,12 +75,15 @@ def _resolve_project_paths(args: dict[str, Any]) -> tuple[Path, Path]:
       3. Configured workspace (from ~/.attune-gui/config.json)
     Raises ValueError when no path is provided and no workspace is configured.
     Relative paths are rejected with a clear error.
+
+    The resolved help_dir is auto-promoted to its parent when features.yaml
+    lives there instead — see :func:`_autopromote_to_manifest_dir`.
     """
     project_path_raw = str(args.get("project_path", "")).strip()
     if project_path_raw:
         _require_absolute("project_path", project_path_raw)
         project_root = Path(project_path_raw).expanduser().resolve()
-        return project_root, project_root / ".help"
+        return project_root, _autopromote_to_manifest_dir(project_root / ".help")
 
     project_root_raw = str(args.get("project_root", "")).strip()
     help_dir_raw = str(args.get("help_dir", "")).strip()
@@ -71,7 +97,7 @@ def _resolve_project_paths(args: dict[str, Any]) -> tuple[Path, Path]:
                 "No project_path provided and no workspace configured. "
                 "Set a workspace via PUT /api/living-docs/config."
             )
-        return ws, ws / ".help"
+        return ws, _autopromote_to_manifest_dir(ws / ".help")
 
     project_root_raw = project_root_raw or "."
     help_dir_raw = help_dir_raw or ".help"
@@ -81,7 +107,7 @@ def _resolve_project_paths(args: dict[str, Any]) -> tuple[Path, Path]:
         _require_absolute("help_dir", help_dir_raw)
     return (
         Path(project_root_raw).expanduser().resolve(),
-        Path(help_dir_raw).expanduser().resolve(),
+        _autopromote_to_manifest_dir(Path(help_dir_raw).expanduser().resolve()),
     )
 
 
@@ -237,7 +263,7 @@ COMMANDS: dict[str, CommandSpec] = {
                         "Leave blank to use the configured workspace."
                     ),
                     "ui:widget": "path",
-                "ui:browseHint": "project",
+                    "ui:browseHint": "project",
                 },
             },
             "required": ["query"],
@@ -279,7 +305,7 @@ COMMANDS: dict[str, CommandSpec] = {
                     "title": "Project root",
                     "default": ".",
                     "ui:widget": "path",
-                "ui:browseHint": "project",
+                    "ui:browseHint": "project",
                 },
                 "all_kinds": {
                     "type": "boolean",
