@@ -8,16 +8,19 @@
   <link rel="icon" href="data:,">
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="brand">Attune</div>
-    <nav>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">attune</span>
+      <span class="brand-sub">gui</span>
+    </div>
+    <nav class="nav">
       {% for item in nav %}
         <a href="{{ item.href }}"
            class="nav-link{% if item.slug == active %} active{% endif %}"
            data-slug="{{ item.slug }}">{{ item.label }}</a>
       {% endfor %}
     </nav>
-  </aside>
+  </header>
 
   <main class="main">
     <header class="page-head">
