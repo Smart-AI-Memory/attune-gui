@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block actions %}
+  <button class="btn ghost" onclick="location.reload()">Refresh</button>
+{% endblock %}
+
+{% block content %}
+  <section class="section">
+    <div class="kpi-grid">
+      <a class="kpi-tile" href="/dashboard/templates">
+        <div class="kpi-label">Templates</div>
+        <div class="kpi-value">{{ summary.templates.total }}</div>
+        <div class="kpi-foot">
+          {% if summary.templates.total == 0 %}
+            no templates yet
+          {% else %}
+            {{ summary.templates.manual }} manual · {{ summary.templates.generated }} generated
+          {% endif %}
+        </div>
+      </a>
+
+      <a class="kpi-tile" href="/dashboard/templates?filter=stale">
+        <div class="kpi-label">Fresh ratio</div>
+        <div class="kpi-value">{{ "%.0f%%"|format(summary.templates.fresh_ratio * 100) }}</div>
+        <div class="kpi-foot">
+          {% if summary.templates.stale + summary.templates.very_stale == 0 %}
+            all generated templates fresh
+          {% else %}
+            {{ summary.templates.stale + summary.templates.very_stale }} stale of {{ summary.templates.fresh + summary.templates.stale + summary.templates.very_stale }}
+          {% endif %}
+        </div>
+      </a>
+
+      <a class="kpi-tile" href="/dashboard/jobs">
+        <div class="kpi-label">Jobs today</div>
+        <div class="kpi-value">{{ summary.jobs.today_count }}</div>
+        <div class="kpi-foot">
+          {% if summary.sparkline_points %}
+            <svg class="sparkline" viewBox="0 0 240 40" preserveAspectRatio="none" aria-hidden="true">
+              <polyline points="{{ summary.sparkline_points }}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+            </svg>
+          {% else %}
+            <span class="kpi-sub">no jobs in last 7 days</span>
+          {% endif %}
+        </div>
+      </a>
+
+      <a class="kpi-tile" href="/dashboard/health">
+        <div class="kpi-label">Family</div>
+        <div class="kpi-value">{{ summary.family|selectattr('importable')|list|length }}/{{ summary.family|length }}</div>
+        <div class="kpi-foot">attune-* packages installed</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Recent jobs</h2>
+    {% if summary.recent_jobs %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th class="num">Duration</th>
+            <th>Started</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in summary.recent_jobs %}
+            <tr>
+              <td><code>{{ j.name }}</code></td>
+              <td><span class="chip chip-{{ j.status }}">{{ j.status }}</span></td>
+              <td class="num">
+                {% if j.duration_seconds is not none %}
+                  {{ "%.1fs"|format(j.duration_seconds) }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td><code class="started">{{ j.started_at[:19] if j.started_at else "—" }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No jobs yet. Run one from <a href="/dashboard/commands">Commands</a>.</p>
+    {% endif %}
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Workspace</h2>
+    <article class="card">
+      <div class="card-body">
+        <div class="kv">
+          <span class="k">Workspace</span>
+          <span class="v">
+            {% if summary.workspace_path %}
+              <code>{{ summary.workspace_path }}</code>
+            {% else %}
+              <span class="muted">not configured</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="kv">
+          <span class="k">Manifest</span>
+          <span class="v">
+            {% if summary.manifest_path %}
+              <code>{{ summary.manifest_path }}</code>
+            {% else %}
+              <span class="muted">no <code>features.yaml</code> found</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="kv">
+          <span class="k">Features</span>
+          <span class="v">{{ summary.feature_count }}</span>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Family snapshot</h2>
+    <div class="grid grid-4">
+      {% for v in summary.family %}
+        <article class="card layer-card {% if v.importable %}ok{% else %}danger{% endif %}">
+          <div class="card-head">
+            <span class="dot"></span>
+            <h3>{{ v.package }}</h3>
+          </div>
+          <div class="card-body">
+            {% if v.importable %}
+              <div class="kv"><span class="k">Version</span><span class="v">{{ v.version or "—" }}</span></div>
+            {% else %}
+              <div class="kv"><span class="k">Status</span><span class="v danger">Not installed</span></div>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

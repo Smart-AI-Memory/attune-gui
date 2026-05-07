@@ -63,7 +63,8 @@ def _ctx(request: Request, active: str, **extra: Any) -> dict[str, Any]:
     return {
         "active": active,
         "nav": [
-            {"slug": "health", "label": "Health", "href": "/dashboard"},
+            {"slug": "home", "label": "Home", "href": "/dashboard"},
+            {"slug": "health", "label": "Health", "href": "/dashboard/health"},
             {"slug": "templates", "label": "Templates", "href": "/dashboard/templates"},
             {"slug": "specs", "label": "Specs", "href": "/dashboard/specs"},
             {"slug": "summaries", "label": "Summaries", "href": "/dashboard/summaries"},
@@ -87,11 +88,30 @@ async def root_redirect() -> RedirectResponse:
 
 
 # ---------------------------------------------------------------------------
-# Health (landing page)
+# Home (new landing page) — KPI grid + recent jobs + workspace snapshot
 # ---------------------------------------------------------------------------
 
 
 @router.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+async def page_home(request: Request) -> HTMLResponse:
+    """Render the Home page — KPI tiles, sparkline, recent jobs, snapshot.
+
+    Composes data from existing accessors (cowork_templates, cowork_health,
+    jobs registry) into a higher-level overview. All accessors fail soft
+    so the page renders cleanly on a fresh install.
+    """
+    from attune_gui.home_summary import build_home_summary  # noqa: PLC0415
+
+    summary = await build_home_summary()
+    return templates.TemplateResponse(request, "home.html", _ctx(request, "home", summary=summary))
+
+
+# ---------------------------------------------------------------------------
+# Health (now under /dashboard/health)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/dashboard/health", response_class=HTMLResponse, include_in_schema=False)
 async def page_health(request: Request) -> HTMLResponse:
     """Render the Health page — per-layer version probe + corpus snapshot."""
     from attune_gui.routes import cowork_health
