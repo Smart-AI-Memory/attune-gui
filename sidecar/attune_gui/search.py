@@ -63,11 +63,22 @@ def merge(
     for hit in rag_hits:
         # citation.hits contains CitedSource objects: .template_path, .score, .excerpt
         topic = _rag_topic(hit.template_path)
+        normalized_score = hit.score / max_rag
+
+        existing = acc.get(topic)
+        if existing is not None and existing["rag_score"] >= normalized_score:
+            # Already seen this topic at an equal-or-better score; keep
+            # the earlier hit. Without this, the loop silently overwrote
+            # the higher-scoring entry whenever two RAG templates
+            # resolved to the same topic (precision loss flagged in
+            # code-review 2026-05-07).
+            continue
+
         acc[topic] = {
             "topic": topic,
             "path": hit.template_path,
             "excerpt": (hit.excerpt or "")[:200].strip(),
-            "rag_score": hit.score / max_rag,
+            "rag_score": normalized_score,
             "help_score": None,
         }
 
