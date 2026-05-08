@@ -28,6 +28,59 @@ from attune_gui.jobs import JobContext
 logger = logging.getLogger(__name__)
 
 
+def _orchestration_dispatcher(orchestration_name: str) -> ExecutorFn:
+    """Build an executor that hands the call off to attune-author's orchestration runtime.
+
+    The gui keeps a thin :class:`CommandSpec` so its profile filtering,
+    job runner, and ``GET /api/commands`` continue to work with no
+    changes. The actual executor body lives in attune-author. The
+    returned closure converts the gui's :class:`JobContext` into the
+    orchestration-runtime equivalent and unwraps ``RunResult.output``
+    so the existing job runner sees a plain dict.
+    """
+
+    async def _dispatch(args: dict[str, Any], ctx: JobContext) -> Any:
+        from attune_author.orchestration import (  # noqa: PLC0415
+            JobContext as AuthorCtx,
+        )
+        from attune_author.orchestration import (
+            run_command,
+        )
+
+        author_ctx = AuthorCtx(job_id=ctx.job_id, log=ctx.log)
+        result = await run_command(orchestration_name, args, author_ctx)
+        return result.output
+
+    _dispatch.__name__ = f"_dispatch_{orchestration_name.replace('.', '_')}"
+    return _dispatch
+
+
+def _proxy_command(orchestration_name: str) -> CommandSpec:
+    """Mirror an attune-author orchestration spec into a gui ``CommandSpec``.
+
+    Importing :mod:`attune_author.orchestration.commands.<ns>` triggers
+    registration on the orchestration registry; this helper then copies
+    the metadata into a gui-shaped ``CommandSpec`` whose executor is a
+    dispatcher closure. Phases D2 and D3 will repeat this pattern for
+    each migrated command, eventually leaving this module with only
+    proxy registrations and the executors removed.
+    """
+
+    from attune_author.orchestration import COMMANDS as _AUTHOR_COMMANDS  # noqa: PLC0415
+
+    src = _AUTHOR_COMMANDS[orchestration_name]
+    return CommandSpec(
+        name=src.name,
+        title=src.title,
+        domain=src.domain,
+        description=src.description,
+        args_schema=src.args_schema,
+        executor=_orchestration_dispatcher(orchestration_name),
+        cancellable=src.cancellable,
+        profiles=src.profiles,
+    )
+
+
 def _require_absolute(field: str, raw: str) -> None:
     """Reject relative paths up-front so users see a clear error.
 
@@ -327,54 +380,15 @@ COMMANDS: dict[str, CommandSpec] = {
 
 
 # ---------------------------------------------------------------------------
-# RAG: corpus-info
+# RAG: corpus-info — owned by attune-author since Phase D1 of the
+# architecture-realignment spec. Importing the orchestration command
+# module triggers registration; we mirror it into this gui registry
+# so /api/commands and the job runner stay unchanged.
 # ---------------------------------------------------------------------------
 
+import attune_author.orchestration.commands.rag  # noqa: F401, E402
 
-async def _exec_rag_corpus_info(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from attune_gui.routes.rag import _get_pipeline  # noqa: PLC0415
-    from attune_gui.workspace import get_workspace  # noqa: PLC0415
-
-    project_path_raw = str(args.get("project_path", "")).strip()
-    workspace = (
-        Path(project_path_raw).expanduser().resolve() if project_path_raw else get_workspace()
-    )
-    pipeline = _get_pipeline(workspace)
-    entries = await asyncio.to_thread(list, pipeline.corpus.entries())
-    kinds = sorted({e.path.split("/")[0] for e in entries if "/" in e.path})
-    ctx.log(f"{len(entries)} entries across {len(kinds)} kind(s)")
-    return {
-        "corpus_class": type(pipeline.corpus).__name__,
-        "entry_count": len(entries),
-        "kinds": kinds,
-    }
-
-
-COMMANDS["rag.corpus-info"] = CommandSpec(
-    name="rag.corpus-info",
-    title="Corpus info",
-    domain="rag",
-    description="Show entry count and category breakdown for the loaded attune-rag corpus.",
-    args_schema={
-        "type": "object",
-        "properties": {
-            "project_path": {
-                "type": "string",
-                "title": "Project path",
-                "default": "",
-                "description": (
-                    "Root of the project whose corpus to inspect. "
-                    "Leave blank to use the configured workspace."
-                ),
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-        },
-    },
-    executor=_exec_rag_corpus_info,
-    cancellable=False,
-    profiles=("developer", "author"),
-)
+COMMANDS["rag.corpus-info"] = _proxy_command("rag.corpus-info")
 
 
 # ---------------------------------------------------------------------------

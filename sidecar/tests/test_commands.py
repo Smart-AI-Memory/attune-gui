@@ -25,7 +25,6 @@ from attune_gui.commands import (
     _exec_help_list,
     _exec_help_lookup,
     _exec_help_search,
-    _exec_rag_corpus_info,
     _exec_rag_query,
     _help_engine,
     _require_absolute,
@@ -250,20 +249,34 @@ class TestRagExecutors:
         assert out["augmented_prompt"] == "prompt body"
 
     @pytest.mark.asyncio
-    async def test_corpus_info_summarizes_kinds(self, ctx: FakeJobContext, tmp_path: Path) -> None:
-        entries = [
-            SimpleNamespace(path="security/concept.md"),
-            SimpleNamespace(path="security/task.md"),
-            SimpleNamespace(path="memory/concept.md"),
-        ]
-        pipeline = MagicMock()
-        pipeline.corpus.entries.return_value = iter(entries)
-        with patch("attune_gui.routes.rag._get_pipeline", return_value=pipeline):
-            out = await _exec_rag_corpus_info(
-                {"project_path": str(tmp_path)}, ctx  # type: ignore[arg-type]
+    async def test_corpus_info_dispatches_to_attune_author(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        # Phase D1: rag.corpus-info now lives in attune_author.orchestration.
+        # The gui keeps a thin proxy CommandSpec; this test verifies the
+        # dispatcher converts the gui ctx, calls run_command, and returns
+        # the unwrapped output dict so the job runner sees a plain payload.
+        from attune_author.orchestration import RunResult
+
+        spec = get_command("rag.corpus-info")
+        assert spec is not None
+
+        async def fake_run_command(name, args, author_ctx):  # noqa: ARG001
+            author_ctx.log("dispatched")
+            return RunResult(
+                success=True,
+                output={"entry_count": 3, "kinds": ["memory", "security"]},
+                elapsed_ms=1,
             )
-        assert out["entry_count"] == 3
-        assert out["kinds"] == ["memory", "security"]
+
+        with patch("attune_author.orchestration.run_command", side_effect=fake_run_command):
+            out = await spec.executor(
+                {"project_path": str(tmp_path)},
+                ctx,  # type: ignore[arg-type]
+            )
+
+        assert out == {"entry_count": 3, "kinds": ["memory", "security"]}
+        assert "dispatched" in ctx.lines
 
 
 # ---------------------------------------------------------------------------
