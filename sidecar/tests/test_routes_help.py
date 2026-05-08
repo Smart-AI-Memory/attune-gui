@@ -47,7 +47,11 @@ def test_topics_engine_failure_returns_500(client: TestClient) -> None:
     with patch("attune_help.HelpEngine", side_effect=RuntimeError("boom")):
         r = client.get("/api/help/topics")
     assert r.status_code == 500
-    assert "boom" in r.json()["detail"]
+    # D4 envelope: 5xx scrubs the raw exception so internals don't leak.
+    body = r.json()
+    assert body["detail"]["code"] == "internal_error"
+    assert body["detail"]["message"] == "internal error"
+    assert "boom" not in r.text
 
 
 # ---------------------------------------------------------------------------
@@ -93,4 +97,6 @@ def test_search_engine_failure_returns_500(client: TestClient) -> None:
     with patch("attune_help.HelpEngine", side_effect=RuntimeError("kaput")):
         r = client.get("/api/help/search", params={"q": "auth"})
     assert r.status_code == 500
-    assert "kaput" in r.json()["detail"]
+    body = r.json()
+    assert body["detail"]["code"] == "internal_error"
+    assert "kaput" not in r.text

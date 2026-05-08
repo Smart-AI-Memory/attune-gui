@@ -196,9 +196,9 @@ class ScanRequest(BaseModel):
 async def _run_scan(trigger: str) -> None:
     ws = _get_workspace()
     await get_store().scan(ws, trigger=trigger)
-    from attune_gui.routes import rag  # noqa: PLC0415
+    from attune_gui.services.rag_pipeline import invalidate  # noqa: PLC0415
 
-    rag.invalidate(ws)
+    invalidate(ws)
 
 
 @router.post("/scan", dependencies=[Depends(require_client_token)])
@@ -251,9 +251,9 @@ async def _regenerate_doc_executor(args: dict[str, Any], ctx: JobContext) -> dic
     await store.add_to_queue(doc_id, trigger=trigger, project_root=root)
     await store.scan(root, trigger=trigger)
 
-    from attune_gui.routes import rag  # noqa: PLC0415
+    from attune_gui.services.rag_pipeline import invalidate  # noqa: PLC0415
 
-    rag.invalidate(root)
+    invalidate(root)
     ctx.log("RAG cache invalidated")
 
     return {"doc_id": doc_id, "feature": feature_name, "depth": depth, "trigger": trigger}

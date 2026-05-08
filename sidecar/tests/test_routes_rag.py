@@ -19,10 +19,6 @@ def reset_cache() -> None:
     rag._PIPELINES.clear()
 
 
-
-
-
-
 # ---------------------------------------------------------------------------
 # _get_pipeline cache
 # ---------------------------------------------------------------------------
@@ -107,7 +103,7 @@ class TestRagQuery:
             )
         ]
         pipeline = self._stub_pipeline(hits, "augmented prompt body")
-        with patch("attune_gui.routes.rag._get_pipeline", return_value=pipeline):
+        with patch("attune_gui.routes.rag.pipeline_for", return_value=pipeline):
             r = client.post(
                 "/api/rag/query",
                 json={"query": "auth flow", "k": 3},
@@ -124,7 +120,7 @@ class TestRagQuery:
     def test_query_value_error_returns_400(self, client: TestClient, session_token: str) -> None:
         pipeline = MagicMock()
         pipeline.run.side_effect = ValueError("bad query")
-        with patch("attune_gui.routes.rag._get_pipeline", return_value=pipeline):
+        with patch("attune_gui.routes.rag.pipeline_for", return_value=pipeline):
             r = client.post(
                 "/api/rag/query",
                 json={"query": "x", "k": 3},
@@ -138,7 +134,7 @@ class TestRagQuery:
     ) -> None:
         pipeline = MagicMock()
         pipeline.run.side_effect = RuntimeError("kaput")
-        with patch("attune_gui.routes.rag._get_pipeline", return_value=pipeline):
+        with patch("attune_gui.routes.rag.pipeline_for", return_value=pipeline):
             r = client.post(
                 "/api/rag/query",
                 json={"query": "x", "k": 3},
@@ -151,7 +147,7 @@ class TestRagQuery:
         self, client: TestClient, session_token: str
     ) -> None:
         with patch(
-            "attune_gui.routes.rag._get_pipeline",
+            "attune_gui.routes.rag.pipeline_for",
             side_effect=RuntimeError("init failed"),
         ):
             r = client.post(
@@ -183,7 +179,7 @@ class TestCorpusInfo:
         ]
         pipeline = MagicMock()
         pipeline.corpus.entries.return_value = iter(entries)
-        with patch("attune_gui.routes.rag._get_pipeline", return_value=pipeline):
+        with patch("attune_gui.routes.rag.pipeline_for", return_value=pipeline):
             r = client.get("/api/rag/corpus-info")
         assert r.status_code == 200
         body = r.json()
@@ -192,7 +188,7 @@ class TestCorpusInfo:
 
     def test_failure_returns_500(self, client: TestClient) -> None:
         with patch(
-            "attune_gui.routes.rag._get_pipeline",
+            "attune_gui.routes.rag.pipeline_for",
             side_effect=RuntimeError("kaboom"),
         ):
             r = client.get("/api/rag/corpus-info")

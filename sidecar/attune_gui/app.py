@@ -15,6 +15,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from attune_gui import __version__
+from attune_gui.errors import install_handlers as install_error_handlers
 from attune_gui.routes import (  # noqa: F401
     choices,
     cowork_files,
@@ -68,6 +69,10 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
+
+    # Unified error envelope for every /api/* response (D4 of the
+    # architecture-realignment spec, finding #7).
+    install_error_handlers(app)
 
     # ---- JSON APIs (existing) -----------------------------------------------
     app.include_router(system.router)

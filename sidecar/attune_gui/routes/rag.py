@@ -1,63 +1,50 @@
-"""attune-rag routes — imports the library directly, no subprocess."""
+"""attune-rag routes — imports the library directly, no subprocess.
+
+The pipeline cache moved to :mod:`attune_gui.services.rag_pipeline`
+in Phase D4 of the architecture-realignment spec (finding #5). The
+``_get_pipeline`` and ``invalidate`` names are preserved here as
+thin re-exports so any in-tree caller that still references them
+keeps working through the deprecation window — but new callers
+should import from the canonical owner module.
+"""
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from attune_gui.models import RagHit, RagQueryRequest, RagQueryResponse
 from attune_gui.security import require_client_token
-
-if TYPE_CHECKING:
-    from attune_rag import RagPipeline
+from attune_gui.services import rag_pipeline as _rag_pipeline_svc
+from attune_gui.services.rag_pipeline import (
+    invalidate,
+    pipeline_for,
+    workspace_from_request,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
 
-# Workspace-keyed pipeline cache.  Key is the resolved workspace Path; a
-# separate sentinel (None key via _DEFAULT_KEY) holds the fallback pipeline
-# that uses the bundled AttuneHelpCorpus when no workspace is configured.
-_PIPELINES: dict[Path, RagPipeline] = {}
-_DEFAULT_KEY = Path()  # empty Path is an otherwise-invalid workspace sentinel
 
+# Backwards-compat aliases for callers that still reference the private
+# names this module used to own. New callers should import from
+# :mod:`attune_gui.services.rag_pipeline` directly.
+_get_pipeline = pipeline_for
+_PIPELINES = _rag_pipeline_svc._PIPELINES
+_DEFAULT_KEY = _rag_pipeline_svc._DEFAULT_KEY
+_workspace_from_request = workspace_from_request
 
-def _get_pipeline(workspace: Path | None = None) -> RagPipeline:
-    """Return a RagPipeline, scoped to ``workspace`` when provided.
-
-    When ``workspace/.help/templates/`` exists, uses ``DirectoryCorpus`` from
-    that path so queries retrieve from the project's own generated templates.
-    Falls back to the bundled ``AttuneHelpCorpus`` when workspace is None or
-    the templates directory has not been created yet.
-    """
-    from attune_rag import DirectoryCorpus, QueryExpander, RagPipeline  # noqa: PLC0415
-
-    key = workspace if workspace is not None else _DEFAULT_KEY
-
-    if key not in _PIPELINES:
-        corpus = None
-        if workspace is not None:
-            corpus_dir = workspace / ".help" / "templates"
-            if corpus_dir.is_dir():
-                corpus = DirectoryCorpus(corpus_dir)
-        _PIPELINES[key] = RagPipeline(corpus=corpus, expander=QueryExpander())
-
-    return _PIPELINES[key]
-
-
-def invalidate(workspace: Path) -> None:
-    """Drop the cached pipeline for a workspace so the next call rebuilds it."""
-    _PIPELINES.pop(workspace, None)
-
-
-def _workspace_from_request() -> Path | None:
-    """Resolve the current workspace for HTTP route handlers."""
-    from attune_gui.workspace import get_workspace  # noqa: PLC0415
-
-    return get_workspace()
+__all__ = [
+    "_DEFAULT_KEY",
+    "_PIPELINES",
+    "_get_pipeline",
+    "_workspace_from_request",
+    "invalidate",
+    "pipeline_for",
+    "router",
+]
 
 
 @router.post(
@@ -66,7 +53,7 @@ def _workspace_from_request() -> Path | None:
 async def query(req: RagQueryRequest) -> RagQueryResponse:
     """Run retrieval for a query and return hits + augmented prompt."""
     try:
-        pipeline = _get_pipeline(_workspace_from_request())
+        pipeline = pipeline_for(workspace_from_request())
     except (
         Exception
     ) as exc:  # noqa: BLE001 — attune-rag init can fail for many reasons; surface as 500
@@ -117,7 +104,7 @@ async def query(req: RagQueryRequest) -> RagQueryResponse:
 async def corpus_info() -> dict:
     """Stats about the corpus for the current workspace."""
     try:
-        pipeline = _get_pipeline(_workspace_from_request())
+        pipeline = pipeline_for(workspace_from_request())
         entries = list(pipeline.corpus.entries())
     except Exception as exc:  # noqa: BLE001 — corpus iteration failures convert to a clean 500
         raise HTTPException(

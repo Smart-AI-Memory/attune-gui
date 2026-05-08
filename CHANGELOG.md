@@ -3,6 +3,31 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] — 2026-05-08
+
+Phase D4 of the architecture-realignment spec — closes findings **#5** (private cross-route `_get_pipeline` import) and **#7** (inconsistent error envelopes). Final phase of the realignment work.
+
+### Added
+
+- **`attune_gui.services.rag_pipeline`** — canonical owner of the workspace-keyed `RagPipeline` cache. Public surface: `pipeline_for(workspace)`, `invalidate(workspace)`, `workspace_from_request()`. `routes.rag`, `routes.search`, `routes.living_docs`, and `commands._author_proxy` all import from here instead of crossing route boundaries (closes finding #5).
+- **`attune_gui.errors`** — central error envelope. Every `/api/*` response now renders through one shape:
+  - 4xx → `{"detail": {"message": str, "code": str | null}}`
+  - 5xx → `{"detail": {"message": "internal error", "code": "internal_error"}}`
+  - 422 (Pydantic validation) → `{"detail": {"message": "Request validation failed.", "code": "validation_error", "errors": [...]}}`
+  - Three handlers registered at app construction: `HTTPException`, `RequestValidationError`, bare `Exception`. Routes that already raise `HTTPException(detail={"code": ..., "message": ...})` flow through unchanged; routes raising `HTTPException(detail="some string")` are normalized to dict shape; uncaught exceptions become sanitized 500s without leaking the raw message (closes finding #7).
+
+### Changed
+
+- `routes.rag` keeps `_get_pipeline`, `_PIPELINES`, `_DEFAULT_KEY`, `_workspace_from_request` as backwards-compat aliases that delegate to the new services module. New callers should import from `attune_gui.services.rag_pipeline` directly.
+- 5xx exceptions no longer leak raw exception messages to clients. Callers that need machine-readable error context for 5xx should rely on the `code` field (or the structured response from `HTTPException(status_code=500, detail={"code": "...", "message": "..."})`).
+
+### Tests
+
+- 17 new tests:
+  - `test_services_rag_pipeline.py` (9): cache identity, invalidation, workspace-vs-default keys, `DirectoryCorpus` selection, cross-module wiring (verifies `routes.search` and `commands._author_proxy` import from the canonical owner).
+  - `test_errors_envelope.py` (8): envelope helper, dict-detail pass-through, string-detail normalization, 5xx scrubbing, 422 validation envelope, 200 untouched.
+- Existing tests updated to assert against the new envelope shape (`detail["message"]` instead of bare `detail` string).
+
 ## [0.6.2] — 2026-05-08
 
 ### Changed
