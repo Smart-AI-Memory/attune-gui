@@ -3,6 +3,29 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] — 2026-05-08
+
+### Changed
+
+- **`rag.corpus-info` migrated to `attune_author.orchestration`** —
+  Phase D1 of the architecture-realignment spec. The executor body
+  now lives in attune-author; the gui keeps a thin `CommandSpec`
+  whose executor dispatches through
+  `attune_author.orchestration.run_command(...)`. `/api/commands`
+  and the job runner are unchanged from the client's perspective.
+- New helpers in `attune_gui.commands`: `_proxy_command(name)`
+  mirrors an attune-author orchestration spec into a gui
+  `CommandSpec`; `_orchestration_dispatcher(name)` builds the
+  closure that converts gui `JobContext` → orchestration
+  `JobContext` and unwraps `RunResult.output`. Phases D2 / D3 will
+  use the same helpers for the `author.*` and `help.*` migrations.
+
+### Dependencies
+
+- Bumped `attune-author[ai]` constraint from `>=0.5.0,<0.6` to
+  `>=0.8.1,<0.9` (orchestration scaffold + the moved
+  `rag.corpus-info` command).
+
 ## [0.5.4] — 2026-05-06
 
 ### Security
