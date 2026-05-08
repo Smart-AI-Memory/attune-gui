@@ -15,11 +15,7 @@ import pytest
 from attune_gui.commands import (
     COMMANDS,
     CommandSpec,
-    _exec_help_list,
-    _exec_help_lookup,
-    _exec_help_search,
     _exec_rag_query,
-    _help_engine,
     _require_absolute,
     get_command,
     list_commands,
@@ -117,95 +113,102 @@ class TestRegistry:
 
 
 # ---------------------------------------------------------------------------
-# _help_engine (HelpEngine factory)
+# Help proxies (D3 — executors live in attune_author.orchestration now)
 # ---------------------------------------------------------------------------
 
 
-class TestHelpEngineFactory:
-    def test_passes_resolved_template_dir(self, tmp_path: Path) -> None:
-        with patch("attune_help.HelpEngine") as mock:
-            _help_engine(str(tmp_path), "job-1")
-        mock.assert_called_once()
-        kwargs = mock.call_args.kwargs
-        assert kwargs["template_dir"] == tmp_path.resolve()
-        assert kwargs["renderer"] == "plain"
-        assert kwargs["user_id"] == "job-1"
+class TestHelpProxies:
+    """Phase D3: ``help.*`` executor bodies moved to attune-author.
 
-    def test_none_template_dir_passes_through(self) -> None:
-        with patch("attune_help.HelpEngine") as mock:
-            _help_engine(None, "job-2")
-        kwargs = mock.call_args.kwargs
-        assert kwargs["template_dir"] is None
+    Comprehensive executor tests live in
+    ``attune-author/tests/test_orchestration_commands_help.py``. The
+    tests here verify the gui-side proxy wiring — registration,
+    dispatcher conversion, and metadata mirroring.
+    """
 
+    HELP_NAMES = ("help.lookup", "help.search", "help.list")
 
-# ---------------------------------------------------------------------------
-# Help executors (smoke tests with HelpEngine mocked)
-# ---------------------------------------------------------------------------
+    def test_three_help_commands_registered(self) -> None:
+        for name in self.HELP_NAMES:
+            spec = get_command(name)
+            assert isinstance(spec, CommandSpec), name
+            assert spec.domain == "help"
 
+    def test_proxy_specs_mirror_orchestration_metadata(self) -> None:
+        from attune_author.orchestration import COMMANDS as AUTHOR_COMMANDS
 
-class TestHelpExecutors:
-    @pytest.mark.asyncio
-    async def test_lookup_returns_content_and_logs(self, ctx: FakeJobContext) -> None:
-        engine = MagicMock()
-        engine.lookup.return_value = "concept body"
-        engine.list_topics.return_value = ["a", "b"]
-        engine.generated_dir = Path("/tmp/help")  # noqa: S108
-        with patch("attune_help.HelpEngine", return_value=engine):
-            result = await _exec_help_lookup({"topic": "auth"}, ctx)  # type: ignore[arg-type]
-        assert result["topic"] == "auth"
-        assert result["depth"] == "concept"
-        assert result["content"] == "concept body"
-        assert result["total_topics"] == 2
-        assert any("auth" in line for line in ctx.lines)
+        for name in self.HELP_NAMES:
+            gui_spec = get_command(name)
+            author_spec = AUTHOR_COMMANDS[name]
+            assert gui_spec is not None
+            assert gui_spec.title == author_spec.title
+            assert gui_spec.description == author_spec.description
+            assert gui_spec.args_schema == author_spec.args_schema
+            assert gui_spec.cancellable == author_spec.cancellable
+            assert gui_spec.profiles == author_spec.profiles
 
     @pytest.mark.asyncio
-    async def test_lookup_missing_topic_raises(self, ctx: FakeJobContext) -> None:
-        engine = MagicMock()
-        engine.lookup.return_value = None
-        with patch("attune_help.HelpEngine", return_value=engine):
-            with pytest.raises(ValueError, match="No help found"):
-                await _exec_help_lookup({"topic": "ghost"}, ctx)  # type: ignore[arg-type]
+    async def test_lookup_dispatches_via_run_command(self, ctx: FakeJobContext) -> None:
+        from attune_author.orchestration import RunResult
+
+        captured: dict = {}
+
+        async def fake_run_command(name, args, author_ctx):
+            captured["name"] = name
+            captured["args"] = args
+            return RunResult(
+                success=True,
+                output={"topic": "auth", "content": "body", "total_topics": 5},
+                elapsed_ms=1,
+            )
+
+        spec = get_command("help.lookup")
+        assert spec is not None
+        with patch("attune_author.orchestration.run_command", side_effect=fake_run_command):
+            out = await spec.executor({"topic": "auth"}, ctx)  # type: ignore[arg-type]
+
+        assert captured["name"] == "help.lookup"
+        assert captured["args"] == {"topic": "auth"}
+        assert out["topic"] == "auth"
 
     @pytest.mark.asyncio
-    async def test_lookup_progressive_depth_walks_steps(self, ctx: FakeJobContext) -> None:
-        """depth=reference should call lookup 3 times (concept → task → reference)."""
-        engine = MagicMock()
-        engine.lookup.return_value = "body"
-        engine.list_topics.return_value = []
-        engine.generated_dir = Path("/tmp/help")  # noqa: S108
-        with patch("attune_help.HelpEngine", return_value=engine):
-            await _exec_help_lookup({"topic": "x", "depth": "reference"}, ctx)  # type: ignore[arg-type]
-        assert engine.lookup.call_count == 3
+    async def test_search_passes_args_through(self, ctx: FakeJobContext) -> None:
+        from attune_author.orchestration import RunResult
+
+        captured: dict = {}
+
+        async def fake_run_command(name, args, author_ctx):
+            captured["args"] = args
+            return RunResult(
+                success=True,
+                output={"query": "x", "results": [], "count": 0},
+                elapsed_ms=1,
+            )
+
+        spec = get_command("help.search")
+        assert spec is not None
+        with patch("attune_author.orchestration.run_command", side_effect=fake_run_command):
+            await spec.executor({"query": "x", "limit": 7}, ctx)  # type: ignore[arg-type]
+
+        assert captured["args"] == {"query": "x", "limit": 7}
 
     @pytest.mark.asyncio
-    async def test_search_returns_results_and_count(self, ctx: FakeJobContext) -> None:
-        engine = MagicMock()
-        engine.search.return_value = [("topic-a", 0.9), ("topic-b", 0.5)]
-        engine.generated_dir = Path("/tmp/help")  # noqa: S108
-        with patch("attune_help.HelpEngine", return_value=engine):
-            result = await _exec_help_search({"query": "auth", "limit": 5}, ctx)  # type: ignore[arg-type]
-        assert result["count"] == 2
-        assert len(result["results"]) == 2
-        engine.search.assert_called_once_with("auth", limit=5)
+    async def test_list_returns_unwrapped_output(self, ctx: FakeJobContext) -> None:
+        from attune_author.orchestration import RunResult
 
-    @pytest.mark.asyncio
-    async def test_list_returns_topics_and_count(self, ctx: FakeJobContext) -> None:
-        engine = MagicMock()
-        engine.list_topics.return_value = ["t1", "t2", "t3"]
-        engine.generated_dir = Path("/tmp/help")  # noqa: S108
-        with patch("attune_help.HelpEngine", return_value=engine):
-            result = await _exec_help_list({}, ctx)  # type: ignore[arg-type]
-        assert result["topics"] == ["t1", "t2", "t3"]
-        assert result["count"] == 3
+        async def fake_run_command(name, args, author_ctx):
+            return RunResult(
+                success=True,
+                output={"topics": ["a", "b"], "count": 2, "type_filter": None},
+                elapsed_ms=1,
+            )
 
-    @pytest.mark.asyncio
-    async def test_list_passes_type_filter(self, ctx: FakeJobContext) -> None:
-        engine = MagicMock()
-        engine.list_topics.return_value = []
-        engine.generated_dir = Path("/tmp/help")  # noqa: S108
-        with patch("attune_help.HelpEngine", return_value=engine):
-            await _exec_help_list({"type_filter": "concept"}, ctx)  # type: ignore[arg-type]
-        engine.list_topics.assert_called_once_with(type_filter="concept")
+        spec = get_command("help.list")
+        assert spec is not None
+        with patch("attune_author.orchestration.run_command", side_effect=fake_run_command):
+            out = await spec.executor({}, ctx)  # type: ignore[arg-type]
+
+        assert out == {"topics": ["a", "b"], "count": 2, "type_filter": None}
 
 
 # ---------------------------------------------------------------------------
