@@ -61,9 +61,8 @@ def _proxy_command(orchestration_name: str) -> CommandSpec:
     Importing :mod:`attune_author.orchestration.commands.<ns>` triggers
     registration on the orchestration registry; this helper then copies
     the metadata into a gui-shaped ``CommandSpec`` whose executor is a
-    dispatcher closure. Phases D2 and D3 will repeat this pattern for
-    each migrated command, eventually leaving this module with only
-    proxy registrations and the executors removed.
+    dispatcher closure. Phases D2 and D3 reuse this for the ``author.*``
+    and ``help.*`` migrations.
     """
 
     from attune_author.orchestration import COMMANDS as _AUTHOR_COMMANDS  # noqa: PLC0415
@@ -76,6 +75,75 @@ def _proxy_command(orchestration_name: str) -> CommandSpec:
         description=src.description,
         args_schema=src.args_schema,
         executor=_orchestration_dispatcher(orchestration_name),
+        cancellable=src.cancellable,
+        profiles=src.profiles,
+    )
+
+
+def _author_proxy(
+    orchestration_name: str,
+    *,
+    pre_resolve_workspace: bool = False,
+    invalidate_after: bool = False,
+) -> CommandSpec:
+    """Specialized :func:`_proxy_command` variant for ``author.*``.
+
+    Two host-only behaviours that don't belong in the orchestration
+    runtime:
+
+    - ``pre_resolve_workspace=True`` — call :func:`_resolve_project_paths`
+      on the incoming args so workspace-driven defaults still work even
+      though the orchestration helper requires explicit paths. Passes
+      the resolved ``project_root`` and ``help_dir`` strings through to
+      ``run_command``.
+    - ``invalidate_after=True`` — after dispatch, look for a
+      ``project_root`` in the result dict and call
+      ``attune_gui.routes.rag.invalidate`` so the route layer's pipeline
+      cache stays in sync after a regeneration.
+
+    Phase D4 will replace the private ``rag.invalidate`` call with the
+    public ``pipeline_for(corpus_id)`` API.
+    """
+
+    from attune_author.orchestration import COMMANDS as _AUTHOR_COMMANDS  # noqa: PLC0415
+
+    src = _AUTHOR_COMMANDS[orchestration_name]
+    base_dispatch = _orchestration_dispatcher(orchestration_name)
+
+    async def _dispatch(args: dict[str, Any], ctx: JobContext) -> Any:
+        if pre_resolve_workspace:
+            try:
+                project_root, help_dir = _resolve_project_paths(args)
+            except ValueError:
+                # No path supplied and no workspace configured; let the
+                # orchestration helper raise its ValidationError so the
+                # job runner surfaces a consistent error.
+                pass
+            else:
+                args = {
+                    **args,
+                    "project_root": str(project_root),
+                    "help_dir": str(help_dir),
+                }
+
+        out = await base_dispatch(args, ctx)
+
+        if invalidate_after and isinstance(out, dict):
+            project_root_str = out.get("project_root")
+            if project_root_str:
+                from attune_gui.routes import rag  # noqa: PLC0415
+
+                rag.invalidate(Path(project_root_str))
+
+        return out
+
+    return CommandSpec(
+        name=src.name,
+        title=src.title,
+        domain=src.domain,
+        description=src.description,
+        args_schema=src.args_schema,
+        executor=_dispatch,
         cancellable=src.cancellable,
         profiles=src.profiles,
     )
@@ -392,319 +460,27 @@ COMMANDS["rag.corpus-info"] = _proxy_command("rag.corpus-info")
 
 
 # ---------------------------------------------------------------------------
-# Author: init
+# author.* commands now live in attune_author.orchestration.commands.author
+# (Phase D2 of the architecture-realignment spec). Importing the module
+# triggers registration; the gui mirrors each spec via _proxy_command or
+# _author_proxy depending on whether the command needs workspace
+# pre-resolution and / or post-dispatch pipeline-cache invalidation.
 # ---------------------------------------------------------------------------
 
+import attune_author.orchestration.commands.author  # noqa: F401, E402
 
-async def _exec_author_init(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from pathlib import Path  # noqa: PLC0415
-
-    from attune_author.bootstrap import proposals_to_manifest, scan_project  # noqa: PLC0415
-    from attune_author.manifest import save_manifest  # noqa: PLC0415
-
-    project_root = Path(args.get("project_root", ".")).resolve()
-    help_dir = project_root / ".help"
-
-    if (help_dir / "features.yaml").exists():
-        ctx.log("Already initialised — skipping scan")
-        return {
-            "already_initialized": True,
-            "manifest_path": str(help_dir / "features.yaml"),
-        }
-
-    ctx.log(f"Scanning {project_root} for features…")
-    proposals = await asyncio.to_thread(scan_project, project_root)
-    ctx.log(f"Discovered {len(proposals)} feature(s)")
-
-    if not proposals:
-        return {"discovered": 0, "message": "No features discovered in project."}
-
-    manifest = proposals_to_manifest(proposals)
-    manifest_path = await asyncio.to_thread(save_manifest, manifest, help_dir)
-    ctx.log(f"Wrote manifest to {manifest_path}")
-
-    return {
-        "discovered": len(proposals),
-        "manifest_path": str(manifest_path),
-        "features": [{"name": p.name, "description": p.description} for p in proposals],
-    }
+COMMANDS["author.init"] = _proxy_command("author.init")
 
 
-COMMANDS["author.init"] = CommandSpec(
-    name="author.init",
-    title="Init .help/",
-    domain="author",
-    description="Scan the project and bootstrap a .help/features.yaml manifest.",
-    args_schema={
-        "type": "object",
-        "properties": {
-            "project_root": {
-                "type": "string",
-                "title": "Project root",
-                "default": ".",
-                "description": "Root of the project to scan.",
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-        },
-    },
-    executor=_exec_author_init,
-    cancellable=False,
-    profiles=("developer", "author"),
+COMMANDS["author.status"] = _author_proxy("author.status", pre_resolve_workspace=True)
+
+
+COMMANDS["author.maintain"] = _author_proxy(
+    "author.maintain", pre_resolve_workspace=True, invalidate_after=True
 )
 
 
-# ---------------------------------------------------------------------------
-# Author: status
-# ---------------------------------------------------------------------------
-
-
-async def _exec_author_status(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-
-    from attune_author.maintenance import format_status_report  # noqa: PLC0415
-    from attune_author.manifest import load_manifest  # noqa: PLC0415
-    from attune_author.staleness import check_staleness  # noqa: PLC0415
-
-    project_root, help_dir = _resolve_project_paths(args)
-
-    ctx.log(f"Loading manifest from {help_dir}…")
-    manifest = await asyncio.to_thread(load_manifest, help_dir)
-    ctx.log(f"Checking staleness for {len(manifest.features)} feature(s)…")
-    report = await asyncio.to_thread(check_staleness, manifest, help_dir, project_root, None)
-    total = report.stale_count + report.current_count
-    ctx.log(f"Stale: {report.stale_count} / {total}")
-
-    return {
-        "total": total,
-        "stale": report.stale_count,
-        "fresh": report.current_count,
-        "report": format_status_report(report),
-    }
-
-
-COMMANDS["author.status"] = CommandSpec(
-    name="author.status",
-    title="Template status",
-    domain="author",
-    description="Report which help templates are stale vs. fresh.",
-    args_schema={
-        "type": "object",
-        "properties": {
-            "project_path": {
-                "type": "string",
-                "title": "Project path",
-                "default": "",
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-            "help_dir": {
-                "type": "string",
-                "title": ".help/ path (overrides project_path)",
-                "default": "",
-                "ui:widget": "path",
-            },
-            "project_root": {
-                "type": "string",
-                "title": "Project root (overrides project_path)",
-                "default": "",
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-        },
-    },
-    executor=_exec_author_status,
-    cancellable=False,
-    profiles=("developer", "author"),
-)
-
-
-# ---------------------------------------------------------------------------
-# Author: maintain
-# ---------------------------------------------------------------------------
-
-
-async def _exec_author_maintain(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    """Regenerate stale templates with per-feature progress.
-
-    Mirrors ``attune_author.maintenance.run_maintenance`` but calls
-    ``generate_feature_templates`` one feature at a time so we can emit a
-    log line per feature and the UI doesn't appear stuck.
-    """
-    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
-    from attune_author.maintenance import MaintenanceResult  # noqa: PLC0415
-    from attune_author.manifest import load_manifest  # noqa: PLC0415
-    from attune_author.staleness import check_staleness  # noqa: PLC0415
-
-    project_root, help_dir = _resolve_project_paths(args)
-    dry_run = bool(args.get("dry_run", False))
-    features_raw = str(args.get("features", "")).strip()
-    features = [f.strip() for f in features_raw.split(",") if f.strip()] or None
-
-    label = "Dry-run check" if dry_run else "Regenerating stale templates"
-    ctx.log(f"{label} in {help_dir}…")
-
-    manifest = await asyncio.to_thread(load_manifest, help_dir)
-    report = await asyncio.to_thread(check_staleness, manifest, help_dir, project_root, features)
-    result = MaintenanceResult(staleness=report)
-
-    total = report.stale_count + report.current_count
-    ctx.log(f"Stale: {report.stale_count} / {total}")
-
-    if dry_run or report.stale_count == 0:
-        return {
-            "stale_count": report.stale_count,
-            "total_count": total,
-            "regenerated": [],
-            "failed": [],
-            "dry_run": dry_run,
-        }
-
-    stale_entries = [e for e in report.help_entries if e.is_stale]
-    n_stale = len(stale_entries)
-    for idx, entry in enumerate(stale_entries, start=1):
-        feat = manifest.features.get(entry.feature)
-        if feat is None:
-            ctx.log(f"  [{idx}/{n_stale}] {entry.feature}: not in manifest — skip")
-            continue
-
-        try:
-            gen = await asyncio.to_thread(
-                generate_feature_templates,
-                feature=feat,
-                help_dir=help_dir,
-                project_root=project_root,
-            )
-            result.regenerated.append(gen)
-            ctx.log(f"  [{idx}/{n_stale}] {entry.feature}: {len(gen.templates)} template(s)")
-        except (OSError, Exception) as exc:  # noqa: BLE001
-            ctx.log(f"  [{idx}/{n_stale}] {entry.feature}: FAILED — {exc}")
-            result.failed.append(entry.feature)
-
-    ctx.log(f"Regenerated: {len(result.regenerated)}, failed: {len(result.failed)}")
-
-    return {
-        "stale_count": report.stale_count,
-        "total_count": total,
-        "regenerated": [r.feature for r in result.regenerated],
-        "failed": result.failed,
-        "dry_run": dry_run,
-    }
-
-
-COMMANDS["author.maintain"] = CommandSpec(
-    name="author.maintain",
-    title="Maintain templates",
-    domain="author",
-    description="Regenerate all stale help templates (or dry-run to preview what would change).",
-    args_schema={
-        "type": "object",
-        "properties": {
-            "project_path": {
-                "type": "string",
-                "title": "Project path",
-                "default": "",
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-            "help_dir": {
-                "type": "string",
-                "title": ".help/ path (overrides project_path)",
-                "default": "",
-                "ui:widget": "path",
-            },
-            "project_root": {
-                "type": "string",
-                "title": "Project root (overrides project_path)",
-                "default": "",
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-            "features": {
-                "type": "string",
-                "title": "Features (comma-separated)",
-                "default": "",
-                "description": "Leave blank to check all features.",
-            },
-            "dry_run": {"type": "boolean", "title": "Dry run", "default": False},
-        },
-    },
-    executor=_exec_author_maintain,
-    profiles=("developer", "author"),
-)
-
-
-# ---------------------------------------------------------------------------
-# Author: lookup
-# ---------------------------------------------------------------------------
-
-
-async def _exec_author_lookup(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from pathlib import Path  # noqa: PLC0415
-
-    from attune_author.manifest import (
-        is_safe_feature_name,
-        load_manifest,
-        resolve_topic,
-    )  # noqa: PLC0415
-
-    query = args["query"]
-    depth = args.get("depth", "concept")
-    help_dir = Path(args.get("help_dir", ".help")).resolve()
-
-    ctx.log(f"Looking up {query!r} (depth={depth})…")
-    manifest = await asyncio.to_thread(load_manifest, help_dir)
-    feature_name = resolve_topic(query, manifest)
-
-    if not feature_name:
-        available = sorted(manifest.features)
-        raise ValueError(f"No feature matches {query!r}. Available: {', '.join(available)}")
-
-    if not is_safe_feature_name(feature_name):
-        raise ValueError(f"Invalid feature name: {feature_name!r}")
-
-    template_path = help_dir / "templates" / feature_name / f"{depth}.md"
-    if not template_path.exists():
-        raise ValueError(f"No {depth} template for '{feature_name}'. Run author.generate first.")
-
-    content = template_path.read_text(encoding="utf-8")
-    ctx.log(f"Loaded template for '{feature_name}' ({len(content)} chars)")
-
-    return {"feature": feature_name, "depth": depth, "path": str(template_path), "content": content}
-
-
-COMMANDS["author.lookup"] = CommandSpec(
-    name="author.lookup",
-    title="Lookup template",
-    domain="author",
-    description="Read a rendered help template for a feature by name or tag.",
-    args_schema={
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "title": "Feature / tag",
-                "minLength": 1,
-                "description": "Feature name or tag to look up.",
-            },
-            "depth": {
-                "type": "string",
-                "title": "Depth",
-                "default": "concept",
-                "description": "concept | task | reference",
-            },
-            "help_dir": {
-                "type": "string",
-                "title": ".help/ path",
-                "default": ".help",
-                "ui:widget": "path",
-            },
-        },
-        "required": ["query"],
-    },
-    executor=_exec_author_lookup,
-    cancellable=False,
-    profiles=("developer", "author"),
-)
+COMMANDS["author.lookup"] = _proxy_command("author.lookup")
 
 
 # ---------------------------------------------------------------------------
@@ -909,183 +685,13 @@ COMMANDS["help.list"] = CommandSpec(
 )
 
 
-# ---------------------------------------------------------------------------
-# Author: regen
-# ---------------------------------------------------------------------------
-
-
-async def _exec_author_regen(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
-    from attune_author.manifest import load_manifest  # noqa: PLC0415
-
-    project_root, help_dir = _resolve_project_paths(args)
-    feature_name = str(args.get("feature", "")).strip()
-    overwrite = bool(args.get("overwrite", True))
-
-    ctx.log(f"Loading manifest from {help_dir}…")
-    manifest = await asyncio.to_thread(load_manifest, help_dir)
-
-    if feature_name:
-        if feature_name not in manifest.features:
-            available = ", ".join(sorted(manifest.features)) or "(none)"
-            raise ValueError(f"Feature {feature_name!r} not in manifest. Available: {available}")
-        targets = [manifest.features[feature_name]]
-    else:
-        targets = list(manifest.features.values())
-
-    ctx.log(f"Regenerating {len(targets)} feature(s)…")
-    generated: list[dict[str, Any]] = []
-    failed: list[str] = []
-    for feat in targets:
-        try:
-            result = await asyncio.to_thread(
-                generate_feature_templates,
-                feature=feat,
-                help_dir=help_dir,
-                project_root=project_root,
-                depths=None,
-                overwrite=overwrite,
-            )
-            ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
-            generated.append({"feature": feat.name, "templates": len(result.templates)})
-        # INTENTIONAL: per-feature failure must not abort the batch
-        except Exception as exc:  # noqa: BLE001
-            ctx.log(f"  {feat.name}: FAILED — {exc}")
-            failed.append(feat.name)
-
-    from attune_gui.routes import rag  # noqa: PLC0415
-
-    rag.invalidate(project_root)
-    ctx.log(f"Done — {len(generated)} generated, {len(failed)} failed")
-    return {"generated": generated, "failed": failed}
-
-
-COMMANDS["author.regen"] = CommandSpec(
-    name="author.regen",
-    title="Regenerate templates",
-    domain="author",
-    description="Regenerate help templates for one feature or all features in a project.",
-    args_schema={
-        "type": "object",
-        "properties": {
-            "project_path": {
-                "type": "string",
-                "title": "Project path",
-                "default": "",
-                "description": "Root of the project. Leave blank to use the configured workspace.",
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-            "feature": {
-                "type": "string",
-                "title": "Feature (leave blank for all)",
-                "default": "",
-                "description": "Feature name from the manifest. Leave blank to regenerate all.",
-                "ui:choicesUrl": "/api/author/features?project_path={project_path}",
-            },
-            "overwrite": {
-                "type": "boolean",
-                "title": "Overwrite existing templates",
-                "default": True,
-            },
-        },
-    },
-    executor=_exec_author_regen,
-    profiles=("developer", "author"),
+COMMANDS["author.regen"] = _author_proxy(
+    "author.regen", pre_resolve_workspace=True, invalidate_after=True
 )
 
 
-# ---------------------------------------------------------------------------
-# Author: setup (init + generate all templates in one step)
-# ---------------------------------------------------------------------------
-
-
-async def _exec_author_setup(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from attune_author.bootstrap import proposals_to_manifest, scan_project  # noqa: PLC0415
-    from attune_author.generator import generate_feature_templates  # noqa: PLC0415
-    from attune_author.manifest import load_manifest, save_manifest  # noqa: PLC0415
-
-    project_root, help_dir = _resolve_project_paths(args)
-    overwrite = bool(args.get("overwrite", False))
-
-    manifest_path = help_dir / "features.yaml"
-    if manifest_path.exists():
-        ctx.log("Manifest exists — skipping init")
-    else:
-        ctx.log(f"Scanning {project_root} for features…")
-        proposals = await asyncio.to_thread(scan_project, project_root)
-        ctx.log(f"Discovered {len(proposals)} feature(s)")
-        if not proposals:
-            return {"discovered": 0, "message": "No features discovered in project."}
-        manifest = proposals_to_manifest(proposals)
-        await asyncio.to_thread(save_manifest, manifest, help_dir)
-        ctx.log(f"Wrote manifest to {manifest_path}")
-
-    manifest = await asyncio.to_thread(load_manifest, help_dir)
-    features = list(manifest.features.values())
-    ctx.log(f"Generating templates for {len(features)} feature(s)…")
-
-    generated: list[dict[str, Any]] = []
-    failed: list[str] = []
-    for feat in features:
-        try:
-            result = await asyncio.to_thread(
-                generate_feature_templates,
-                feature=feat,
-                help_dir=help_dir,
-                project_root=project_root,
-                depths=None,
-                overwrite=overwrite,
-            )
-            ctx.log(f"  {feat.name}: {len(result.templates)} template(s)")
-            generated.append({"feature": feat.name, "templates": len(result.templates)})
-        # INTENTIONAL: per-feature failure must not abort the batch
-        except Exception as exc:  # noqa: BLE001
-            ctx.log(f"  {feat.name}: FAILED — {exc}")
-            failed.append(feat.name)
-
-    from attune_gui.routes import rag  # noqa: PLC0415
-
-    rag.invalidate(project_root)
-    ctx.log(f"Done — {len(generated)} generated, {len(failed)} failed")
-    return {
-        "manifest_path": str(manifest_path),
-        "features_total": len(features),
-        "generated": generated,
-        "failed": failed,
-    }
-
-
-COMMANDS["author.setup"] = CommandSpec(
-    name="author.setup",
-    title="Setup help",
-    domain="author",
-    description=(
-        "Init .help/ (if needed) and generate all help templates " "for a project in one step."
-    ),
-    args_schema={
-        "type": "object",
-        "properties": {
-            "project_path": {
-                "type": "string",
-                "title": "Project path",
-                "default": "",
-                "description": (
-                    "Root of the project to set up help for. "
-                    "Leave blank to use the configured workspace."
-                ),
-                "ui:widget": "path",
-                "ui:browseHint": "project",
-            },
-            "overwrite": {
-                "type": "boolean",
-                "title": "Overwrite existing templates",
-                "default": False,
-            },
-        },
-    },
-    executor=_exec_author_setup,
-    profiles=("developer", "author"),
+COMMANDS["author.setup"] = _author_proxy(
+    "author.setup", pre_resolve_workspace=True, invalidate_after=True
 )
 
 

@@ -3,6 +3,25 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.1] — 2026-05-08
+
+### Changed
+
+- **All six `author.*` commands now dispatch through `attune_author.orchestration`.** Phase D2 of the architecture-realignment spec: `init`, `status`, `maintain`, `lookup`, `regen`, `setup`. The executor bodies live in attune-author 0.9.0; the gui keeps thin proxy `CommandSpec`s. `/api/commands` and the job runner are unchanged for clients.
+- **New helper `_author_proxy(name, *, pre_resolve_workspace=False, invalidate_after=False)`** — specialized variant of `_proxy_command`:
+  - `pre_resolve_workspace=True` calls `_resolve_project_paths` on the incoming args so the workspace fallback (which the orchestration runtime intentionally lacks) still works for the gui's path-taking commands.
+  - `invalidate_after=True` calls `attune_gui.routes.rag.invalidate(project_root)` after dispatch using the `project_root` the executor returns. Used by `author.maintain`, `author.regen`, `author.setup`. Phase D4 will replace this with the public `pipeline_for(corpus_id)` API.
+- `commands.py` shrunk by ~480 lines (six executor bodies + six in-line specs) — replaced by six proxy registrations.
+
+### Tests
+
+- `TestAuthorExecutors`, `TestAuthorRegen`, `TestAuthorSetup` test classes removed; comprehensive executor coverage now lives in `attune-author/tests/test_orchestration_commands_author.py`.
+- New `TestAuthorProxies` class verifies (a) all six commands are registered, (b) proxy specs mirror orchestration metadata field-for-field, (c) dispatcher passes args + ctx correctly, (d) workspace pre-resolution fills paths, (e) `invalidate_after` calls `rag.invalidate` only when the executor returns `project_root`.
+
+### Dependencies
+
+- Bumped `attune-author[ai]` constraint from `>=0.8.1,<0.9` to `>=0.9.0,<0.10`.
+
 ## [0.6.0] — 2026-05-08
 
 ### Changed
