@@ -2,4 +2,9 @@
 
 from __future__ import annotations
 
-__version__ = "0.5.0"
+try:
+    from importlib.metadata import PackageNotFoundError, version
+
+    __version__ = version("attune-gui")
+except PackageNotFoundError:  # pragma: no cover — running from a non-installed checkout
+    __version__ = "dev"
