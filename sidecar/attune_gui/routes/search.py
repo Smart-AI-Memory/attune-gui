@@ -37,11 +37,11 @@ def _help_search(q: str, limit: int, workspace: Path | None) -> list[tuple[str, 
 
 
 def _rag_search(q: str, limit: int, workspace: Path | None) -> list[Any]:
-    from attune_gui.routes.rag import _get_pipeline  # noqa: PLC0415
+    from attune_gui.services.rag_pipeline import pipeline_for  # noqa: PLC0415
 
     # INTENTIONAL: search must degrade gracefully on any third-party failure
     try:
-        return _get_pipeline(workspace).run(q, k=limit).citation.hits
+        return pipeline_for(workspace).run(q, k=limit).citation.hits
     except Exception:  # noqa: BLE001
         logger.warning("RagPipeline.run failed for %r", q, exc_info=True)
         return []

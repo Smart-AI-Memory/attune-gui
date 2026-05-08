@@ -107,7 +107,7 @@ def test_browse_nonexistent_path_returns_400(client: TestClient, tmp_path: Path)
     missing = tmp_path / "does-not-exist"
     r = client.get("/api/fs/browse", params={"path": str(missing)})
     assert r.status_code == 400
-    assert "Not a directory" in r.json()["detail"]
+    assert "Not a directory" in r.json()["detail"]["message"]
 
 
 def test_browse_file_path_returns_400(client: TestClient, tmp_path: Path) -> None:
@@ -115,7 +115,7 @@ def test_browse_file_path_returns_400(client: TestClient, tmp_path: Path) -> Non
     f.write_text("hello")
     r = client.get("/api/fs/browse", params={"path": str(f)})
     assert r.status_code == 400
-    assert "Not a directory" in r.json()["detail"]
+    assert "Not a directory" in r.json()["detail"]["message"]
 
 
 def test_browse_unreadable_dir_returns_403(
@@ -135,7 +135,7 @@ def test_browse_unreadable_dir_returns_403(
     monkeypatch.setattr(Path, "iterdir", fake_iterdir)
     r = client.get("/api/fs/browse", params={"path": str(target)})
     assert r.status_code == 403
-    assert "denied" in r.json()["detail"]
+    assert "denied" in r.json()["detail"]["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +168,7 @@ def test_browse_annotate_help_flags_dirs_with_features_yaml(
     assert body["has_manifest"] is False
 
 
-def test_browse_annotate_help_current_dir_marked(
-    client: TestClient, tmp_path: Path
-) -> None:
+def test_browse_annotate_help_current_dir_marked(client: TestClient, tmp_path: Path) -> None:
     """When browsing a `.help/` dir directly, the current-dir flag fires."""
     (tmp_path / "features.yaml").write_text("version: 1\nfeatures: {}\n")
     r = client.get(
@@ -181,9 +179,7 @@ def test_browse_annotate_help_current_dir_marked(
     assert r.json()["has_manifest"] is True
 
 
-def test_browse_no_annotation_omits_has_manifest(
-    client: TestClient, tmp_path: Path
-) -> None:
+def test_browse_no_annotation_omits_has_manifest(client: TestClient, tmp_path: Path) -> None:
     """Default path (no annotate param) preserves the original wire shape."""
     (tmp_path / "child").mkdir()
     r = client.get("/api/fs/browse", params={"path": str(tmp_path)})
@@ -224,9 +220,7 @@ def test_browse_annotate_project_flags_dirs_with_help_manifest_inside(
     assert "has_manifest" not in by_name["project_a"]
 
 
-def test_browse_annotate_project_current_dir_marked(
-    client: TestClient, tmp_path: Path
-) -> None:
+def test_browse_annotate_project_current_dir_marked(client: TestClient, tmp_path: Path) -> None:
     (tmp_path / ".help").mkdir()
     (tmp_path / ".help" / "features.yaml").write_text("version: 1\nfeatures: {}\n")
     r = client.get(

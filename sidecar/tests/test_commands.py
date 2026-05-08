@@ -233,7 +233,7 @@ class TestRagExecutors:
         )
         pipeline = MagicMock()
         pipeline.run.return_value = result_obj
-        with patch("attune_gui.routes.rag._get_pipeline", return_value=pipeline):
+        with patch("attune_gui.services.rag_pipeline.pipeline_for", return_value=pipeline):
             out = await _exec_rag_query(
                 {"query": "auth flow", "k": 1, "project_path": str(tmp_path)},
                 ctx,  # type: ignore[arg-type]
@@ -396,7 +396,7 @@ class TestAuthorProxies:
 
         with (
             patch("attune_author.orchestration.run_command", side_effect=fake_run_command),
-            patch("attune_gui.routes.rag.invalidate", side_effect=fake_invalidate),
+            patch("attune_gui.services.rag_pipeline.invalidate", side_effect=fake_invalidate),
         ):
             out = await spec.executor(
                 {"project_path": str(tmp_path)},
@@ -426,7 +426,7 @@ class TestAuthorProxies:
         with (
             patch("attune_author.orchestration.run_command", side_effect=fake_run_command),
             patch(
-                "attune_gui.routes.rag.invalidate",
+                "attune_gui.services.rag_pipeline.invalidate",
                 side_effect=lambda p: invalidated.append(p),
             ),
         ):

@@ -131,9 +131,9 @@ def _author_proxy(
         if invalidate_after and isinstance(out, dict):
             project_root_str = out.get("project_root")
             if project_root_str:
-                from attune_gui.routes import rag  # noqa: PLC0415
+                from attune_gui.services.rag_pipeline import invalidate  # noqa: PLC0415
 
-                rag.invalidate(Path(project_root_str))
+                invalidate(Path(project_root_str))
 
         return out
 
@@ -257,14 +257,14 @@ async def _exec_rag_query(args: dict[str, Any], ctx: JobContext) -> dict[str, An
     k = int(args.get("k", 3))
     ctx.log(f"retrieving top-{k} for: {query!r}")
 
-    from attune_gui.routes.rag import _get_pipeline  # noqa: PLC0415
+    from attune_gui.services.rag_pipeline import pipeline_for  # noqa: PLC0415
     from attune_gui.workspace import get_workspace  # noqa: PLC0415
 
     project_path_raw = str(args.get("project_path", "")).strip()
     workspace = (
         Path(project_path_raw).expanduser().resolve() if project_path_raw else get_workspace()
     )
-    pipeline = _get_pipeline(workspace)
+    pipeline = pipeline_for(workspace)
 
     result = await asyncio.to_thread(pipeline.run, query, k=k)
     hits = [

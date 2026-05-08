@@ -93,7 +93,7 @@ def test_unknown_root_rejected(client: TestClient) -> None:
         headers={"Origin": "http://localhost:5173"},
     )
     assert r.status_code == 400
-    assert "Unknown root" in r.json()["detail"]
+    assert "Unknown root" in r.json()["detail"]["message"]
 
 
 # ---------------------------------------------------------------------------
