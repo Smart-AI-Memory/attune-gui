@@ -232,3 +232,46 @@ def test_engine_failure_degrades_gracefully(client, monkeypatch):
     data = resp.json()
     assert len(data["results"]) == 1
     assert data["results"][0]["source"] == "rag"
+
+
+# ---------------------------------------------------------------------------
+# merge() dedup — duplicates resolving to the same topic must keep the best
+# ---------------------------------------------------------------------------
+
+
+def test_merge_keeps_higher_score_when_two_rag_hits_share_topic():
+    """Two RAG hits resolving to the same topic key must produce one
+    result whose score reflects the higher hit, not the later one.
+
+    Before the fix, the second iteration of the loop unconditionally
+    overwrote the first ``acc[topic]``, silently dropping the higher-
+    scoring hit when the order happened to be high-then-low.
+    """
+    # Same author-layout topic, different depths, both score above zero
+    # but the concept is rated higher than the reference.
+    rag_hits = [
+        _rag_hit("auth/concept.md", 5.0, "high-rank content"),
+        _rag_hit("auth/reference.md", 1.0, "low-rank content"),
+    ]
+    results = merge([], rag_hits, limit=10)
+    assert len(results) == 1
+    r = results[0]
+    assert r["topic"] == "auth"
+    # Top RAG hit normalizes to 1.0 (max=5.0), weighted by _RAG_WEIGHT=0.6
+    assert r["score"] == pytest.approx(0.6, abs=0.01)
+    # Path should be the higher-scoring hit's path
+    assert r["path"] == "auth/concept.md"
+
+
+def test_merge_keeps_higher_score_when_lower_comes_first():
+    """Order-independent: low-score-first should still keep the high-score hit."""
+    rag_hits = [
+        _rag_hit("auth/reference.md", 1.0, "low first"),
+        _rag_hit("auth/concept.md", 5.0, "high second"),
+    ]
+    results = merge([], rag_hits, limit=10)
+    assert len(results) == 1
+    r = results[0]
+    assert r["topic"] == "auth"
+    assert r["path"] == "auth/concept.md"
+    assert r["score"] == pytest.approx(0.6, abs=0.01)
