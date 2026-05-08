@@ -3,6 +3,23 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.2] — 2026-05-08
+
+### Changed
+
+- **All three `help.*` commands now dispatch through `attune_author.orchestration`.** Phase D3 of the architecture-realignment spec: `lookup`, `search`, `list`. The executor bodies live in attune-author 0.9.1; the gui keeps thin proxy `CommandSpec`s registered via `_proxy_command(...)`. None of the three need workspace pre-resolution or post-dispatch invalidation, so plain `_proxy_command` is sufficient.
+- `commands.py` shrank by ~200 more lines (three executors + `_help_engine` factory + three in-line specs replaced by three proxy registrations + a one-line import).
+- `_help_engine` factory removed from `attune_gui.commands` — no production callers after this PR. A lazy-import variant lives in attune-author at `attune_author.orchestration.commands.help._help_engine`.
+
+### Tests
+
+- `TestHelpEngineFactory` and `TestHelpExecutors` removed; coverage now lives in `attune-author/tests/test_orchestration_commands_help.py`.
+- New `TestHelpProxies` class: registration check, metadata mirroring, dispatch through `run_command` for all three commands.
+
+### Dependencies
+
+- Bumped `attune-author[ai]` constraint from `>=0.9.0,<0.10` to `>=0.9.1,<0.10`.
+
 ## [0.6.1] — 2026-05-08
 
 ### Changed
