@@ -13,6 +13,7 @@ def _patch_specs_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
     from attune_gui.routes import cowork_specs
 
     monkeypatch.setattr(cowork_specs, "_specs_root", lambda: root)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [root])
 
 
 def _patch_templates_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:

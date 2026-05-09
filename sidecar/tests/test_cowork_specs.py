@@ -37,7 +37,7 @@ def test_specs_lists_features_with_phase_and_status(
         status="complete",
     )
 
-    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: specs_root)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [specs_root])
 
     r = client.get("/api/cowork/specs", headers={"Origin": "http://localhost:5173"})
     assert r.status_code == 200
@@ -65,7 +65,7 @@ def test_specs_skips_dot_dirs(
     _seed_spec(specs_root, "real", files=["requirements.md"])
     _seed_spec(specs_root, ".hidden", files=["requirements.md"])
 
-    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: specs_root)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [specs_root])
 
     body = client.get("/api/cowork/specs", headers={"Origin": "http://localhost:5173"}).json()
     names = {s["feature"] for s in body["specs"]}
@@ -76,10 +76,10 @@ def test_specs_skips_dot_dirs(
 def test_specs_returns_empty_when_no_root(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: None)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [])
 
     body = client.get("/api/cowork/specs", headers={"Origin": "http://localhost:5173"}).json()
-    assert body == {"specs": [], "specs_root": None}
+    assert body == {"specs": [], "specs_root": None, "specs_roots": []}
 
 
 def test_spec_with_no_phase_files_handled(
@@ -90,7 +90,7 @@ def test_spec_with_no_phase_files_handled(
     feat.mkdir(parents=True)
     (feat / "notes.md").write_text("misc")
 
-    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: specs_root)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [specs_root])
 
     body = client.get("/api/cowork/specs", headers={"Origin": "http://localhost:5173"}).json()
     s = next(s for s in body["specs"] if s["feature"] == "empty")
