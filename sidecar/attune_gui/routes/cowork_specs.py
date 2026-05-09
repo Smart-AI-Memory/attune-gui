@@ -85,45 +85,78 @@ def _scan_feature(feat_dir: Path) -> dict[str, Any]:
     }
 
 
-def _specs_root() -> Path | None:
-    """Find the workspace ``specs/`` directory.
+def _project_for(root: Path) -> str:
+    """Derive a project label from a spec-root path.
+
+    Examples:
+      ``/Users/x/attune/specs``        → ``attune``
+      ``/Users/x/attune-gui/specs``    → ``attune-gui``
+      ``/Users/x/attune-ai/docs/specs`` → ``attune-ai``
+    """
+    parts = root.parts
+    if len(parts) >= 2 and parts[-1] == "specs":
+        if len(parts) >= 3 and parts[-2] == "docs":
+            return parts[-3]
+        return parts[-2]
+    return root.name
+
+
+def _specs_roots() -> list[Path]:
+    """Find all configured workspace ``specs/`` directories, in priority order.
 
     Search order:
       1. ``specs_root`` from :mod:`attune_gui.config`
-         (env ``ATTUNE_SPECS_ROOT`` → file → default)
-      2. ``<workspace>/specs/``
-      3. ``<workspace>/.help/specs/``
-      4. ``Path.cwd() / "specs"``
-      5. Walk up from cwd looking for the first ``specs/`` dir
+         (env ``ATTUNE_SPECS_ROOT`` → file → default).
+         If the value contains ``os.pathsep`` (``:`` on POSIX), it is treated
+         as a list of paths — the federated multi-root case. Each path
+         must be an existing directory; non-existent entries are skipped.
+         A single path with no separator is treated as one root, matching
+         the legacy single-root behaviour.
+      2. If no config override: legacy single-root search applies —
+         ``<workspace>/specs/``, ``<workspace>/.help/specs/``,
+         ``Path.cwd() / "specs"``, then walk up from cwd. Returns the
+         first match as a single-element list, or ``[]`` if nothing found.
     """
+    import os  # noqa: PLC0415
+
     from attune_gui import config  # noqa: PLC0415
 
     override = config.get("specs_root")
     if override:
-        p = Path(override).expanduser()
-        if p.is_dir():
-            return p
+        candidates = [Path(p).expanduser() for p in override.split(os.pathsep) if p.strip()]
+        return [p for p in candidates if p.is_dir()]
 
     ws = get_workspace()
-    candidates: list[Path] = []
+    legacy_candidates: list[Path] = []
     if ws is not None:
-        candidates.extend([ws / "specs", ws / ".help" / "specs"])
-    candidates.append(Path.cwd() / "specs")
+        legacy_candidates.extend([ws / "specs", ws / ".help" / "specs"])
+    legacy_candidates.append(Path.cwd() / "specs")
 
-    for c in candidates:
+    for c in legacy_candidates:
         if c.is_dir():
-            return c
+            return [c]
 
     # Walk up from cwd
     cur = Path.cwd().resolve()
     for _ in range(8):  # cap depth so we don't crawl forever
         candidate = cur / "specs"
         if candidate.is_dir():
-            return candidate
+            return [candidate]
         if cur.parent == cur:
             break
         cur = cur.parent
-    return None
+    return []
+
+
+def _specs_root() -> Path | None:
+    """Legacy single-root resolver. Returns the highest-priority spec root.
+
+    Kept for backward compatibility with the file-preview resolver and
+    write endpoints (which target a single canonical root). New code that
+    needs to scan all roots should call :func:`_specs_roots` directly.
+    """
+    roots = _specs_roots()
+    return roots[0] if roots else None
 
 
 def _template_path() -> Path | None:
@@ -221,21 +254,44 @@ def _validate_status(status: str) -> None:
 
 @router.get("/specs")
 async def list_specs() -> dict[str, Any]:
-    """Return a list of feature specs found under the workspace specs root."""
-    root = _specs_root()
-    if root is None:
-        return {"specs": [], "specs_root": None}
+    """Return a list of feature specs aggregated across all configured spec roots.
 
-    specs = []
-    for child in sorted(root.iterdir()):
-        if not child.is_dir():
-            continue
-        # Skip dot-dirs like .git
-        if child.name.startswith("."):
-            continue
-        specs.append(_scan_feature(child))
+    Each spec is tagged with ``project`` (derived from its root) and ``root``
+    (absolute path of the source root). Specs from earlier roots take
+    precedence in the listing order; collisions on ``feature`` slug across
+    roots are surfaced via a ``collision`` boolean on the second occurrence.
 
-    return {"specs": specs, "specs_root": str(root)}
+    For backward compatibility ``specs_root`` is the first root path (or
+    ``None``); ``specs_roots`` is the full list of ``{path, project}`` entries.
+    """
+    roots = _specs_roots()
+    if not roots:
+        return {"specs": [], "specs_root": None, "specs_roots": []}
+
+    specs: list[dict[str, Any]] = []
+    seen: dict[str, str] = {}  # feature -> project of first occurrence
+    for root in roots:
+        project = _project_for(root)
+        for child in sorted(root.iterdir()):
+            if not child.is_dir():
+                continue
+            # Skip dot-dirs like .git
+            if child.name.startswith("."):
+                continue
+            spec = _scan_feature(child)
+            spec["project"] = project
+            spec["root"] = str(root)
+            if child.name in seen and seen[child.name] != project:
+                spec["collision"] = True
+            else:
+                seen.setdefault(child.name, project)
+            specs.append(spec)
+
+    return {
+        "specs": specs,
+        "specs_root": str(roots[0]),
+        "specs_roots": [{"path": str(r), "project": _project_for(r)} for r in roots],
+    }
 
 
 @router.get("/specs/template")

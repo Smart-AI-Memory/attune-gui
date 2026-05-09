@@ -106,7 +106,7 @@ def test_specs_page_lists_seeded_features(
     feat.mkdir(parents=True)
     (feat / "requirements.md").write_text("# spec\n\n**Status**: approved\n")
 
-    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: specs_root)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [specs_root])
 
     r = client.get("/dashboard/specs", headers=HDR)
     assert r.status_code == 200
@@ -175,7 +175,7 @@ def test_preview_page_renders_markdown(
     feat.mkdir(parents=True)
     (feat / "requirements.md").write_text("# Heading\n\nBody text here.")
 
-    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: root)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [root])
 
     r = client.get("/dashboard/preview?root=specs&path=feature-a/requirements.md", headers=HDR)
     assert r.status_code == 200

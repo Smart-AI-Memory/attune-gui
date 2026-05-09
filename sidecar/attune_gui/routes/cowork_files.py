@@ -65,6 +65,40 @@ def _resolve_root(root: str) -> Path:
 
 
 def _resolve_path(root: str, rel: str) -> Path:
+    """Resolve ``rel`` under ``root``, with multi-root search for ``specs``.
+
+    For ``root == "specs"``: walks every configured spec root in priority order;
+    returns the first root that contains ``rel`` as an existing file or
+    directory (passes the path-traversal check). If no root contains ``rel``,
+    falls back to the first root so writes can target a fresh location.
+    """
+    if root == "specs":
+        from attune_gui.routes.cowork_specs import _specs_roots  # noqa: PLC0415
+
+        roots = _specs_roots()
+        if not roots:
+            raise HTTPException(status_code=404, detail="Specs root not found.")
+
+        first_valid: Path | None = None
+        for raw_base in roots:
+            base = raw_base.resolve()
+            candidate = (base / rel).resolve()
+            try:
+                candidate.relative_to(base)
+            except ValueError:
+                # Path traversal attempt against this root — skip
+                continue
+            if first_valid is None:
+                first_valid = candidate
+            if candidate.exists():
+                return candidate
+
+        if first_valid is None:
+            # Every root rejected the path as traversal
+            raise HTTPException(status_code=400, detail="Path traversal blocked.")
+        # Fall back to first root for write targets
+        return first_valid
+
     base = _resolve_root(root).resolve()
     candidate = (base / rel).resolve()
     try:

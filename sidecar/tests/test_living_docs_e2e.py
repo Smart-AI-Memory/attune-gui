@@ -7,6 +7,10 @@ Three scenarios:
   1. No-JS page load  — table renders with correct badge text server-side
   2. Regenerate flow  — clicking Regenerate shows spinner; no navigation away
   3. Approve flow     — clicking Approve transitions row to current without reload
+
+These tests are gated by the ``e2e`` marker and deselected from the
+default pytest run; opt in with ``pytest -m e2e``. Pass 3 of the
+test-strategy spec will stabilize and unify e2e workflows.
 """
 
 from __future__ import annotations
@@ -17,11 +21,13 @@ import time
 
 import pytest
 
+# Mark the entire module as e2e so it's deselected by default.
+pytestmark = pytest.mark.e2e
+
 # Guard the whole module — skip if playwright not installed.
 pytest.importorskip("playwright.sync_api")
 
 from playwright.sync_api import Page, sync_playwright  # noqa: E402, I001
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -314,8 +320,8 @@ def test_approve_transitions_row_without_reload(seeded_server, pw_browser):
     )
 
     # No full-page navigation should have happened.
-    assert not any("/dashboard/living-docs" in u for u in navigations), (
-        f"Unexpected navigation(s): {navigations}"
-    )
+    assert not any(
+        "/dashboard/living-docs" in u for u in navigations
+    ), f"Unexpected navigation(s): {navigations}"
 
     context.close()

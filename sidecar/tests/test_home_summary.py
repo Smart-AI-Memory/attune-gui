@@ -207,12 +207,12 @@ async def test_build_home_summary_composes_all_sources():
                 {"manual": True, "staleness": "fresh"},
                 {"manual": False, "staleness": "stale"},
             ],
-            "templates_root": "/tmp/help",
+            "templates_root": "/fake/help",
         }
     )
     fake_layers = AsyncMock(return_value={"layers": {"ai": {"importable": True, "version": "9"}}})
     fake_corpus = AsyncMock(
-        return_value={"manifest_path": "/tmp/help/features.yaml", "feature_count": 4}
+        return_value={"manifest_path": "/fake/help/features.yaml", "feature_count": 4}
     )
 
     fake_job = MagicMock()
@@ -239,7 +239,7 @@ async def test_build_home_summary_composes_all_sources():
     assert summary.templates.total == 2
     assert summary.templates.manual == 1
     assert summary.feature_count == 4
-    assert summary.manifest_path == "/tmp/help/features.yaml"
+    assert summary.manifest_path == "/fake/help/features.yaml"
     assert len(summary.family) == 1
     assert summary.family[0].package == "attune-ai"
     assert len(summary.recent_jobs) == 1
