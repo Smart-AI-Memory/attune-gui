@@ -20,20 +20,16 @@ The `e2e` marker covers Playwright tests in `test_living_docs_e2e.py`.
 They need a real uvicorn server and a Chromium install; pass 3 of the
 test-strategy spec will stabilize and unify e2e workflows.
 
-## LLM mocking standard
+## LLM mocking standard, `live` marker, CI guard, cost policy
 
-attune-gui itself makes no LLM calls — the heavy lifting is done by
-`attune-author` and `attune-rag` upstream. Cross-layer integration tests
-follow the **attune-author reference pattern**:
+See **`testing-conventions.md`** in the attune workspace umbrella —
+the canonical reference (mocking pattern, `live` marker semantics, CI
+guard expectation, cost & quota policy). Applies to all four layers.
 
-- Strip `ANTHROPIC_API_KEY` via an autouse fixture.
-- Patch `anthropic.Anthropic` at import time, not at call site.
-- Reset module-level singletons (e.g., `_PIPELINES`) between tests with
-  an autouse fixture.
-
-See `attune-author/tests/conftest.py` (`_lenient_polish_by_default`,
-`_reset_rag_pipeline`). Pass 2 of the test-strategy spec will formalize
-this into a shared `docs/testing-conventions.md` across layers.
+attune-gui makes no LLM calls directly; the heavy lifting is done by
+`attune-author` and `attune-rag` upstream. The `live` marker is
+registered in `pyproject.toml` so any future opt-in tests have a
+consistent home.
 
 ## Contract tests
 
