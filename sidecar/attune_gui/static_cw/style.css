@@ -154,6 +154,9 @@ code, .mono {
   margin: -8px 0 16px;
 }
 
+.spec-project-group { margin: 0 0 18px; }
+.spec-project-group > summary { cursor: pointer; padding: 0.5rem 0; }
+
 .empty {
   color: var(--ink-mute);
   padding: 32px 0;
