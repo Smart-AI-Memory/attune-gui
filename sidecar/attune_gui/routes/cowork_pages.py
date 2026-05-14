@@ -185,14 +185,45 @@ async def page_templates(request: Request, filter: str = "all") -> HTMLResponse:
 
 @router.get("/dashboard/specs", response_class=HTMLResponse, include_in_schema=False)
 async def page_specs(request: Request) -> HTMLResponse:
-    """Render the Specs page — feature specs grouped by phase + status."""
+    """Render the Specs page — feature specs grouped by project."""
     from attune_gui.routes import cowork_specs
+    from attune_gui.workspace import get_workspace
 
-    data = await _safe_call(cowork_specs.list_specs()) or {"specs": [], "specs_root": None}
+    data = await _safe_call(cowork_specs.list_specs()) or {
+        "specs": [],
+        "specs_root": None,
+        "specs_roots": [],
+    }
+    specs = data["specs"]
+
+    # Project order = first-seen order in specs (preserves backend root priority).
+    projects_in_order: list[str] = []
+    for s in specs:
+        p = s.get("project") or "(unknown)"
+        if p not in projects_in_order:
+            projects_in_order.append(p)
+
+    ws = get_workspace()
+    ws_name = ws.name if ws is not None else None
+    if ws_name and ws_name in projects_in_order:
+        active_project = ws_name
+    elif projects_in_order:
+        active_project = projects_in_order[0]
+    else:
+        active_project = None
+
+    roots_count = len(data.get("specs_roots") or []) or (1 if data.get("specs_root") else 0)
+
     return templates.TemplateResponse(
         request,
         "specs.html",
-        _ctx(request, "specs", specs=data["specs"], specs_root=data["specs_root"]),
+        _ctx(
+            request,
+            "specs",
+            specs=specs,
+            active_project=active_project,
+            roots_count=roots_count,
+        ),
     )
 
 

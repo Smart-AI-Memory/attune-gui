@@ -114,6 +114,31 @@ def test_specs_page_lists_seeded_features(
     assert "approved" in r.text
 
 
+def test_specs_page_groups_by_project(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Federated specs from two projects render as two <details> blocks."""
+    from attune_gui.routes import cowork_specs
+
+    ai_root = tmp_path / "attune-ai" / "specs"
+    gui_root = tmp_path / "attune-gui" / "specs"
+    (ai_root / "alpha").mkdir(parents=True)
+    (ai_root / "alpha" / "requirements.md").write_text("# a\n\n**Status**: draft\n")
+    (gui_root / "beta").mkdir(parents=True)
+    (gui_root / "beta" / "requirements.md").write_text("# b\n\n**Status**: draft\n")
+
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [ai_root, gui_root])
+
+    r = client.get("/dashboard/specs", headers=HDR)
+    assert r.status_code == 200
+    # Two project sections, each as its own <details>.
+    assert r.text.count('class="spec-project-group"') == 2
+    assert "attune-ai" in r.text
+    assert "attune-gui" in r.text
+    assert "alpha" in r.text
+    assert "beta" in r.text
+
+
 # ---------------------------------------------------------------------------
 # Templates page renders seeded data + manual flag
 # ---------------------------------------------------------------------------
