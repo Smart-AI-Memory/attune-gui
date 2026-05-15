@@ -213,7 +213,14 @@ async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
                 "owning_path": exc.owning_path,
             },
         ) from exc
+    except editor_mod.RenameError as exc:
+        # e.g. "Source template does not exist: ..." for template_path.
+        # RenameError is a ValueError subclass; surface as 400 bad-input.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except NotImplementedError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ValueError as exc:
+        # e.g. "Template path escapes corpus root: ..." or "Empty template path".
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return plan.to_dict()
@@ -244,12 +251,28 @@ async def rename_apply(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
                 "owning_path": exc.owning_path,
             },
         ) from exc
+    except editor_mod.RenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except NotImplementedError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     try:
         affected = editor_mod.apply_rename(corpus, plan)
+    except editor_mod.RenameCollisionError as exc:
+        # Race: target appeared between plan and apply.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "name_collision",
+                "message": str(exc),
+                "owning_path": exc.owning_path,
+            },
+        ) from exc
     except editor_mod.RenameError as exc:
+        # Race: source disappeared or another guard tripped between
+        # plan and apply. 409 conveys the conflict shape to the client.
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except OSError as exc:
         # Atomic-write failure mid-stream. _rename.apply_rename rolls

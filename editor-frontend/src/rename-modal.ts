@@ -2,27 +2,39 @@
  * Rename refactor modal (M4 #21).
  *
  * Triggered from the frontmatter-form chip context menu (right-click
- * on a tag/alias chip → "Rename …"). The modal:
+ * on a tag/alias chip → "Rename …") or from the editor top-bar
+ * ("Rename file…" for ``template_path``). The modal:
  *
  *   1. Asks the user for the new name.
  *   2. Calls ``/refactor/rename/preview`` debounced 250ms after each
- *      keystroke to render a multi-file diff.
- *   3. Disables Apply until preview returns at least one file edit.
+ *      keystroke to render a multi-file diff plus any file moves.
+ *   3. Disables Apply until preview returns at least one edit or move.
  *   4. On Apply, posts ``/refactor/rename/apply`` and reports affected
  *      files via ``onSuccess``.
  *
  * Server contract:
  *   - 200 → ``RenamePlan`` (preview) or ``{affected_files, plan}`` (apply).
- *   - 409 → name collision (alias kind only) — surfaced as a banner
- *     with the conflicting template path.
- *   - 400 → unsupported kind (template_path is reserved for v2).
+ *     For ``template_path`` plans the body includes ``moves[]`` (file
+ *     moves on disk) alongside the usual ``edits[]`` (text reference
+ *     fixes).
+ *   - 409 → name collision (alias or template_path) — surfaced as a
+ *     banner with the conflicting template path.
+ *   - 400 → invalid input (e.g. ``template_path`` escapes the corpus
+ *     root, or source template does not exist).
  *
  * The host wires:
  *   - ``onSuccess(affected)`` so the editor can broadcast a refresh
  *     and show a toast.
  */
 
-import { ApiError, type EditorApi, type RenameFileEdit, type RenameKind, type RenamePlan } from "./api";
+import {
+  ApiError,
+  type EditorApi,
+  type FileMove,
+  type RenameFileEdit,
+  type RenameKind,
+  type RenamePlan,
+} from "./api";
 
 export interface RenameModalOptions {
   api: EditorApi;
@@ -144,13 +156,24 @@ export function openRenameModal(opts: RenameModalOptions): RenameModal {
   function renderPlan(plan: RenamePlan): void {
     body.innerHTML = "";
     lastPreview = plan;
-    if (plan.edits.length === 0) {
+    const moves = plan.moves ?? [];
+    if (plan.edits.length === 0 && moves.length === 0) {
       summary.textContent = `No references to "${plan.old}" found in this corpus — apply will be a no-op.`;
       applyBtn.disabled = true;
       return;
     }
     const totalHunks = plan.edits.reduce((n, e) => n + e.hunks.length, 0);
-    summary.textContent = `Renaming "${plan.old}" → "${plan.new}" affects ${plan.edits.length} file${plan.edits.length === 1 ? "" : "s"} (${totalHunks} hunk${totalHunks === 1 ? "" : "s"}).`;
+    const parts: string[] = [];
+    if (moves.length > 0) {
+      parts.push(`${moves.length} file move${moves.length === 1 ? "" : "s"}`);
+    }
+    if (plan.edits.length > 0) {
+      parts.push(
+        `${plan.edits.length} file${plan.edits.length === 1 ? "" : "s"} (${totalHunks} hunk${totalHunks === 1 ? "" : "s"})`,
+      );
+    }
+    summary.textContent = `Renaming "${plan.old}" → "${plan.new}" affects ${parts.join(" + ")}.`;
+    for (const move of moves) body.appendChild(renderFileMove(move));
     for (const edit of plan.edits) body.appendChild(renderFileEdit(edit));
     applyBtn.disabled = false;
   }
@@ -245,6 +268,24 @@ export function openRenameModal(opts: RenameModalOptions): RenameModal {
   queueMicrotask(() => toInput.focus());
 
   return { close };
+}
+
+function renderFileMove(move: FileMove): HTMLElement {
+  const sec = document.createElement("section");
+  sec.className = "attune-rename-file attune-rename-move";
+
+  const head = document.createElement("header");
+  head.className = "attune-rename-file-head attune-rename-move-head";
+  const tag = document.createElement("span");
+  tag.className = "attune-rename-move-tag";
+  tag.textContent = "file move";
+  const arrow = document.createElement("span");
+  arrow.className = "attune-rename-move-arrow";
+  arrow.textContent = ` ${move.old_path} → ${move.new_path}`;
+  head.appendChild(tag);
+  head.appendChild(arrow);
+  sec.appendChild(head);
+  return sec;
 }
 
 function renderFileEdit(edit: RenameFileEdit): HTMLElement {

@@ -71,11 +71,18 @@ export interface RenameFileEdit {
   hunks: RenameHunk[];
 }
 
+export interface FileMove {
+  old_path: string;
+  new_path: string;
+}
+
 export interface RenamePlan {
   old: string;
   new: string;
   kind: RenameKind;
   edits: RenameFileEdit[];
+  /** File-level moves (template_path renames). Absent on alias/tag plans. */
+  moves?: FileMove[];
 }
 
 export interface RenameApplyResponse {
