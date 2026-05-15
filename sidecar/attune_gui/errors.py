@@ -56,7 +56,11 @@ def _normalize_detail(detail: Any, status_code: int) -> dict[str, Any]:
         return {"message": "internal error", "code": "internal_error"}
 
     if isinstance(detail, dict):
+        # Preserve any extra keys the route attached (e.g. ``owning_path``
+        # on rename collisions). The 5xx branch above keeps server
+        # errors sanitized; here on 4xx the route is the trusted author.
         return {
+            **detail,
             "message": str(detail.get("message", "")),
             "code": detail.get("code"),
         }

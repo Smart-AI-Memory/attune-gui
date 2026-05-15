@@ -313,3 +313,6 @@ def test_template_path_preview_collision_returns_409(
     detail = response.json()["detail"]
     assert detail["code"] == "name_collision"
     assert "concepts/beta.md" in detail["message"]
+    # The envelope now round-trips ``owning_path`` so the frontend
+    # collision banner can name the conflicting file.
+    assert detail["owning_path"] == "concepts/beta.md"
