@@ -223,3 +223,96 @@ def test_rename_apply_collision_returns_409(client: TestClient, corpus: tuple[st
         json={"old": "alpha", "new": "a", "kind": "alias"},
     )
     assert response.status_code == 409
+
+
+# -- template_path rename (v0.1.16) --------------------------------
+
+
+def test_template_path_preview_includes_moves(client: TestClient, corpus: tuple[str, Path]) -> None:
+    corpus_id, _ = corpus
+    response = client.post(
+        f"/api/corpus/{corpus_id}/refactor/rename/preview",
+        json={
+            "old": "concepts/alpha.md",
+            "new": "concepts/alpha-renamed.md",
+            "kind": "template_path",
+        },
+    )
+    assert response.status_code == 200
+    plan = response.json()
+    assert plan["kind"] == "template_path"
+    assert plan["moves"] == [
+        {"old_path": "concepts/alpha.md", "new_path": "concepts/alpha-renamed.md"}
+    ]
+
+
+def test_template_path_apply_moves_file_and_reports_affected(
+    client: TestClient, corpus: tuple[str, Path]
+) -> None:
+    corpus_id, root = corpus
+    response = client.post(
+        f"/api/corpus/{corpus_id}/refactor/rename/apply",
+        json={
+            "old": "concepts/alpha.md",
+            "new": "concepts/alpha-renamed.md",
+            "kind": "template_path",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "concepts/alpha-renamed.md" in body["affected_files"]
+    assert not (root / "concepts" / "alpha.md").exists()
+    assert (root / "concepts" / "alpha-renamed.md").exists()
+
+
+def test_template_path_preview_missing_source_returns_400(
+    client: TestClient, corpus: tuple[str, Path]
+) -> None:
+    corpus_id, _ = corpus
+    response = client.post(
+        f"/api/corpus/{corpus_id}/refactor/rename/preview",
+        json={
+            "old": "concepts/nope.md",
+            "new": "concepts/whatever.md",
+            "kind": "template_path",
+        },
+    )
+    assert response.status_code == 400
+    assert "does not exist" in response.json()["detail"]["message"].lower()
+
+
+def test_template_path_preview_escapes_root_returns_400(
+    client: TestClient, corpus: tuple[str, Path]
+) -> None:
+    corpus_id, _ = corpus
+    response = client.post(
+        f"/api/corpus/{corpus_id}/refactor/rename/preview",
+        json={
+            "old": "concepts/alpha.md",
+            "new": "../escape.md",
+            "kind": "template_path",
+        },
+    )
+    assert response.status_code == 400
+    assert "escapes" in response.json()["detail"]["message"].lower()
+
+
+def test_template_path_preview_collision_returns_409(
+    client: TestClient, corpus: tuple[str, Path]
+) -> None:
+    corpus_id, _ = corpus
+    response = client.post(
+        f"/api/corpus/{corpus_id}/refactor/rename/preview",
+        json={
+            "old": "concepts/alpha.md",
+            "new": "concepts/beta.md",
+            "kind": "template_path",
+        },
+    )
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert detail["code"] == "name_collision"
+    assert "concepts/beta.md" in detail["message"]
+    # The envelope now round-trips ``owning_path`` so the frontend
+    # collision banner can name the conflicting file.
+    assert detail["owning_path"] == "concepts/beta.md"

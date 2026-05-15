@@ -54,6 +54,7 @@ interface Layout {
   editorPane: HTMLElement;
   diagnostics: HTMLElement;
   saveBtn: HTMLButtonElement;
+  renameFileBtn: HTMLButtonElement;
   toast: HTMLElement;
 }
 
@@ -71,6 +72,12 @@ function buildLayout(root: HTMLElement): Layout {
   right.className = "attune-editor-topbar-right";
   const status = document.createElement("span");
   status.className = "attune-editor-status";
+  const renameFileBtn = document.createElement("button");
+  renameFileBtn.type = "button";
+  renameFileBtn.className = "attune-btn attune-btn-secondary";
+  renameFileBtn.textContent = "Rename file…";
+  renameFileBtn.title = "Rename this template file and update references";
+  renameFileBtn.disabled = true;
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
   saveBtn.className = "attune-btn attune-btn-primary";
@@ -78,6 +85,7 @@ function buildLayout(root: HTMLElement): Layout {
   saveBtn.disabled = true;
   saveBtn.title = "Save (⌘S)";
   right.appendChild(status);
+  right.appendChild(renameFileBtn);
   right.appendChild(saveBtn);
 
   topBar.appendChild(pathLabel);
@@ -129,6 +137,7 @@ function buildLayout(root: HTMLElement): Layout {
     editorPane,
     diagnostics,
     saveBtn,
+    renameFileBtn,
     toast,
   };
 }
@@ -294,6 +303,52 @@ async function bootstrap(): Promise<void> {
     });
   }
 
+  function openRenameFile(): void {
+    if (activeRenameModal !== null) return;
+    if (isDuplicateTab) {
+      showToast(ui.toast, "Read-only tab — close the other tab to rename.", "err");
+      return;
+    }
+    const draft = editor?.view.state.doc.toString();
+    if (draft !== undefined && draft !== baseText) {
+      showToast(ui.toast, "Save or discard unsaved changes before renaming the file.", "err");
+      return;
+    }
+    activeRenameModal = openRenameModal({
+      api,
+      corpusId: boot.corpusId,
+      kind: "template_path",
+      currentName: boot.relPath,
+      parent: document.body,
+      onSuccess: (affected, plan) => {
+        // If the open file was moved, redirect this tab to the new
+        // path. The WS for the old path closes naturally when this
+        // page unloads; the new page opens a fresh session. We pick
+        // navigation over in-place rebinding because the editor URL
+        // is the source of truth for `(corpus, path)` and lets the
+        // user reload / share the link with the new name.
+        const move = (plan.moves ?? []).find((m) => m.old_path === boot.relPath);
+        if (move !== undefined) {
+          const url = `/editor?corpus=${encodeURIComponent(boot.corpusId)}&path=${encodeURIComponent(move.new_path)}`;
+          window.location.assign(url);
+          return;
+        }
+        // Open file wasn't itself moved (rare for a template_path
+        // rename, but possible if `old` matched a different file).
+        // Refresh in place and toast.
+        void reloadFromDisk();
+        const summary =
+          affected.length === 0
+            ? `Renamed (no files changed).`
+            : `Renamed across ${affected.length} file${affected.length === 1 ? "" : "s"}.`;
+        showToast(ui.toast, summary);
+      },
+      onClose: () => {
+        activeRenameModal = null;
+      },
+    });
+  }
+
   const form = renderFrontmatterForm(ui.formSidebar, {
     doc,
     schema,
@@ -342,6 +397,8 @@ async function bootstrap(): Promise<void> {
   if (activeCorpus?.kind === "generated") {
     isGeneratedCorpus = true;
   }
+  ui.renameFileBtn.disabled = false;
+  ui.renameFileBtn.addEventListener("click", () => openRenameFile());
   renderAdvisories();
   refreshSaveButton();
 
@@ -510,6 +567,8 @@ async function bootstrap(): Promise<void> {
         renderAdvisories();
         ui.saveBtn.disabled = true;
         ui.saveBtn.title = "Read-only: another tab owns this file";
+        ui.renameFileBtn.disabled = true;
+        ui.renameFileBtn.title = "Read-only: another tab owns this file";
       }
     },
   });
@@ -546,6 +605,7 @@ async function bootstrap(): Promise<void> {
     reload: reloadFromDisk,
     triggerConflict: enterConflictMode,
     openRename,
+    openRenameFile,
     switcher,
   };
 }

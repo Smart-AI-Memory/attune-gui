@@ -188,6 +188,45 @@ describe("openRenameModal", () => {
     expect(document.querySelector(".attune-modal-rename")).toBeNull();
   });
 
+  it("renders a file move row when the plan includes moves[]", async () => {
+    const movesPlan: RenamePlan = {
+      old: "concepts/alpha.md",
+      new: "concepts/alpha-renamed.md",
+      kind: "template_path",
+      edits: [],
+      moves: [
+        { old_path: "concepts/alpha.md", new_path: "concepts/alpha-renamed.md" },
+      ],
+    };
+    const api = makeApi({
+      renamePreview: vi.fn().mockResolvedValue(movesPlan),
+    });
+    openRenameModal({
+      api,
+      corpusId: "c1",
+      kind: "template_path",
+      currentName: "concepts/alpha.md",
+      parent: document.body,
+      onSuccess: () => {},
+    });
+    const toInput = document.querySelectorAll(
+      ".attune-rename-inputs input",
+    )[1] as HTMLInputElement;
+    toInput.value = "concepts/alpha-renamed.md";
+    toInput.dispatchEvent(new Event("input"));
+    await tick();
+    const moveRow = document.querySelector(".attune-rename-move");
+    expect(moveRow).toBeTruthy();
+    expect(moveRow?.textContent).toMatch(/concepts\/alpha\.md/);
+    expect(moveRow?.textContent).toMatch(/concepts\/alpha-renamed\.md/);
+    const summary = document.querySelector(".attune-rename-summary");
+    expect(summary?.textContent).toMatch(/1 file move/);
+    const apply = document.querySelector(
+      ".attune-modal-foot .attune-btn-primary",
+    ) as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+  });
+
   it("clears state when the new name matches the old name", async () => {
     const api = makeApi();
     openRenameModal({
