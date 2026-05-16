@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from attune_rag.editor import schema as schema_mod
 from fastapi import APIRouter, HTTPException, status
 
 logger = logging.getLogger(__name__)
@@ -22,14 +23,10 @@ router = APIRouter(prefix="/api/editor", tags=["editor-schema"])
 async def template_schema() -> dict[str, Any]:
     """Return the JSON schema bundled with attune-rag.
 
-    The schema is a small static document — load it lazily so the
-    sidecar's cold start does not pay for a json import we may never
-    use.
+    ``schema_mod.load_schema()`` itself reads from disk per call but is
+    cached internally by ``attune-rag``, so the first request pays the
+    JSON parse and subsequent ones are free.
     """
-    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
-
-    schema_mod = require_editor_submodule("_schema")
-
     try:
         return schema_mod.load_schema()
     except FileNotFoundError as exc:

@@ -3,6 +3,34 @@
 All notable changes to `attune-gui` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Removed
+
+- **`sidecar/attune_gui/_editor_dep.py`** and its tests
+  (`sidecar/tests/test_editor_dep.py`). The 503-guard existed to
+  turn `ModuleNotFoundError` for `attune_rag.editor` into a friendly
+  HTTP error while the submodule was unpublished on PyPI. Now that
+  `attune-rag>=0.1.18` ships the renamed `attune_rag.editor.{rename,
+  schema, lint, autocomplete, references}` submodules, the guard
+  is dead code. Closes the "Pending upstream" item below.
+
+### Changed
+
+- **`attune-rag` pin bumped** from `>=0.1.12,<0.2` to
+  `>=0.1.18,<0.2`. 0.1.18 is the floor that ships the renamed editor
+  submodules + their deprecation shims at the old underscored paths.
+- **`routes/editor_{ws,lint,schema,template}.py`** moved the six lazy
+  `require_editor_submodule(...)` callsites to direct top-level
+  imports:
+  - `editor_ws.py`, `editor_lint.py` → `from attune_rag import editor as editor_mod`
+  - `editor_schema.py` → `from attune_rag.editor import schema as schema_mod`
+  - `editor_template.py` → `from attune_rag.editor import rename as rename_mod`
+
+  Drops the `# noqa: PLC0415` markers that justified the lazy
+  pattern. Cold-start cost is negligible (importing `attune_rag.editor`
+  doesn't load the JSON schema or hit disk).
+
 ## [0.7.0] — 2026-05-08
 
 Phase D4 of the architecture-realignment spec — closes findings **#5** (private cross-route `_get_pipeline` import) and **#7** (inconsistent error envelopes). Final phase of the realignment work.
