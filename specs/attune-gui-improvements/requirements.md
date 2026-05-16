@@ -35,9 +35,9 @@ Each initiative ships as its own PR. They have no dependencies on each other and
 This is **a tracking task, not new code**. Plan:
 
 - **A1:** Add a `# TODO(attune_rag.editor):` marker in `_editor_dep.py` that names what to do when the upstream release lands. Pin the watch in CHANGELOG so it doesn't get lost.
-- **A2:** *(Deferred until upstream)* Bump the `attune-rag` version pin in `pyproject.toml` to require the release that ships `editor`, replace each `require_editor_submodule(...)` callsite with a top-level `from attune_rag import editor as editor_mod` (or the appropriate submodule), delete `_editor_dep.py`, drop the lazy-import noqa comments.
+- **A2:** *(✅ done 2026-05-16 — attune-rag 0.1.18 shipped `attune_rag.editor.{rename,schema,lint,autocomplete,references}`)* Bumped the `attune-rag` pin to `>=0.1.18`, replaced all six `require_editor_submodule(...)` callsites with top-level imports (`from attune_rag import editor as editor_mod` in `editor_ws`/`editor_lint`; `from attune_rag.editor import schema as schema_mod` in `editor_schema`; `from attune_rag.editor import rename as rename_mod` in `editor_template`), deleted `_editor_dep.py` and its tests, dropped the `# noqa: PLC0415` markers.
 
-A1 ships now. A2 is a *checklist note*, not a task to execute in this spec — flagged so we don't pretend otherwise.
+A1 shipped earlier. A2 closed in the 0.2.0-prep commit on `feature/attune-rag-0.2-editor-rename`.
 
 ### Initiative B — Persist living-docs state only
 

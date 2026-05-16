@@ -25,6 +25,7 @@ import logging
 from pathlib import Path
 from typing import Any, Literal
 
+from attune_rag import editor as editor_mod
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 from starlette.websockets import WebSocketState
@@ -193,10 +194,6 @@ class RenameRequest(BaseModel):
     dependencies=[Depends(require_client_token)],
 )
 async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
-    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
-
-    editor_mod = require_editor_submodule("")
-
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
     except KeyError as exc:
@@ -224,10 +221,6 @@ async def rename_preview(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
     dependencies=[Depends(require_client_token)],
 )
 async def rename_apply(corpus_id: str, req: RenameRequest) -> dict[str, Any]:
-    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
-
-    editor_mod = require_editor_submodule("")
-
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
     except KeyError as exc:

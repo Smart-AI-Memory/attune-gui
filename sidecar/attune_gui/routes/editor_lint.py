@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from attune_rag import editor as editor_mod
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
@@ -45,10 +46,6 @@ class AliasInfoModel(BaseModel):
     dependencies=[Depends(require_client_token)],
 )
 async def lint(corpus_id: str, req: LintRequest) -> list[DiagnosticModel]:
-    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
-
-    editor_mod = require_editor_submodule("")
-
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
     except KeyError as exc:
@@ -65,10 +62,6 @@ async def autocomplete(
     prefix: str = Query("", description="Case-insensitive prefix; empty matches all"),
     limit: int = Query(50, ge=1, le=500),
 ) -> list:
-    from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
-
-    editor_mod = require_editor_submodule("")
-
     try:
         corpus = editor_corpora.load_corpus(corpus_id)
     except KeyError as exc:
