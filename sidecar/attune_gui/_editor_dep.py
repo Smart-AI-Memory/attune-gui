@@ -24,7 +24,7 @@ delete this file:
    ``routes/editor_lint.py`` (2 callsites) — replace the lazy
    ``require_editor_submodule(...)`` calls with top-level
    ``from attune_rag import editor as editor_mod`` (or the appropriate
-   submodule, e.g. ``attune_rag.editor._rename``).
+   submodule, e.g. ``attune_rag.editor.rename``).
 3. Remove the ``# noqa: PLC0415`` comments that justify the lazy import.
 4. Delete this file (``_editor_dep.py``) and its tests.
 

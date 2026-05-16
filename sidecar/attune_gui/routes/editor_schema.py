@@ -28,7 +28,7 @@ async def template_schema() -> dict[str, Any]:
     """
     from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
 
-    schema_mod = require_editor_submodule("_schema")
+    schema_mod = require_editor_submodule("schema")
 
     try:
         return schema_mod.load_schema()

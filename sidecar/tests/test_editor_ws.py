@@ -191,7 +191,7 @@ def test_rename_apply_rolls_back_on_failure(
             raise OSError("simulated rename failure")
         return real_replace(src, dst, *args, **kwargs)
 
-    from attune_rag.editor import _rename as rename_mod
+    from attune_rag.editor import rename as rename_mod
 
     monkeypatch.setattr(rename_mod.os, "replace", flaky_replace)
 

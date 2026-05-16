@@ -128,7 +128,7 @@ def _split_frontmatter(text: str) -> tuple[str, str]:
 
 
 def _rename_hunks(rel_path: str, old_text: str, new_text: str):
-    """Lazy proxy for ``attune_rag.editor._rename._hunks``.
+    """Lazy proxy for ``attune_rag.editor.rename._hunks``.
 
     Imported lazily so attune-gui's cold start does not require
     ``attune_rag.editor`` to be present until the editor routes are
@@ -137,7 +137,7 @@ def _rename_hunks(rel_path: str, old_text: str, new_text: str):
     """
     from attune_gui._editor_dep import require_editor_submodule  # noqa: PLC0415
 
-    rename_mod = require_editor_submodule("_rename")
+    rename_mod = require_editor_submodule("rename")
     return rename_mod._hunks(rel_path, old_text, new_text)
 
 

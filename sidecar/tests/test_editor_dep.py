@@ -13,8 +13,8 @@ def test_returns_module_when_present() -> None:
 
 
 def test_returns_submodule_when_present() -> None:
-    mod = require_editor_submodule("_schema")
-    assert mod.__name__ == "attune_rag.editor._schema"
+    mod = require_editor_submodule("schema")
+    assert mod.__name__ == "attune_rag.editor.schema"
 
 
 def test_raises_503_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -27,7 +27,7 @@ def test_raises_503_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_editor_dep, "import_module", fake_import)
 
     with pytest.raises(HTTPException) as excinfo:
-        require_editor_submodule("_rename")
+        require_editor_submodule("rename")
     assert excinfo.value.status_code == 503
     detail = excinfo.value.detail
     assert isinstance(detail, dict)
