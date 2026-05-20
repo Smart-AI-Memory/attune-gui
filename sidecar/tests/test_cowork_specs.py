@@ -115,7 +115,10 @@ def test_specs_root_env_var_wins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 def test_specs_root_falls_back_to_workspace(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    from attune_gui import config as _config
+
     monkeypatch.delenv("ATTUNE_SPECS_ROOT", raising=False)
+    monkeypatch.setattr(_config, "get", lambda key: None)
     ws = tmp_path / "ws"
     (ws / "specs").mkdir(parents=True)
     monkeypatch.setattr(cowork_specs, "get_workspace", lambda: ws)
@@ -124,9 +127,47 @@ def test_specs_root_falls_back_to_workspace(
     assert cowork_specs._specs_root() == ws / "specs"
 
 
+def test_specs_root_falls_back_to_workspace_docs_specs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Workspaces that keep specs at ``docs/specs/`` (attune-rag, attune-ai layout)
+    are discoverable when neither ``specs/`` nor ``.help/specs/`` exists."""
+    from attune_gui import config as _config
+
+    monkeypatch.delenv("ATTUNE_SPECS_ROOT", raising=False)
+    monkeypatch.setattr(_config, "get", lambda key: None)
+    ws = tmp_path / "ws"
+    (ws / "docs" / "specs").mkdir(parents=True)
+    monkeypatch.setattr(cowork_specs, "get_workspace", lambda: ws)
+    monkeypatch.chdir(tmp_path)
+
+    assert cowork_specs._specs_root() == ws / "docs" / "specs"
+
+
+def test_specs_root_prefers_specs_over_docs_specs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """If a workspace has both ``specs/`` and ``docs/specs/``, ``specs/`` wins —
+    matches the documented priority order."""
+    from attune_gui import config as _config
+
+    monkeypatch.delenv("ATTUNE_SPECS_ROOT", raising=False)
+    monkeypatch.setattr(_config, "get", lambda key: None)
+    ws = tmp_path / "ws"
+    (ws / "specs").mkdir(parents=True)
+    (ws / "docs" / "specs").mkdir(parents=True)
+    monkeypatch.setattr(cowork_specs, "get_workspace", lambda: ws)
+    monkeypatch.chdir(tmp_path)
+
+    assert cowork_specs._specs_root() == ws / "specs"
+
+
 def test_specs_root_walks_up_from_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """If env + workspace miss, walk up from cwd until 'specs/' is found."""
+    from attune_gui import config as _config
+
     monkeypatch.delenv("ATTUNE_SPECS_ROOT", raising=False)
+    monkeypatch.setattr(_config, "get", lambda key: None)
     monkeypatch.setattr(cowork_specs, "get_workspace", lambda: None)
 
     project = tmp_path / "proj"

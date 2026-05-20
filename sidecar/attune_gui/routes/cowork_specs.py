@@ -114,8 +114,9 @@ def _specs_roots() -> list[Path]:
          the legacy single-root behaviour.
       2. If no config override: legacy single-root search applies —
          ``<workspace>/specs/``, ``<workspace>/.help/specs/``,
-         ``Path.cwd() / "specs"``, then walk up from cwd. Returns the
-         first match as a single-element list, or ``[]`` if nothing found.
+         ``<workspace>/docs/specs/``, ``Path.cwd() / "specs"``, then walk
+         up from cwd. Returns the first match as a single-element list,
+         or ``[]`` if nothing found.
     """
     import os  # noqa: PLC0415
 
@@ -129,7 +130,7 @@ def _specs_roots() -> list[Path]:
     ws = get_workspace()
     legacy_candidates: list[Path] = []
     if ws is not None:
-        legacy_candidates.extend([ws / "specs", ws / ".help" / "specs"])
+        legacy_candidates.extend([ws / "specs", ws / ".help" / "specs", ws / "docs" / "specs"])
     legacy_candidates.append(Path.cwd() / "specs")
 
     for c in legacy_candidates:
