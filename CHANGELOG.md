@@ -15,11 +15,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   schema, lint, autocomplete, references}` submodules, the guard
   is dead code. Closes the "Pending upstream" item below.
 
+### Fixed
+
+- **`sidecar/tests/test_cowork_specs.py`** — added an autouse fixture
+  that points `attune_gui.config.CONFIG_PATH` at an empty tmp file for
+  the duration of the module. The `_specs_root` fallback tests
+  (`test_specs_root_falls_back_to_workspace`,
+  `test_specs_root_walks_up_from_cwd`) failed on any machine where
+  `~/.attune-gui/config.json` had a real `specs_root` set: the
+  file-based override silently won over the workspace/cwd fallbacks
+  the tests intend to exercise. CI was clean (no host config), so
+  this only surfaced when running the suite locally on a developer
+  machine.
+
 ### Changed
 
 - **`attune-rag` pin bumped** from `>=0.1.12,<0.2` to
-  `>=0.1.18,<0.2`. 0.1.18 is the floor that ships the renamed editor
-  submodules + their deprecation shims at the old underscored paths.
+  `>=0.1.22,<0.2`. 0.1.22 is the latest published as of 2026-05-20
+  and the floor that attune-rag's W1.2 downstream check verifies
+  against (82/82 rag+editor contract tests green). Closes M5.3 of
+  the attune-rag v1.0 roadmap (Phase 3 — attune-gui downstream
+  cleanup).
 - **`routes/editor_{ws,lint,schema,template}.py`** moved the six lazy
   `require_editor_submodule(...)` callsites to direct top-level
   imports:

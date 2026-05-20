@@ -5,8 +5,24 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from attune_gui import config as gui_config
 from attune_gui.routes import cowork_specs
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def _isolate_attune_gui_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """Point ``attune_gui.config.CONFIG_PATH`` at an empty tmp location.
+
+    Why: ``_specs_roots()`` consults ``config.get("specs_root")``, which reads
+    ``~/.attune-gui/config.json``. On a developer machine that file may set a
+    federated ``specs_root`` (real paths under $HOME), which silently wins over
+    the workspace/cwd fallbacks these tests intend to exercise.
+    """
+    isolated = tmp_path_factory.mktemp("attune-gui-config") / "config.json"
+    monkeypatch.setattr(gui_config, "CONFIG_PATH", isolated)
 
 
 def _seed_spec(root: Path, name: str, *, files: list[str], status: str | None = None) -> None:
