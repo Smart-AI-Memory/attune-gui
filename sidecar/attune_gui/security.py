@@ -19,6 +19,7 @@ those are explicit non-goals.
 from __future__ import annotations
 
 import secrets
+from urllib.parse import urlsplit
 
 from fastapi import Header, HTTPException
 from starlette.requests import HTTPConnection
@@ -29,8 +30,9 @@ _SESSION_TOKEN = secrets.token_urlsafe(32)
 
 # Origins allowed to talk to us. localhost and 127.0.0.1 at any port
 # covers dev servers (vite, file://, direct ports) without opening us
-# to the public web.
-_ALLOWED_ORIGIN_HOSTS = frozenset({"localhost", "127.0.0.1", "[::1]"})
+# to the public web. IPv6 loopback appears as "::1" (without brackets)
+# because that's what urlsplit().hostname returns for "http://[::1]:N".
+_ALLOWED_ORIGIN_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
 def current_session_token() -> str:
@@ -71,16 +73,11 @@ async def origin_guard(connection: HTTPConnection) -> None:
     if origin is None:
         return
 
-    # Origin is like "http://localhost:5173" — parse the host out.
-    try:
-        host = origin.split("://", 1)[1].split("/", 1)[0].split(":", 1)[0]
-    except IndexError:
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "bad_origin", "message": f"Malformed Origin: {origin!r}"},
-        ) from None
-
-    if host not in _ALLOWED_ORIGIN_HOSTS:
+    # urlsplit handles IPv6 bracket forms correctly: hostname for
+    # "http://[::1]:9090" is "::1", not "[" as a hand-rolled split
+    # on ":" would yield. Returns None for malformed origins.
+    host = urlsplit(origin).hostname
+    if host is None or host not in _ALLOWED_ORIGIN_HOSTS:
         raise HTTPException(
             status_code=403,
             detail={
