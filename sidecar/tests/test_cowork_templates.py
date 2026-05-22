@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-import os
-import time
 from pathlib import Path
 
 import pytest
+from attune_author import StalenessReport
+from attune_author.staleness import FeatureStaleness
 from attune_gui.routes import cowork_templates
 from fastapi.testclient import TestClient
-
-
-def _aged(path: Path, days: float) -> None:
-    """Backdate ``path``'s mtime by ``days`` days."""
-    target = time.time() - days * 86400
-    os.utime(path, (target, target))
 
 
 def _seed_template(
@@ -46,6 +40,11 @@ def _seed_template(
 # ---------------------------------------------------------------------------
 
 
+def _empty_report(_ws: Path) -> StalenessReport:
+    """Stub for check_workspace_staleness — no manifest, nothing to compare."""
+    return StalenessReport()
+
+
 def test_templates_lists_with_metadata(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -61,6 +60,8 @@ def test_templates_lists_with_metadata(
     _seed_template(root / "tasks" / "legacy.md", legacy_manual=True)
 
     monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+    monkeypatch.setattr(cowork_templates, "get_workspace", lambda: None)
+    monkeypatch.setattr(cowork_templates, "check_workspace_staleness", _empty_report)
 
     body = client.get("/api/cowork/templates", headers={"Origin": "http://localhost:5173"}).json()
     items = {t["path"]: t for t in body["templates"]}
@@ -75,27 +76,38 @@ def test_templates_lists_with_metadata(
     assert items["tasks/legacy.md"]["manual"] is True
 
 
-def test_templates_staleness_thresholds(
+def test_templates_staleness_reflects_content_drift(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """The route's `staleness` value comes from attune-author's content-drift check.
+
+    Replaces the legacy mtime-bucket test. Three template shapes:
+      - ``auth/concept.md``   — feature is stale per the report → "stale"
+      - ``ops/concept.md``    — feature is known and current     → "fresh"
+      - ``orphan.md``         — no feature dir (lives at root)   → "unknown"
+    """
     root = tmp_path / "templates-root"
-    fresh = root / "fresh.md"
-    stale = root / "stale.md"
-    very = root / "very.md"
-    _seed_template(fresh)
-    _seed_template(stale)
-    _seed_template(very)
-    _aged(fresh, 5)
-    _aged(stale, 30)  # between 14 and 60 days
-    _aged(very, 90)
+    _seed_template(root / "auth" / "concept.md")
+    _seed_template(root / "ops" / "concept.md")
+    _seed_template(root / "orphan.md")
+
+    def fake_report(_ws: Path) -> StalenessReport:
+        return StalenessReport(
+            help_entries=[
+                FeatureStaleness(feature="auth", is_stale=True, current_hash="x", stored_hash=None),
+                FeatureStaleness(feature="ops", is_stale=False, current_hash="y", stored_hash="y"),
+            ]
+        )
 
     monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+    monkeypatch.setattr(cowork_templates, "get_workspace", lambda: tmp_path)
+    monkeypatch.setattr(cowork_templates, "check_workspace_staleness", fake_report)
 
     body = client.get("/api/cowork/templates", headers={"Origin": "http://localhost:5173"}).json()
     by_path = {t["path"]: t for t in body["templates"]}
-    assert by_path["fresh.md"]["staleness"] == "fresh"
-    assert by_path["stale.md"]["staleness"] == "stale"
-    assert by_path["very.md"]["staleness"] == "very-stale"
+    assert by_path["auth/concept.md"]["staleness"] == "stale"
+    assert by_path["ops/concept.md"]["staleness"] == "fresh"
+    assert by_path["orphan.md"]["staleness"] == "unknown"
 
 
 def test_templates_empty_when_no_root(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
