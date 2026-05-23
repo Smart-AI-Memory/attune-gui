@@ -1,6 +1,6 @@
 # Tasks — Templates page staleness alignment
 
-**Status:** approved (Phase 3)
+**Status:** done (Phase 3 — all 10 tasks complete, see branch feat/templates-staleness-alignment)
 **Spec:** [requirements.md](./requirements.md) · [design.md](./design.md)
 **Date:** 2026-05-22
 
@@ -12,17 +12,17 @@ Tasks are ordered so each one is independently testable. Backend/cache before wi
 
 | # | Task | Layer | Status | Notes |
 |---|------|-------|--------|-------|
-| 0 | **Reconnaissance** — answer the 3 open questions from design.md §"Open questions" | attune-gui | pending | Test fixtures (does attune-author publish one?), grep for `very-stale` assertions, locate badge CSS. Outputs feed tasks 6–7. ~30 min. |
-| 1 | **Add `staleness_cache` service module** — `sidecar/attune_gui/services/staleness_cache.py` with `get_template_staleness`, `invalidate_workspace`, `invalidate_path`. In-memory dict, lazy population, graceful-degrade when `attune_author` not importable. | attune-gui | pending | Pure unit tests with a fake/mock `check_staleness`. No HTTP, no I/O beyond `check_staleness` itself. |
-| 2 | **Map template path → owning feature** — helper used by task 1 to project a `FeatureStaleness.is_stale` onto every `*.md` template under `templates/<feature>/`. Files outside any feature dir → `"manual"`. | attune-gui | pending | Pure function, table-driven tests. Likely lives next to `staleness_cache.py`. |
-| 3 | **Wire cache into `list_templates()`** — replace `_staleness(mtime)` call in `routes/cowork_templates.py:95` with `staleness_cache.get_template_staleness(workspace, rel_path)`. Update the `_staleness()` helper or delete it. Keep `last_modified` field untouched. | attune-gui | pending | Existing route tests need updating to new status domain (drop `very-stale`). |
-| 4 | **Hook invalidation in `_author_proxy(invalidate_after=True)`** — extend `commands.py:99-106` to also call `staleness_cache.invalidate_workspace(Path(project_root_str))` alongside the existing RAG invalidate. | attune-gui | pending | Add test asserting cache entry for the workspace is gone after a maintain job completes. |
-| 5 | **Hook invalidation in editor save endpoint** — `routes/editor_template.py` `/template/save`: on 200, call `staleness_cache.invalidate_path(workspace, saved_rel_path)`. Look up workspace from corpus root. | attune-gui | pending | Test: save → cache entry for that path is gone. Needs corpus→workspace lookup helper if not already factored out. |
-| 6 | **Hook invalidation in watchfiles WS** — `routes/editor_ws.py`: on `file_changed` event for a template path, call `invalidate_path`. | attune-gui | pending | Test: simulate file_changed event → cache entry dropped. Watch out for noisy events (debounce already present? confirm). |
-| 7 | **Update Templates page UI badges** — remove `very-stale` style; add `manual` and `unknown` styles. Tooltip copy from design.md §UI/UX. `last_modified` column becomes plain secondary text. | attune-gui | pending | Touches Jinja template + `cw-static/style.css` (paths from task 0 recon). Visual regression: manually verify on dashboard. |
-| 8 | **Sweep tests for `"very-stale"` assertions** — replace with `"stale"`, or delete redundant tests where age-band granularity was the only thing being asserted. | attune-gui | pending | Driven by grep output from task 0. |
-| 9 | **Remove dead code** — `_FRESH_DAYS`, `_STALE_DAYS`, `_staleness()` in `cowork_templates.py` are now unused. Drop the docstring section that describes mtime thresholds. | attune-gui | pending | Smallest possible cleanup commit. |
-| 10 | **Docs** — update `README.md` (Templates row of the page table — staleness meaning changed) and `CHANGELOG.md` (under next version's "Changed" section). | attune-gui | pending | One-paragraph note: the badge now reflects semantic regen-needed, not file age. |
+| 0 | **Reconnaissance** — answer the 3 open questions from design.md §"Open questions" | attune-gui | done    | Test fixtures (does attune-author publish one?), grep for `very-stale` assertions, locate badge CSS. Outputs feed tasks 6–7. ~30 min. |
+| 1 | **Add `staleness_cache` service module** — `sidecar/attune_gui/services/staleness_cache.py` with `get_template_staleness`, `invalidate_workspace`, `invalidate_path`. In-memory dict, lazy population, graceful-degrade when `attune_author` not importable. | attune-gui | done    | Pure unit tests with a fake/mock `check_staleness`. No HTTP, no I/O beyond `check_staleness` itself. |
+| 2 | **Map template path → owning feature** — helper used by task 1 to project a `FeatureStaleness.is_stale` onto every `*.md` template under `templates/<feature>/`. Files outside any feature dir → `"manual"`. | attune-gui | done    | Pure function, table-driven tests. Likely lives next to `staleness_cache.py`. |
+| 3 | **Wire cache into `list_templates()`** — replace `_staleness(mtime)` call in `routes/cowork_templates.py:95` with `staleness_cache.get_template_staleness(workspace, rel_path)`. Update the `_staleness()` helper or delete it. Keep `last_modified` field untouched. | attune-gui | done    | Existing route tests need updating to new status domain (drop `very-stale`). |
+| 4 | **Hook invalidation in `_author_proxy(invalidate_after=True)`** — extend `commands.py:99-106` to also call `staleness_cache.invalidate_workspace(Path(project_root_str))` alongside the existing RAG invalidate. | attune-gui | done    | Add test asserting cache entry for the workspace is gone after a maintain job completes. |
+| 5 | **Hook invalidation in editor save endpoint** — `routes/editor_template.py` `/template/save`: on 200, call `staleness_cache.invalidate_path(workspace, saved_rel_path)`. Look up workspace from corpus root. | attune-gui | done    | Test: save → cache entry for that path is gone. Needs corpus→workspace lookup helper if not already factored out. |
+| 6 | **Hook invalidation in watchfiles WS** — `routes/editor_ws.py`: on `file_changed` event for a template path, call `invalidate_path`. | attune-gui | done    | Test: simulate file_changed event → cache entry dropped. Watch out for noisy events (debounce already present? confirm). |
+| 7 | **Update Templates page UI badges** — remove `very-stale` style; add `manual` and `unknown` styles. Tooltip copy from design.md §UI/UX. `last_modified` column becomes plain secondary text. | attune-gui | done    | Touches Jinja template + `cw-static/style.css` (paths from task 0 recon). Visual regression: manually verify on dashboard. |
+| 8 | **Sweep tests for `"very-stale"` assertions** — replace with `"stale"`, or delete redundant tests where age-band granularity was the only thing being asserted. | attune-gui | done    | Driven by grep output from task 0. |
+| 9 | **Remove dead code** — `_FRESH_DAYS`, `_STALE_DAYS`, `_staleness()` in `cowork_templates.py` are now unused. Drop the docstring section that describes mtime thresholds. | attune-gui | done    | Smallest possible cleanup commit. |
+| 10 | **Docs** — update `README.md` (Templates row of the page table — staleness meaning changed) and `CHANGELOG.md` (under next version's "Changed" section). | attune-gui | done    | One-paragraph note: the badge now reflects semantic regen-needed, not file age. |
 
 ---
 
