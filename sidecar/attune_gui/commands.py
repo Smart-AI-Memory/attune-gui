@@ -132,8 +132,12 @@ def _author_proxy(
             project_root_str = out.get("project_root")
             if project_root_str:
                 from attune_gui.services.rag_pipeline import invalidate  # noqa: PLC0415
+                from attune_gui.services.staleness_cache import (  # noqa: PLC0415
+                    invalidate_workspace,
+                )
 
                 invalidate(Path(project_root_str))
+                invalidate_workspace(Path(project_root_str))
 
         return out
 

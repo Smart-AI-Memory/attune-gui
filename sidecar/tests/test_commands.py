@@ -436,3 +436,37 @@ class TestAuthorProxies:
             )
 
         assert invalidated == []
+
+    @pytest.mark.asyncio
+    async def test_regen_proxy_invalidates_staleness_cache_after_dispatch(
+        self, ctx: FakeJobContext, tmp_path: Path
+    ) -> None:
+        """``author.regen`` should also drop the staleness cache for the workspace."""
+        from attune_author.orchestration import RunResult
+
+        async def fake_run_command(name, args, author_ctx):
+            return RunResult(
+                success=True,
+                output={"generated": [], "failed": [], "project_root": str(tmp_path)},
+                elapsed_ms=1,
+            )
+
+        spec = get_command("author.regen")
+        assert spec is not None
+
+        staleness_invalidated: list[Path] = []
+
+        with (
+            patch("attune_author.orchestration.run_command", side_effect=fake_run_command),
+            patch("attune_gui.services.rag_pipeline.invalidate"),
+            patch(
+                "attune_gui.services.staleness_cache.invalidate_workspace",
+                side_effect=lambda p: staleness_invalidated.append(p),
+            ),
+        ):
+            await spec.executor(
+                {"project_path": str(tmp_path)},
+                ctx,  # type: ignore[arg-type]
+            )
+
+        assert staleness_invalidated == [tmp_path]
