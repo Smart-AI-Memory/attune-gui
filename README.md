@@ -215,6 +215,55 @@ needs editor-grade interactivity — rich text editing, real-time conflict
 resolution, multi-file refactor previews. Inline actions, polling, and
 form-driven dashboards stay server-rendered.
 
+## MCP integration
+
+attune-gui ships an MCP server (`attune-gui-mcp`) that exposes a small,
+read-mostly tool surface for Claude Code and other MCP clients. Same
+data the dashboard renders — specs and living docs — but addressable
+programmatically. `mcp>=0.9.0` is a core dependency, so `pip install
+attune-gui` is enough to get both the dashboard and the MCP server.
+
+### Tools
+
+| Tool | What it returns |
+|---|---|
+| `gui_list_specs` | All feature specs across configured roots (federated). Each tagged with project, root, phase, status. |
+| `gui_get_spec` | All phase-file contents (`requirements.md` / `design.md` / `tasks.md`) for one spec. |
+| `gui_get_spec_status` | The `**Status**:` value for one phase. Default: most-advanced phase. |
+| `gui_list_living_docs` | Doc registry — generated docs the workspace tracks, with status (current/stale/missing) and persona. |
+| `gui_get_living_doc` | One living-doc's file content. Path-traversal guarded. |
+
+Every tool returns a JSON envelope shaped `{"success": bool, ...}`.
+See [`docs/specs/mcp-server-scope/`](docs/specs/mcp-server-scope/) for
+the scope decisions and tool schemas.
+
+### Wiring into Claude Code
+
+Add to your project's `.mcp.json` (or `~/.claude/mcp.json` for global):
+
+```json
+{
+  "mcpServers": {
+    "attune-gui": {
+      "command": "attune-gui-mcp"
+    }
+  }
+}
+```
+
+The server boots on stdio and logs to
+`<tmpdir>/attune-gui/attune-gui-mcp.log` so the MCP transport stays
+clean. Restart Claude Code after editing the config; the five tools
+appear under the `attune-gui` server in `/mcp`.
+
+### Related work
+
+attune-ai's [ops-specs-features](https://github.com/Smart-AI-Memory/attune-ai/blob/main/docs/specs/ops-specs-features/decisions.md)
+spec is the complement to this one: that work brings attune-gui's
+spec views into the attune-ai ops dashboard for humans; this MCP
+server exposes the same views to agents. Both serve the spec-driven
+workflow, just for different clients.
+
 ## Security notes
 
 This is a **single-user, local-only** app. Not designed for multi-user

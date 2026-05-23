@@ -52,11 +52,11 @@ Each tool:
 
 ## Phase 5 — Docs
 
-- [ ] **5.1** README section: "MCP integration" — how to
+- [x] **5.1** README section: "MCP integration" — how to
       configure Claude Code to use the server
-- [ ] **5.2** Example `.mcp.json` snippet showing
+- [x] **5.2** Example `.mcp.json` snippet showing
       `attune-gui-mcp` registered
-- [ ] **5.3** Cross-link with attune-ai's
+- [x] **5.3** Cross-link with attune-ai's
       ops-specs-features spec (the two complement each other)
 
 ## Out of scope

@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **MCP server — Phase 5 docs.** New "## MCP integration" section
+  in the README covers install, the five tools at a glance, the
+  `.mcp.json` snippet for wiring `attune-gui-mcp` into Claude Code,
+  and a cross-link to attune-ai's complementary `ops-specs-features`
+  spec. Completes the [mcp-server-scope](docs/specs/mcp-server-scope/)
+  spec's Phase 5.
 - **MCP server — Phase 2 tools.** Five read-mostly tools wired
   on top of the Phase 1 scaffold, each returning a
   JSON-serializable envelope with `{"success": bool, ...}`:
