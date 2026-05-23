@@ -7,16 +7,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **MCP server — Phase 2 tools.** Five read-mostly tools wired
+  on top of the Phase 1 scaffold, each returning a
+  JSON-serializable envelope with `{"success": bool, ...}`:
+  - `gui_list_specs` — federated multi-root spec listing
+  - `gui_get_spec` — phase-file contents for one spec
+    (requirements/design/tasks)
+  - `gui_get_spec_status` — the `**Status**:` value, default the
+    most-advanced phase
+  - `gui_list_living_docs` — doc registry with optional `persona`
+    filter
+  - `gui_get_living_doc` — one living-doc's file content
+    (path-traversal guarded; `doc_id` rejects `..`/`.` segments)
+
+  Handlers live in `attune_gui.mcp.tools`; `server.py` stays thin.
+  12 tests in `sidecar/tests/test_mcp_tools.py` cover each tool's
+  happy path plus validation errors.
 - **MCP server — Phase 1 scaffold.** New `attune-gui-mcp` console
   script boots a stdio MCP server (named `attune-gui`) with an
   empty tool registry. SDK lives behind a new `mcp` optional
   dependency (`pip install 'attune-gui[mcp]'`); importing
   `attune_gui` without the extra still works. Mirrors the
   `attune-help` / `attune-author` stdio pattern so one Claude
-  Code config block covers the family. Phase 2 populates the
-  registry with `gui_list_specs` / `gui_get_spec` /
-  `gui_get_spec_status` / `gui_list_living_docs` /
-  `gui_get_living_doc`. See
+  Code config block covers the family. See
   [docs/specs/mcp-server-scope/](docs/specs/mcp-server-scope/).
 
 ## [0.7.1] — 2026-05-22

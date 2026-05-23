@@ -1,11 +1,14 @@
-"""attune-gui MCP server (Phase 1 scaffold — no tools yet).
+"""attune-gui MCP server.
 
-Boots a stdio MCP server that registers zero tools. Phase 2 will
-populate the registry with the five read-mostly tools listed in
+Boots a stdio MCP server exposing the five read-mostly tools listed in
 ``docs/specs/mcp-server-scope/decisions.md``:
 
 - ``gui_list_specs`` / ``gui_get_spec`` / ``gui_get_spec_status``
 - ``gui_list_living_docs`` / ``gui_get_living_doc``
+
+Tool schemas and handler bodies live in :mod:`attune_gui.mcp.tools`;
+this module is just the MCP-SDK plumbing (server, list_tools,
+call_tool, stdio entry point).
 
 Run with::
 
@@ -33,6 +36,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from attune_gui import __version__
+from attune_gui.mcp.tools import TOOL_SCHEMAS, get_dispatch
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +44,14 @@ logger = logging.getLogger(__name__)
 class AttuneGuiMCPServer:
     """MCP application for attune-gui.
 
-    Holds the tool registry and dispatches calls. Phase 1 ships an
-    empty registry — :meth:`call_tool` returns an error envelope for
-    any name. Phase 2 wires real handlers in.
+    Holds the tool registry and dispatches calls. Schemas come from
+    :data:`attune_gui.mcp.tools.TOOL_SCHEMAS`; handlers from
+    :func:`attune_gui.mcp.tools.get_dispatch`.
     """
 
     def __init__(self) -> None:
-        self._tools: dict[str, dict[str, Any]] = {}
-        self._dispatch: dict[str, Any] = {}
+        self._tools: dict[str, dict[str, Any]] = dict(TOOL_SCHEMAS)
+        self._dispatch: dict[str, Any] = get_dispatch()
         logger.info(
             "AttuneGuiMCPServer initialized (tools=%d, version=%s)",
             len(self._tools),
