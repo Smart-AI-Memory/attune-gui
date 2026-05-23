@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Templates page badge now means "would maintain regenerate
+  this file?"** The `/dashboard/templates` row badge reads from
+  the same semantic-hash signal `author.maintain` uses, replacing
+  the prior mtime-threshold proxy. The `staleness` field in
+  `GET /api/cowork/templates` narrows from `{fresh, stale,
+  very-stale}` to `{fresh, stale, manual, unknown}` —
+  `very-stale` is gone. `last_modified` remains as informational
+  metadata. New `sidecar/attune_gui/services/staleness_cache.py`
+  caches the verdict in-process and is invalidated after
+  `author.maintain`, editor saves, and `file_changed` watcher
+  events. See `specs/templates-staleness-alignment/`.
+
 ### Removed
 
 - **`sidecar/attune_gui/_editor_dep.py`** and its tests
