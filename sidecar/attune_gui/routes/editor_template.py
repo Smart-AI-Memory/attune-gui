@@ -27,8 +27,30 @@ from pydantic import BaseModel, Field
 from attune_gui import editor_corpora
 from attune_gui._fs import atomic_write
 from attune_gui.security import require_client_token
+from attune_gui.services import staleness_cache
 
 router = APIRouter(prefix="/api/corpus", tags=["editor-template"])
+
+
+def _workspace_for_path(path: Path) -> Path | None:
+    """Walk up from ``path`` to find a project root containing ``.help/features.yaml``.
+
+    The staleness cache is keyed by the workspace that owns the
+    template's manifest. Editor saves arrive via a corpus id that
+    may point at ``<workspace>/.help/templates`` or any sibling —
+    invert by walking parents.
+    """
+    for ancestor in [path, *path.parents]:
+        if (ancestor / ".help" / "features.yaml").is_file():
+            return ancestor
+    return None
+
+
+def _invalidate_staleness_for(target: Path) -> None:
+    """Drop the staleness-cache entry for ``target`` after a write."""
+    workspace = _workspace_for_path(target)
+    if workspace is not None:
+        staleness_cache.invalidate_path(workspace, target)
 
 
 # -- models ---------------------------------------------------------
@@ -289,4 +311,5 @@ async def save_template(corpus_id: str, req: SaveRequest) -> SaveResponse:
         return SaveResponse(rel_path=req.path, new_hash=req.base_hash, mtime=target.stat().st_mtime)
 
     mtime = atomic_write(target, new_text)
+    _invalidate_staleness_for(target)
     return SaveResponse(rel_path=req.path, new_hash=_hash_text(new_text), mtime=mtime)

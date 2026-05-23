@@ -200,6 +200,50 @@ def test_save_no_op_with_empty_accepted_hunks(
     assert "doomed change" not in on_disk
 
 
+def test_save_invalidates_staleness_cache(client: TestClient, monkeypatch, tmp_path: Path) -> None:
+    """A successful save drops the cache entry for the workspace it belongs to."""
+    from attune_gui import editor_corpora
+    from attune_gui.routes import editor_template
+    from attune_gui.services import staleness_cache
+
+    # Build a workspace with .help/features.yaml so _workspace_for_path resolves.
+    workspace = tmp_path / "ws"
+    (workspace / ".help").mkdir(parents=True)
+    (workspace / ".help" / "features.yaml").write_text(
+        "version: 1\nfeatures:\n  auth:\n    description: x\n    files: [src/**]\n",
+        encoding="utf-8",
+    )
+    templates_root = workspace / ".help" / "templates" / "auth"
+    templates_root.mkdir(parents=True)
+    target = templates_root / "concept.md"
+    target.write_text("---\nname: x\n---\nbody\n", encoding="utf-8")
+
+    entry = editor_corpora.register("ws-test", str(workspace / ".help" / "templates"))
+
+    invalidated: list[tuple[Path, Path]] = []
+    monkeypatch.setattr(
+        staleness_cache,
+        "invalidate_path",
+        lambda ws, p: invalidated.append((ws, p)),
+    )
+
+    initial = client.get(
+        f"/api/corpus/{entry.id}/template", params={"path": "auth/concept.md"}
+    ).json()
+    response = client.post(
+        f"/api/corpus/{entry.id}/template/save",
+        json={
+            "path": "auth/concept.md",
+            "draft_text": initial["text"].replace("body", "edited"),
+            "base_hash": initial["base_hash"],
+        },
+    )
+    assert response.status_code == 200
+    assert invalidated == [(workspace, target)]
+    # Sanity: helper located the right workspace.
+    assert editor_template._workspace_for_path(target) == workspace
+
+
 # -- /lint ----------------------------------------------------------
 
 
