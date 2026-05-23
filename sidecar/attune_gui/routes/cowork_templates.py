@@ -8,11 +8,18 @@ GET /api/cowork/templates
         "templates_root": str | null,
     }
 
-Staleness is mtime-based (fresh / stale / very-stale) with thresholds matching
-the legacy attune-gui template browser:
-    - fresh:      < 14 days old
-    - stale:      14 ≤ age < 60 days
-    - very-stale: ≥ 60 days
+Staleness reflects **content drift** of the template's underlying source
+files, not file mtime — the dashboard now agrees with
+``attune-author status``. Values:
+
+    - ``fresh``    — source hash matches; template is current.
+    - ``stale``    — source hash drifted, or no stored hash recorded yet.
+    - ``unknown``  — file is not under a feature managed by the manifest
+      (no ``.help/features.yaml``, or template lives outside any
+      ``<feature>/`` subdirectory).
+
+``very-stale`` is no longer emitted (calendar-age model is retired);
+consumers that branch on it remain harmless.
 
 Manual flag is read from YAML frontmatter (``status: manual``, the
 key attune-author honours; legacy ``manual: true`` files still read
@@ -26,23 +33,12 @@ from pathlib import Path
 from typing import Any
 
 import frontmatter
+from attune_author import check_workspace_staleness
 from fastapi import APIRouter
 
 from attune_gui.workspace import get_workspace
 
 router = APIRouter(prefix="/api/cowork", tags=["cowork-templates"])
-
-_FRESH_DAYS = 14
-_STALE_DAYS = 60
-
-
-def _staleness(mtime: float) -> str:
-    age_days = (datetime.now(timezone.utc).timestamp() - mtime) / 86400
-    if age_days < _FRESH_DAYS:
-        return "fresh"
-    if age_days < _STALE_DAYS:
-        return "stale"
-    return "very-stale"
 
 
 def _templates_root() -> Path | None:
@@ -74,10 +70,25 @@ def _templates_root() -> Path | None:
 
 @router.get("/templates")
 async def list_templates() -> dict[str, Any]:
-    """List `.help/templates/*.md` for the active workspace, with frontmatter and mtime."""
+    """List `.help/templates/*.md` for the active workspace.
+
+    Each item gets a content-drift ``staleness`` value sourced from
+    ``attune_author.check_workspace_staleness`` — same definition the
+    ``attune-author status`` CLI uses. Templates whose feature isn't in
+    the manifest (or workspaces without a manifest at all) report
+    ``"unknown"``.
+    """
     root = _templates_root()
     if root is None:
         return {"templates": [], "templates_root": None}
+
+    ws = get_workspace()
+    stale_features: set[str] = set()
+    known_features: set[str] = set()
+    if ws is not None:
+        report = check_workspace_staleness(ws)
+        stale_features = set(report.stale_features)
+        known_features = {e.feature for e in report.help_entries}
 
     items: list[dict[str, Any]] = []
     for path in sorted(root.rglob("*.md")):
@@ -92,9 +103,19 @@ async def list_templates() -> dict[str, Any]:
         try:
             mtime = path.stat().st_mtime
             last_modified = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-            stale = _staleness(mtime)
         except OSError:
             last_modified = None
+
+        # Feature name is the first path component when the layout is
+        # `<feature>/<kind>.md` (the canonical `.help/templates/` shape).
+        # Anything flatter than that has no managed feature to compare
+        # against.
+        feature_name = rel.parts[0] if len(rel.parts) >= 2 else None
+        if feature_name and feature_name in stale_features:
+            stale = "stale"
+        elif feature_name and feature_name in known_features:
+            stale = "fresh"
+        else:
             stale = "unknown"
 
         items.append(

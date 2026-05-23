@@ -64,16 +64,16 @@ wheels = [
 
 [[package]]
 name = "attune-author"
-version = "0.9.1"
+version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
     { name = "python-frontmatter" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/12/497b6ed060beaaa8a980f9ef8176d451b5e908aadf20aaa605f7678bfaf1/attune_author-0.9.1.tar.gz", hash = "sha256:b73cc02c4a2ce7aa19e8d6d996792a18a532962b6b860e334d694a18483c2c23", size = 170737, upload-time = "2026-05-08T05:50:47.475Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/40/f2/c9da6fd8bde6120dc9c46ed9e375c1ef9335a73daf4f2195813a596f4c47/attune_author-0.14.0.tar.gz", hash = "sha256:7c38732eba9c77a49df4f4e44e5ad69f8cc4ed350a2a25ea816f388f2585f450", size = 236951, upload-time = "2026-05-22T20:15:39.459Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/20/cea1e550f845d6b1b940cb9a7788bc48039dc168f2203cd2b415225c16f0/attune_author-0.9.1-py3-none-any.whl", hash = "sha256:bc3a368e09ea1734fd3afd1a2d57d3cf1f3e6d025a9203532cd9a543de36a916", size = 124743, upload-time = "2026-05-08T05:50:45.753Z" },
+    { url = "https://files.pythonhosted.org/packages/15/21/5579dd89a3edd68dec7fcd69e6512001c858253740473e2f2324fbf24e8a/attune_author-0.14.0-py3-none-any.whl", hash = "sha256:1de9e8589025a3ab5650379159f7c980befb0aa2b82f83e5a61d7622ff45fdfb", size = 182624, upload-time = "2026-05-22T20:15:37.274Z" },
 ]
 
 [package.optional-dependencies]
@@ -111,7 +111,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "attune-author", extras = ["ai"], specifier = ">=0.9.1,<0.10" },
+    { name = "attune-author", extras = ["ai"], specifier = ">=0.14.0,<0.15" },
     { name = "attune-help", specifier = ">=0.10.0,<1.0" },
     { name = "attune-rag", specifier = ">=0.1.22,<0.2" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.0,<2.0" },
