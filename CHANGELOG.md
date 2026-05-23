@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`**Status:**` (colon-inside-asterisks) format now parses
+  correctly.** `_STATUS_RE` and `_STATUS_VALUE_RE` in
+  `routes/cowork_specs.py` previously only matched the
+  colon-outside form (`**Status**:`). Real specs in this repo
+  overwhelmingly use `**Status:**` instead — a quick grep showed
+  ~7 of 8 status lines in that form. The dashboard's Status
+  column and the MCP `gui_get_spec_status` tool were silently
+  returning `None` for those specs. Loosened both regexes to
+  accept either emphasis style. Added 8 parametrized tests in
+  `test_cowork_specs.py` (4 happy paths, 4 malformed-line
+  rejections) and 1 MCP-path test to lock in both behaviors.
+  Surfaced during PR #52's MCP Phase 2 work; tracked via the
+  follow-up chip spawned at the time.
+
 ### Added
 
 - **MCP server — Phase 5 docs.** New "## MCP integration" section
