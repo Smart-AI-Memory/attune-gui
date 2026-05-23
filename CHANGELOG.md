@@ -25,11 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   happy path plus validation errors.
 - **MCP server — Phase 1 scaffold.** New `attune-gui-mcp` console
   script boots a stdio MCP server (named `attune-gui`) with an
-  empty tool registry. SDK lives behind a new `mcp` optional
-  dependency (`pip install 'attune-gui[mcp]'`); importing
-  `attune_gui` without the extra still works. Mirrors the
-  `attune-help` / `attune-author` stdio pattern so one Claude
-  Code config block covers the family. See
+  empty tool registry. `mcp>=0.9.0` is a core dependency — matches
+  the `attune-help` / `attune-author` packaging so one Claude Code
+  config block covers the family with one consistent install
+  command. See
   [docs/specs/mcp-server-scope/](docs/specs/mcp-server-scope/).
 
 ## [0.7.1] — 2026-05-22
