@@ -81,6 +81,50 @@ def test_ws_pushes_file_changed_on_external_write(
         assert isinstance(msg["new_hash"], str) and len(msg["new_hash"]) == 16
 
 
+def test_ws_file_changed_event_invalidates_staleness_cache(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An external write that triggers file_changed must drop the cache entry."""
+    from attune_gui.services import staleness_cache
+
+    # Workspace with a manifest so workspace_for_file resolves.
+    workspace = tmp_path / "ws"
+    (workspace / ".help").mkdir(parents=True)
+    (workspace / ".help" / "features.yaml").write_text(
+        "version: 1\nfeatures:\n  auth:\n    description: x\n    files: [src/**]\n",
+        encoding="utf-8",
+    )
+    feature_dir = workspace / ".help" / "templates" / "auth"
+    feature_dir.mkdir(parents=True)
+    target = feature_dir / "concept.md"
+    target.write_text("---\nname: x\n---\nbody\n", encoding="utf-8")
+
+    entry = editor_corpora.register("ws-test", str(workspace / ".help" / "templates"))
+
+    invalidated: list[Path] = []
+    monkeypatch.setattr(
+        staleness_cache,
+        "invalidate_for_file",
+        lambda p: invalidated.append(p),
+    )
+    # Re-bind the import alias inside editor_ws so the patch takes effect.
+    from attune_gui.routes import editor_ws
+
+    monkeypatch.setattr(
+        editor_ws,
+        "_invalidate_staleness_for",
+        lambda p: invalidated.append(p),
+    )
+
+    with client.websocket_connect(f"/ws/corpus/{entry.id}?path=auth/concept.md") as ws:
+        time.sleep(0.05)
+        target.write_text(target.read_text() + "\nappended\n", encoding="utf-8")
+        msg = ws.receive_json(mode="text")
+        assert msg["type"] == "file_changed"
+
+    assert invalidated == [target]
+
+
 def test_ws_second_tab_gets_duplicate_session(client: TestClient, corpus: tuple[str, Path]) -> None:
     corpus_id, _ = corpus
     path = "concepts/alpha.md"

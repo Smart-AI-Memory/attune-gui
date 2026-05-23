@@ -90,6 +90,29 @@ def invalidate_path(workspace: Path, template_path: Path) -> None:
         invalidate_workspace(workspace)
 
 
+def workspace_for_file(file_path: Path) -> Path | None:
+    """Walk up from ``file_path`` to the project root with ``.help/features.yaml``.
+
+    Returns ``None`` when no such ancestor exists. Used by callers
+    that hold a file path but not the workspace (editor save,
+    watchfiles event).
+    """
+    for ancestor in [file_path, *file_path.parents]:
+        if (ancestor / ".help" / "features.yaml").is_file():
+            return ancestor
+    return None
+
+
+def invalidate_for_file(file_path: Path) -> None:
+    """Invalidate the cache entry for ``file_path``, resolving its workspace.
+
+    No-op if ``file_path`` isn't inside any workspace with a manifest.
+    """
+    workspace = workspace_for_file(file_path)
+    if workspace is not None:
+        invalidate_path(workspace, file_path)
+
+
 def _to_rel(workspace: Path, template_path: Path) -> Path | None:
     if template_path.is_absolute():
         try:

@@ -32,25 +32,8 @@ from attune_gui.services import staleness_cache
 router = APIRouter(prefix="/api/corpus", tags=["editor-template"])
 
 
-def _workspace_for_path(path: Path) -> Path | None:
-    """Walk up from ``path`` to find a project root containing ``.help/features.yaml``.
-
-    The staleness cache is keyed by the workspace that owns the
-    template's manifest. Editor saves arrive via a corpus id that
-    may point at ``<workspace>/.help/templates`` or any sibling —
-    invert by walking parents.
-    """
-    for ancestor in [path, *path.parents]:
-        if (ancestor / ".help" / "features.yaml").is_file():
-            return ancestor
-    return None
-
-
-def _invalidate_staleness_for(target: Path) -> None:
-    """Drop the staleness-cache entry for ``target`` after a write."""
-    workspace = _workspace_for_path(target)
-    if workspace is not None:
-        staleness_cache.invalidate_path(workspace, target)
+_invalidate_staleness_for = staleness_cache.invalidate_for_file
+_workspace_for_path = staleness_cache.workspace_for_file
 
 
 # -- models ---------------------------------------------------------

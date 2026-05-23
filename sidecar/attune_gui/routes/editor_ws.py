@@ -33,6 +33,7 @@ from starlette.websockets import WebSocketState
 from attune_gui import editor_corpora
 from attune_gui.editor_session import EditorSession
 from attune_gui.security import require_client_token
+from attune_gui.services.staleness_cache import invalidate_for_file as _invalidate_staleness_for
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,8 @@ async def corpus_ws(websocket: WebSocket, corpus_id: str, path: str) -> None:
             try:
                 while True:
                     event = await sub.session.next_event()
+                    if event.get("type") == "file_changed":
+                        _invalidate_staleness_for(candidate)
                     if websocket.application_state != WebSocketState.CONNECTED:
                         return
                     await websocket.send_json(event)
