@@ -144,6 +144,83 @@ async def test_get_spec_status_rejects_invalid_phase(app, specs_root) -> None:
 
 
 # ---------------------------------------------------------------------------
+# gui_set_spec_status (the only write tool)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_set_spec_status_persists_to_disk(app, specs_root) -> None:
+    result = await app.call_tool(
+        "gui_set_spec_status",
+        {"feature": "alpha", "phase": "requirements", "status": "complete"},
+    )
+    assert result["success"] is True
+    assert result["status"] == "complete"
+    # Verify the file actually changed.
+    content = (specs_root / "alpha" / "requirements.md").read_text(encoding="utf-8")
+    assert "**Status**: complete" in content
+    # And that gui_get_spec_status now reports the new value.
+    follow = await app.call_tool(
+        "gui_get_spec_status", {"feature": "alpha", "phase": "requirements"}
+    )
+    assert follow["status"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_set_spec_status_rejects_invalid_status(app, specs_root) -> None:
+    result = await app.call_tool(
+        "gui_set_spec_status",
+        {"feature": "alpha", "phase": "requirements", "status": "shipped-it"},
+    )
+    assert result["success"] is False
+    assert "Invalid status" in result["error"]
+    # File must not have been touched.
+    content = (specs_root / "alpha" / "requirements.md").read_text(encoding="utf-8")
+    assert "**Status**: approved" in content
+
+
+@pytest.mark.asyncio
+async def test_set_spec_status_rejects_invalid_phase(app, specs_root) -> None:
+    result = await app.call_tool(
+        "gui_set_spec_status",
+        {"feature": "alpha", "phase": "summary", "status": "complete"},
+    )
+    assert result["success"] is False
+    assert "Invalid phase" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_set_spec_status_rejects_invalid_feature(app, specs_root) -> None:
+    result = await app.call_tool(
+        "gui_set_spec_status",
+        {"feature": "../etc", "phase": "requirements", "status": "approved"},
+    )
+    assert result["success"] is False
+    assert "Invalid feature" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_set_spec_status_unknown_feature(app, specs_root) -> None:
+    result = await app.call_tool(
+        "gui_set_spec_status",
+        {"feature": "ghost", "phase": "requirements", "status": "approved"},
+    )
+    assert result["success"] is False
+    assert "'ghost' not found" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_set_spec_status_missing_phase_file(app, specs_root) -> None:
+    # design.md is present on alpha (from the fixture); tasks.md is not.
+    result = await app.call_tool(
+        "gui_set_spec_status",
+        {"feature": "alpha", "phase": "tasks", "status": "complete"},
+    )
+    assert result["success"] is False
+    assert "Phase file does not exist" in result["error"]
+
+
+# ---------------------------------------------------------------------------
 # gui_list_living_docs / gui_get_living_doc
 # ---------------------------------------------------------------------------
 

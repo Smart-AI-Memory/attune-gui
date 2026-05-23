@@ -13,6 +13,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and a cross-link to attune-ai's complementary `ops-specs-features`
   spec. Completes the [mcp-server-scope](docs/specs/mcp-server-scope/)
   spec's Phase 5.
+- **MCP server — Phase 3 write tool.** New `gui_set_spec_status`
+  tool wraps the existing
+  `PUT /api/cowork/specs/{feature}/{phase}/status` route as MCP.
+  Same validation (slug regex, phase enum, `_VALID_STATUSES`),
+  same atomic write via `attune_gui._fs.atomic_write`. The only
+  write tool in the MCP surface — additive to the five read-mostly
+  tools from Phase 2. Six new tests in `test_mcp_tools.py` cover
+  the happy path (persistence + readback parity with
+  `gui_get_spec_status`) plus invalid status, invalid phase,
+  invalid feature slug, unknown feature, and missing phase file.
+  Closes Phase 3 of
+  [mcp-server-scope](docs/specs/mcp-server-scope/).
 - **MCP server — Phase 2 tools.** Five read-mostly tools wired
   on top of the Phase 1 scaffold, each returning a
   JSON-serializable envelope with `{"success": bool, ...}`:

@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 
-def test_app_initializes_with_phase2_tool_registry() -> None:
+def test_app_initializes_with_full_tool_registry() -> None:
     from attune_gui.mcp.server import create_server
 
     app = create_server()
@@ -19,6 +19,7 @@ def test_app_initializes_with_phase2_tool_registry() -> None:
         "gui_get_spec_status",
         "gui_list_living_docs",
         "gui_get_living_doc",
+        "gui_set_spec_status",
     }
 
 
