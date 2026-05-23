@@ -1,7 +1,16 @@
 # Decisions — MCP server for attune-gui (scope)
 
-**Status:** Draft (2026-05-11) — gated on briefing-followup batch
+**Status:** Active — Phase 1 (Scaffold). All execution gates cleared 2026-05-23.
 **Owner:** Patrick
+
+## Gate clearance log
+
+- **2026-05-23** — all three execution gates verified clear:
+  1. attune-gui PR [#30](https://github.com/Smart-AI-Memory/attune-gui/pull/30) (federated specs) merged + stable since 2026-05-12.
+  2. attune-ai PR [#230](https://github.com/Smart-AI-Memory/attune-ai/pull/230) ops-specs-features execution gate verified 2026-05-12; Phases 1–3 shipped via [#236](https://github.com/Smart-AI-Memory/attune-ai/pull/236), [#239](https://github.com/Smart-AI-Memory/attune-ai/pull/239), [#249](https://github.com/Smart-AI-Memory/attune-ai/pull/249).
+  3. attune-gui CI green on recent runs; no active CI debt.
+
+Spec moves out of "gated draft" and into active execution. Phase 1 scaffold (pyproject extra, `mcp/server.py` skeleton, console script) lands in a separate PR.
 
 ---
 
@@ -80,7 +89,9 @@ Optional write tools (gated):
 
 ## Execution gate
 
-Not urgent. Don't start until:
+**Cleared 2026-05-23** — see "Gate clearance log" at top.
+
+Original gate (preserved for context):
 
 1. attune-gui's federated specs feature (PR #30) is stable
 2. attune-ai's [#230 ops-specs-features](https://github.com/Smart-AI-Memory/attune-ai/pull/230) execution gate clears
