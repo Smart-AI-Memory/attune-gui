@@ -142,6 +142,39 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "additionalProperties": False,
         },
     },
+    "gui_set_spec_status": {
+        "description": (
+            "Rewrite the `**Status**:` line in a spec's phase file. The only "
+            "write tool — use sparingly. Mirrors the validation of the existing "
+            "PUT /api/cowork/specs/{feature}/{phase}/status route."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "feature": {"type": "string"},
+                "phase": {
+                    "type": "string",
+                    "enum": list(_PHASE_NAMES),
+                },
+                "status": {
+                    "type": "string",
+                    "description": (
+                        "One of: draft, in-review, approved, complete, " "completed, done."
+                    ),
+                },
+                "root": {
+                    "type": "string",
+                    "description": (
+                        "Optional absolute path of the specs root to "
+                        "disambiguate when the same slug exists in multiple "
+                        "roots. If omitted, the first match wins."
+                    ),
+                },
+            },
+            "required": ["feature", "phase", "status"],
+            "additionalProperties": False,
+        },
+    },
 }
 
 
@@ -355,6 +388,68 @@ async def gui_get_living_doc(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def gui_set_spec_status(args: dict[str, Any]) -> dict[str, Any]:
+    # Lazy imports keep the writes-only deps (atomic_write, _VALID_STATUSES, the
+    # status regexes) out of module-import time. Matches the gui_get_living_doc
+    # workspace pattern above.
+    from attune_gui._fs import atomic_write  # noqa: PLC0415
+    from attune_gui.routes.cowork_specs import (  # noqa: PLC0415
+        _STATUS_RE,
+        _STATUS_VALUE_RE,
+        _VALID_STATUSES,
+    )
+
+    feature = args.get("feature", "")
+    if (msg := _validate_slug(feature)) is not None:
+        return _err(msg)
+    phase = args.get("phase", "")
+    if phase not in _PHASE_FILE_BY_NAME:
+        return _err(f"Invalid phase: {phase!r} (valid: {', '.join(_PHASE_NAMES)})")
+    status = args.get("status", "")
+    if not isinstance(status, str) or status not in _VALID_STATUSES:
+        return _err(f"Invalid status: {status!r} (valid: {', '.join(_VALID_STATUSES)})")
+    root = args.get("root")
+
+    found = _resolve_feature_dir(feature, root)
+    if isinstance(found, dict):
+        return found
+    feat_dir, project = found
+
+    target = feat_dir / _PHASE_FILE_BY_NAME[phase]
+    if not target.is_file():
+        return _err(f"Phase file does not exist: {target.name}")
+
+    try:
+        original = target.read_text(encoding="utf-8")
+    except OSError as exc:
+        return _err(f"Read failed: {exc}")
+
+    # Mirrors the PUT route's logic: substitute if a Status line exists,
+    # insert near the top otherwise.
+    if not _STATUS_VALUE_RE.search(original):
+        lines = original.splitlines()
+        insert_at = 1 if lines and lines[0].startswith("# ") else 0
+        lines.insert(insert_at, f"\n**Status**: {status}\n")
+        new_text = "\n".join(lines) + ("\n" if not original.endswith("\n") else "")
+    else:
+        new_text = _STATUS_RE.sub(f"**Status**: {status}", original, count=1)
+
+    try:
+        atomic_write(target, new_text)
+    except OSError as exc:
+        return _err(f"Write failed: {exc}")
+
+    return {
+        "success": True,
+        "feature": feature,
+        "project": project,
+        "phase": phase,
+        "file": target.name,
+        "status": status,
+        "path": str(target),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Public dispatch table
 # ---------------------------------------------------------------------------
@@ -368,4 +463,5 @@ def get_dispatch() -> dict[str, Any]:
         "gui_get_spec_status": gui_get_spec_status,
         "gui_list_living_docs": gui_list_living_docs,
         "gui_get_living_doc": gui_get_living_doc,
+        "gui_set_spec_status": gui_set_spec_status,
     }

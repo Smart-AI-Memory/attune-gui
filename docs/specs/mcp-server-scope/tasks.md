@@ -37,10 +37,12 @@ Each tool:
 
 ## Phase 3 — Optional write tool
 
-- [ ] **3.1** `gui_set_spec_status` — wrap the existing
-      PUT route. Same body shape:
-      `{"status": "<valid-value>"}`. Same validation. Honor
-      any read-only flag on the server.
+- [x] **3.1** `gui_set_spec_status` — wrap the existing
+      PUT route. Same validation (slug regex, phase enum,
+      `_VALID_STATUSES`). Atomic write via `attune_gui._fs.atomic_write`.
+      Inserts a `**Status**:` line if missing, otherwise substitutes
+      via `_STATUS_RE`. The only write tool — additive to the
+      five read-mostly tools.
 
 ## Phase 4 — Integration test
 
