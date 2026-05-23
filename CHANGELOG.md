@@ -5,6 +5,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-05-22
+
+Maintenance release. Templates page now agrees with `attune-author status` on what "stale" means (content drift, not file mtime), and the `_editor_dep` 503-guard is gone now that `attune-rag>=0.1.18` ships the editor submodule. Closes the [templates-staleness-alignment](specs/templates-staleness-alignment/) spec (reconciled — the cache layer the design proposed was punted; see [tasks.md](specs/templates-staleness-alignment/tasks.md) for why).
+
+### Changed
+
+- **Templates page staleness switched from mtime to content-drift.**
+  `routes/cowork_templates.py` calls `attune_author.check_workspace_staleness(workspace)` (new in `attune-author 0.14.0`) and projects each feature's `is_stale` onto its `<feature>/<kind>.md` templates. Domain narrows to `fresh` / `stale` / `unknown` — `very-stale` is retired across the route, the Jinja badge branch, `TemplateKpi`, the home-summary fresh-ratio math, and the `/dashboard/templates?filter=stale` literal. PRs [#40](https://github.com/Smart-AI-Memory/attune-gui/pull/40), [#43](https://github.com/Smart-AI-Memory/attune-gui/pull/43).
+- **`attune-author[ai]` pin bumped** from `>=0.9.1,<0.10` to `>=0.14.0,<0.15` — required for `check_workspace_staleness`. PR #40.
+- **`attune-rag` pin bumped** from `>=0.1.12,<0.2` to
+  `>=0.1.22,<0.2`. 0.1.22 is the latest published as of 2026-05-20
+  and the floor that attune-rag's W1.2 downstream check verifies
+  against (82/82 rag+editor contract tests green). Closes M5.3 of
+  the attune-rag v1.0 roadmap (Phase 3 — attune-gui downstream
+  cleanup). PRs [#38](https://github.com/Smart-AI-Memory/attune-gui/pull/38), [#39](https://github.com/Smart-AI-Memory/attune-gui/pull/39).
+- **`routes/editor_{ws,lint,schema,template}.py`** moved the six lazy
+  `require_editor_submodule(...)` callsites to direct top-level
+  imports:
+  - `editor_ws.py`, `editor_lint.py` → `from attune_rag import editor as editor_mod`
+  - `editor_schema.py` → `from attune_rag.editor import schema as schema_mod`
+  - `editor_template.py` → `from attune_rag.editor import rename as rename_mod`
+
+  Drops the `# noqa: PLC0415` markers that justified the lazy
+  pattern. Cold-start cost is negligible (importing `attune_rag.editor`
+  doesn't load the JSON schema or hit disk). PR [#36](https://github.com/Smart-AI-Memory/attune-gui/pull/36).
+- **Sidecar living-docs templates regenerated** (concept/reference/task). PR [#44](https://github.com/Smart-AI-Memory/attune-gui/pull/44).
+
 ### Removed
 
 - **`sidecar/attune_gui/_editor_dep.py`** and its tests
@@ -13,7 +40,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   HTTP error while the submodule was unpublished on PyPI. Now that
   `attune-rag>=0.1.18` ships the renamed `attune_rag.editor.{rename,
   schema, lint, autocomplete, references}` submodules, the guard
-  is dead code. Closes the "Pending upstream" item below.
+  is dead code. PR #36.
+- **Dead staleness code** — `_FRESH_DAYS`, `_STALE_DAYS`, `_staleness()`
+  in `cowork_templates.py`; `TemplateKpi.very_stale` in `home_summary.py`;
+  the `{% elif t.staleness == 'very-stale' %}` branch in `templates.html`.
+  PR #43.
 
 ### Fixed
 
@@ -26,26 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   file-based override silently won over the workspace/cwd fallbacks
   the tests intend to exercise. CI was clean (no host config), so
   this only surfaced when running the suite locally on a developer
-  machine.
-
-### Changed
-
-- **`attune-rag` pin bumped** from `>=0.1.12,<0.2` to
-  `>=0.1.22,<0.2`. 0.1.22 is the latest published as of 2026-05-20
-  and the floor that attune-rag's W1.2 downstream check verifies
-  against (82/82 rag+editor contract tests green). Closes M5.3 of
-  the attune-rag v1.0 roadmap (Phase 3 — attune-gui downstream
-  cleanup).
-- **`routes/editor_{ws,lint,schema,template}.py`** moved the six lazy
-  `require_editor_submodule(...)` callsites to direct top-level
-  imports:
-  - `editor_ws.py`, `editor_lint.py` → `from attune_rag import editor as editor_mod`
-  - `editor_schema.py` → `from attune_rag.editor import schema as schema_mod`
-  - `editor_template.py` → `from attune_rag.editor import rename as rename_mod`
-
-  Drops the `# noqa: PLC0415` markers that justified the lazy
-  pattern. Cold-start cost is negligible (importing `attune_rag.editor`
-  doesn't load the JSON schema or hit disk).
+  machine. PR #38.
 
 ## [0.7.0] — 2026-05-08
 
