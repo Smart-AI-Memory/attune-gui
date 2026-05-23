@@ -13,6 +13,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and a cross-link to attune-ai's complementary `ops-specs-features`
   spec. Completes the [mcp-server-scope](docs/specs/mcp-server-scope/)
   spec's Phase 5.
+- **MCP server — Phase 4 integration tests.** New
+  `sidecar/tests/test_mcp_integration.py` (3 tests) exercises
+  the MCP tool surface against the FastAPI routes on a shared
+  isolated specs root:
+  - `gui_list_specs` returns the same `specs` and `specs_roots`
+    lists as `GET /api/cowork/specs`
+  - `gui_get_spec` content matches disk byte-for-byte, and the
+    FastAPI listing agrees on most-advanced phase + status
+  - `gui_set_spec_status` round-trip: flip via MCP, the FastAPI
+    listing reflects the change with no cache layer in between
+  Uses in-process dispatch (`AttuneGuiMCPServer.call_tool`)
+  rather than a stdio subprocess — same parity guarantee, much
+  lighter test cost. Closes Phase 4 of
+  [mcp-server-scope](docs/specs/mcp-server-scope/) — the spec
+  is now fully shipped end-to-end.
 - **MCP server — Phase 3 write tool.** New `gui_set_spec_status`
   tool wraps the existing
   `PUT /api/cowork/specs/{feature}/{phase}/status` route as MCP.
