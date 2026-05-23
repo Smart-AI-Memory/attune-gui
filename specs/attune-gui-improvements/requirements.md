@@ -1,7 +1,7 @@
 # attune-gui Improvements — Refined Plan
 
-**Status:** Draft (pending review)
-**Branch:** `claude/youthful-poincare-a23b2e`
+**Status:** completed in v0.5.3 (implementation outran spec sign-off; spec doc never moved past Draft). See [CHANGELOG.md](../../CHANGELOG.md) [0.5.3] for: Typed config + `attune-gui config` CLI (C), Living Docs review queue + quality scores persist across restarts (B), Frontend boundary codified in README (D). A2 (`attune_rag.editor` guard removal) landed earlier; A1 is moot — `_editor_dep.py` was deleted, see Unreleased > Removed.
+**Branch:** `claude/youthful-poincare-a23b2e` _(historical — work shipped on subsequent branches)_
 **Predecessor:** v0.5.2 baseline
 
 ---
