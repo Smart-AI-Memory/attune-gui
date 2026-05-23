@@ -92,13 +92,8 @@ async def test_origin_guard_allows_localhost_forms(origin: str) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason="Pre-existing bug: parser strips [::1] brackets; allowlist contains "
-    "'[::1]' but parser yields '[' as the host. Tracked separately; fix in pass 3.",
-    strict=True,
-)
 async def test_origin_guard_allows_ipv6_loopback() -> None:
-    """Documents the IPv6-loopback regression. Remove xfail once parser is fixed."""
+    """IPv6 loopback origins must pass the localhost guard."""
     await origin_guard(_connection("http://[::1]:9090"))
 
 
