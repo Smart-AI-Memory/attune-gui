@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: concept
-generated_at: 2026-05-14T13:07:35.984805+00:00
-source_hash: 43602ea53f0e5b79ddaad20853717644b6860bd3776d913da73a0ed8a8701c13
+generated_at: 2026-05-23T02:46:21.733757+00:00
+source_hash: a2c72dd4b6cdbbe7e957643478bb58cc655c07347338265610ee6a93ae6d8a1d
 status: generated
 ---
 
@@ -20,12 +20,12 @@ The main building blocks are:
 - **`Registry`** — In-memory snapshot of ``~/.attune/corpora.json``.
 - **`EditorSession`** — In-process state for a single ``(corpus, path)`` editing tab.
 
-Under the hood, this feature spans 105 source
+Under the hood, this feature spans 104 source
 files covering:
 
-- Friendly guard for the unpublished ``attune_rag.editor`` submodule.
 - Filesystem helpers shared across routes.
 - FastAPI app factory — wires routes, CORS, and the origin guard.
+- Command registry — the canonical list of what the GUI can run.
 
 ## What connects to it
 
