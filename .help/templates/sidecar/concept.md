@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: concept
-generated_at: 2026-05-23T15:23:17.077441+00:00
-source_hash: 82f32c163679d9108687682ce676ff1f4f1242f118d1e8295e480bcbcb749660
+generated_at: 2026-05-23T15:26:20.582683+00:00
+source_hash: 278c82dcb0488307aba1af37c2e2b49ddd2ba1b93775befbe9147bf96965936d
 status: generated
 ---
 
@@ -20,7 +20,7 @@ The main building blocks are:
 - **`Registry`** — In-memory snapshot of ``~/.attune/corpora.json``.
 - **`EditorSession`** — In-process state for a single ``(corpus, path)`` editing tab.
 
-Under the hood, this feature spans 109 source
+Under the hood, this feature spans 110 source
 files covering:
 
 - Filesystem helpers shared across routes.

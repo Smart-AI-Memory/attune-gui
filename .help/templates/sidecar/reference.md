@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-23T15:23:17.087987+00:00
-source_hash: 82f32c163679d9108687682ce676ff1f4f1242f118d1e8295e480bcbcb749660
+generated_at: 2026-05-23T15:26:20.594051+00:00
+source_hash: 278c82dcb0488307aba1af37c2e2b49ddd2ba1b93775befbe9147bf96965936d
 status: generated
 ---
 
@@ -524,6 +524,11 @@ status: generated
 | `test_config_command_set_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unset_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unknown_action_returns_2()` | — | `sidecar/tests/test_main.py` |
+| `shared_specs_root()` | Isolated specs root with two fixture specs, visible to both surfaces. | `sidecar/tests/test_mcp_integration.py` |
+| `mcp_app()` | — | `sidecar/tests/test_mcp_integration.py` |
+| `test_gui_list_specs_matches_fastapi_route()` | Same workspace must yield the same spec list on both surfaces. | `sidecar/tests/test_mcp_integration.py` |
+| `test_gui_get_spec_returns_disk_truth()` | gui_get_spec content must match what's on disk, and the route's | `sidecar/tests/test_mcp_integration.py` |
+| `test_set_spec_status_round_trips_to_fastapi_route()` | Flip status via MCP; the FastAPI listing must reflect the new value. | `sidecar/tests/test_mcp_integration.py` |
 | `test_app_initializes_with_full_tool_registry()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_unknown_tool_returns_error_envelope()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_server_name_is_attune_gui()` | — | `sidecar/tests/test_mcp_server.py` |
