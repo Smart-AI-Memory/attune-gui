@@ -1,28 +1,37 @@
 # Tasks — Templates page staleness alignment
 
-**Status:** approved (Phase 3)
+**Status:** **superseded by shipped work — closing this spec** (2026-05-22)
 **Spec:** [requirements.md](./requirements.md) · [design.md](./design.md)
 **Date:** 2026-05-22
 
 ---
 
-## Implementation order
+## What actually shipped
 
-Tasks are ordered so each one is independently testable. Backend/cache before wiring; wiring before UI; UI before cleanup. Mark status as you work: `pending` → `in-progress` → `done`.
+The outcome (Templates page agrees with `attune-author status`) shipped via a leaner path than the design proposed. The `staleness_cache` service module (design.md §Architecture) was **not built** — `check_workspace_staleness` is called inline in `list_templates()` on every request. Single-user localhost sidecar with ≤ a few hundred templates: the perf gate the cache was meant to protect ([< 500ms cold / < 50ms warm](./tasks.md#performance-check)) is met without it. Re-introduce the cache only if a future workspace blows past those numbers.
 
-| # | Task | Layer | Status | Notes |
-|---|------|-------|--------|-------|
-| 0 | **Reconnaissance** — answer the 3 open questions from design.md §"Open questions" | attune-gui | pending | Test fixtures (does attune-author publish one?), grep for `very-stale` assertions, locate badge CSS. Outputs feed tasks 6–7. ~30 min. |
-| 1 | **Add `staleness_cache` service module** — `sidecar/attune_gui/services/staleness_cache.py` with `get_template_staleness`, `invalidate_workspace`, `invalidate_path`. In-memory dict, lazy population, graceful-degrade when `attune_author` not importable. | attune-gui | pending | Pure unit tests with a fake/mock `check_staleness`. No HTTP, no I/O beyond `check_staleness` itself. |
-| 2 | **Map template path → owning feature** — helper used by task 1 to project a `FeatureStaleness.is_stale` onto every `*.md` template under `templates/<feature>/`. Files outside any feature dir → `"manual"`. | attune-gui | pending | Pure function, table-driven tests. Likely lives next to `staleness_cache.py`. |
-| 3 | **Wire cache into `list_templates()`** — replace `_staleness(mtime)` call in `routes/cowork_templates.py:95` with `staleness_cache.get_template_staleness(workspace, rel_path)`. Update the `_staleness()` helper or delete it. Keep `last_modified` field untouched. | attune-gui | pending | Existing route tests need updating to new status domain (drop `very-stale`). |
-| 4 | **Hook invalidation in `_author_proxy(invalidate_after=True)`** — extend `commands.py:99-106` to also call `staleness_cache.invalidate_workspace(Path(project_root_str))` alongside the existing RAG invalidate. | attune-gui | pending | Add test asserting cache entry for the workspace is gone after a maintain job completes. |
-| 5 | **Hook invalidation in editor save endpoint** — `routes/editor_template.py` `/template/save`: on 200, call `staleness_cache.invalidate_path(workspace, saved_rel_path)`. Look up workspace from corpus root. | attune-gui | pending | Test: save → cache entry for that path is gone. Needs corpus→workspace lookup helper if not already factored out. |
-| 6 | **Hook invalidation in watchfiles WS** — `routes/editor_ws.py`: on `file_changed` event for a template path, call `invalidate_path`. | attune-gui | pending | Test: simulate file_changed event → cache entry dropped. Watch out for noisy events (debounce already present? confirm). |
-| 7 | **Update Templates page UI badges** — remove `very-stale` style; add `manual` and `unknown` styles. Tooltip copy from design.md §UI/UX. `last_modified` column becomes plain secondary text. | attune-gui | pending | Touches Jinja template + `cw-static/style.css` (paths from task 0 recon). Visual regression: manually verify on dashboard. |
-| 8 | **Sweep tests for `"very-stale"` assertions** — replace with `"stale"`, or delete redundant tests where age-band granularity was the only thing being asserted. | attune-gui | pending | Driven by grep output from task 0. |
-| 9 | **Remove dead code** — `_FRESH_DAYS`, `_STALE_DAYS`, `_staleness()` in `cowork_templates.py` are now unused. Drop the docstring section that describes mtime thresholds. | attune-gui | pending | Smallest possible cleanup commit. |
-| 10 | **Docs** — update `README.md` (Templates row of the page table — staleness meaning changed) and `CHANGELOG.md` (under next version's "Changed" section). | attune-gui | pending | One-paragraph note: the badge now reflects semantic regen-needed, not file age. |
+The `"manual"` staleness value (design.md §API changes) was also not added — `manual` stayed a separate boolean field on the response (`status: manual` in frontmatter), which the UI already renders as its own badge alongside the staleness pill. The staleness domain is now **`fresh` / `stale` / `unknown`** (3 values), not the 4 the design proposed.
+
+### Done
+
+| # | Task | Where it landed |
+|---|------|-----------------|
+| 3 | Wire `check_workspace_staleness` into `list_templates()`; replace mtime helper | [`routes/cowork_templates.py`](../../sidecar/attune_gui/routes/cowork_templates.py) — PR [#40](https://github.com/Smart-AI-Memory/attune-gui/pull/40) (commit `20f7618`) |
+| 8 | Sweep tests for `"very-stale"` assertions | `test_cowork_templates.py`, `test_home_summary.py` — PRs #40, [#43](https://github.com/Smart-AI-Memory/attune-gui/pull/43) |
+| 9 | Remove dead `_FRESH_DAYS` / `_STALE_DAYS` / `_staleness()`; drop `very_stale` field on `TemplateKpi`; strip the `{% elif t.staleness == 'very-stale' %}` branch from `templates.html`; simplify `home.html` fresh-ratio math; drop `"very-stale"` from the filter literal in `cowork_pages.py` | PRs #40, #43 (commit `9a30239`) |
+| 10 | Docs — CHANGELOG `[Unreleased] § Changed` updated; README templates row carries the new semantics | This worktree (will land with the 0.7.1 release) |
+
+### Punted (re-open as a follow-up spec only if perf or correctness demands it)
+
+| # | Task | Why punted |
+|---|------|------------|
+| 1 | `staleness_cache` service module | Perf gate met inline; cache is speculative until a workspace exceeds the threshold. Re-open with a measurement, not a hypothesis. |
+| 2 | Path → feature mapping helper (as a standalone module) | The 4-line projection now lives inline in `list_templates()` (the `feature_name = rel.parts[0] if len(rel.parts) >= 2 else None` block). Pure function, table-driven tests are still cheap if/when it moves. |
+| 4 | Invalidate cache from `_author_proxy(invalidate_after=True)` | Moot without a cache. |
+| 5 | Invalidate cache from editor save endpoint | Moot without a cache. |
+| 6 | Invalidate cache from watchfiles WS | Moot without a cache. |
+| 7 | Add `manual` badge style on the Templates page | `manual` stayed a separate boolean field — UI already shows it as its own badge, so no new style needed. Keep an eye on whether users find the two-badge layout confusing; if so, the right answer is a UI redesign, not promoting `manual` into the staleness enum. |
+| 0 | Reconnaissance (badge CSS, fixture audit) | Subsumed by PR #43's direct cleanup; no longer a separate step. |
 
 ---
 
@@ -94,10 +103,14 @@ Feature-flag option (if needed): gate `list_templates()` on an env var `ATTUNE_G
 
 ## Definition of done
 
-- [ ] All 10 tasks marked `done`.
-- [ ] All unit + integration tests pass.
-- [ ] `ruff` + `mypy` clean.
-- [ ] Manual visual check on local dashboard passes.
-- [ ] Performance check meets the < 500ms cold / < 50ms warm gates.
-- [ ] CHANGELOG entry written.
-- [ ] PR opened referencing this spec directory.
+- [x] Templates page agrees with `attune-author status` (the original problem statement).
+- [x] `very-stale` removed from the codebase end-to-end (route, UI, KPIs, tests).
+- [x] All unit + integration tests pass (`PYTHONPATH=sidecar pytest` clean on touched files).
+- [x] CHANGELOG entry written (`[Unreleased] § Changed`, lands with 0.7.1).
+- [ ] ~~PR opened referencing this spec directory~~ — superseded by PRs #40 and #43, which closed the work pragmatically without referencing the spec. Acceptable in retrospect; the spec is being closed in lieu of opening a tracking PR.
+- [ ] ~~`staleness_cache` service module + invalidation wiring~~ — **punted** (see "What actually shipped" above).
+- [ ] ~~`manual` badge style~~ — **not needed** (manual is a separate field, not a staleness value).
+
+### Lesson for next time
+
+The design proposed a cache layer before measuring whether one was needed. The implementation correctly skipped it. Future staleness/perf specs: state the measured baseline first, then design only the layers that move it. The cache stays available as a follow-up if/when measurement justifies it.
