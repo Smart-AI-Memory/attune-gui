@@ -1,6 +1,6 @@
 # Tasks — Templates page staleness alignment
 
-**Status:** **superseded by shipped work — closing this spec** (2026-05-22)
+**Status:** superseded — spec goal met by [#40](https://github.com/Smart-AI-Memory/attune-gui/pull/40) (and follow-ups [#42](https://github.com/Smart-AI-Memory/attune-gui/pull/42), [#43](https://github.com/Smart-AI-Memory/attune-gui/pull/43)) via a simpler per-request `check_workspace_staleness` call rather than the cache-layer design below. The Templates page now agrees with `author.maintain`; `very-stale` is gone; `manual` is exposed as a separate frontmatter-driven flag instead of being folded into the staleness domain. PR [#41](https://github.com/Smart-AI-Memory/attune-gui/pull/41) closed unmerged 2026-05-22. The cache + invalidation layer described in tasks 1–6 is parked: if a measured perf problem appears on real workspaces (>500ms cold list_templates), revisit; until then it's premature optimization. See "What actually shipped" below for the task-by-task reconciliation.
 **Spec:** [requirements.md](./requirements.md) · [design.md](./design.md)
 **Date:** 2026-05-22
 
