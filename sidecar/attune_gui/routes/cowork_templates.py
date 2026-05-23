@@ -8,11 +8,12 @@ GET /api/cowork/templates
         "templates_root": str | null,
     }
 
-Staleness is mtime-based (fresh / stale / very-stale) with thresholds matching
-the legacy attune-gui template browser:
-    - fresh:      < 14 days old
-    - stale:      14 ≤ age < 60 days
-    - very-stale: ≥ 60 days
+Staleness is the semantic-hash verdict from
+:mod:`attune_gui.services.staleness_cache` — one of
+``fresh`` / ``stale`` / ``manual`` / ``unknown``. The field
+answers "would ``author.maintain`` regenerate this file?" so the
+dashboard agrees with the Commands page. ``last_modified`` stays
+as informational metadata only — no longer drives the badge.
 
 Manual flag is read from YAML frontmatter (``status: manual``, the
 key attune-author honours; legacy ``manual: true`` files still read
@@ -28,21 +29,10 @@ from typing import Any
 import frontmatter
 from fastapi import APIRouter
 
+from attune_gui.services import staleness_cache
 from attune_gui.workspace import get_workspace
 
 router = APIRouter(prefix="/api/cowork", tags=["cowork-templates"])
-
-_FRESH_DAYS = 14
-_STALE_DAYS = 60
-
-
-def _staleness(mtime: float) -> str:
-    age_days = (datetime.now(timezone.utc).timestamp() - mtime) / 86400
-    if age_days < _FRESH_DAYS:
-        return "fresh"
-    if age_days < _STALE_DAYS:
-        return "stale"
-    return "very-stale"
 
 
 def _templates_root() -> Path | None:
@@ -74,11 +64,18 @@ def _templates_root() -> Path | None:
 
 @router.get("/templates")
 async def list_templates() -> dict[str, Any]:
-    """List `.help/templates/*.md` for the active workspace, with frontmatter and mtime."""
+    """List `.help/templates/*.md` for the active workspace.
+
+    Each template's ``staleness`` field reflects the
+    semantic-hash verdict from ``attune-author``, looked up via
+    :mod:`attune_gui.services.staleness_cache`. ``last_modified``
+    remains as informational metadata only.
+    """
     root = _templates_root()
     if root is None:
         return {"templates": [], "templates_root": None}
 
+    workspace = get_workspace()
     items: list[dict[str, Any]] = []
     for path in sorted(root.rglob("*.md")):
         rel = path.relative_to(root)
@@ -92,10 +89,14 @@ async def list_templates() -> dict[str, Any]:
         try:
             mtime = path.stat().st_mtime
             last_modified = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-            stale = _staleness(mtime)
         except OSError:
             last_modified = None
-            stale = "unknown"
+
+        stale = (
+            staleness_cache.get_template_staleness(workspace, path)
+            if workspace is not None
+            else "unknown"
+        )
 
         items.append(
             {

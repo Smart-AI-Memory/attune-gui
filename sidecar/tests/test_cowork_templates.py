@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-import os
-import time
 from pathlib import Path
 
 import pytest
 from attune_gui.routes import cowork_templates
+from attune_gui.services import staleness_cache
 from fastapi.testclient import TestClient
 
 
-def _aged(path: Path, days: float) -> None:
-    """Backdate ``path``'s mtime by ``days`` days."""
-    target = time.time() - days * 86400
-    os.utime(path, (target, target))
+@pytest.fixture(autouse=True)
+def _reset_staleness_cache() -> None:
+    staleness_cache._reset_for_tests()
+    yield
+    staleness_cache._reset_for_tests()
 
 
 def _seed_template(
@@ -61,6 +61,7 @@ def test_templates_lists_with_metadata(
     _seed_template(root / "tasks" / "legacy.md", legacy_manual=True)
 
     monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+    monkeypatch.setattr(cowork_templates, "get_workspace", lambda: None)
 
     body = client.get("/api/cowork/templates", headers={"Origin": "http://localhost:5173"}).json()
     items = {t["path"]: t for t in body["templates"]}
@@ -75,27 +76,63 @@ def test_templates_lists_with_metadata(
     assert items["tasks/legacy.md"]["manual"] is True
 
 
-def test_templates_staleness_thresholds(
+def test_templates_staleness_pulls_from_cache(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Route looks up each template's status via the staleness cache."""
     root = tmp_path / "templates-root"
-    fresh = root / "fresh.md"
-    stale = root / "stale.md"
-    very = root / "very.md"
-    _seed_template(fresh)
-    _seed_template(stale)
-    _seed_template(very)
-    _aged(fresh, 5)
-    _aged(stale, 30)  # between 14 and 60 days
-    _aged(very, 90)
+    _seed_template(root / "fresh.md")
+    _seed_template(root / "stale.md")
+    _seed_template(root / "manual.md")
 
     monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+    monkeypatch.setattr(cowork_templates, "get_workspace", lambda: tmp_path)
+
+    verdicts = {
+        root / "fresh.md": "fresh",
+        root / "stale.md": "stale",
+        root / "manual.md": "manual",
+    }
+
+    def fake_get(workspace: Path, path: Path) -> str:
+        assert workspace == tmp_path
+        return verdicts[path]
+
+    monkeypatch.setattr(staleness_cache, "get_template_staleness", fake_get)
 
     body = client.get("/api/cowork/templates", headers={"Origin": "http://localhost:5173"}).json()
     by_path = {t["path"]: t for t in body["templates"]}
     assert by_path["fresh.md"]["staleness"] == "fresh"
     assert by_path["stale.md"]["staleness"] == "stale"
-    assert by_path["very.md"]["staleness"] == "very-stale"
+    assert by_path["manual.md"]["staleness"] == "manual"
+
+
+def test_templates_staleness_unknown_when_no_workspace(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No workspace context → page still renders, every row 'unknown'."""
+    root = tmp_path / "templates-root"
+    _seed_template(root / "a.md")
+
+    monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+    monkeypatch.setattr(cowork_templates, "get_workspace", lambda: None)
+
+    body = client.get("/api/cowork/templates", headers={"Origin": "http://localhost:5173"}).json()
+    assert body["templates"][0]["staleness"] == "unknown"
+
+
+def test_templates_response_keeps_last_modified(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """last_modified field stays in the response shape."""
+    root = tmp_path / "templates-root"
+    _seed_template(root / "a.md")
+
+    monkeypatch.setattr(cowork_templates, "_templates_root", lambda: root)
+    monkeypatch.setattr(cowork_templates, "get_workspace", lambda: None)
+
+    body = client.get("/api/cowork/templates", headers={"Origin": "http://localhost:5173"}).json()
+    assert body["templates"][0]["last_modified"] is not None
 
 
 def test_templates_empty_when_no_root(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
