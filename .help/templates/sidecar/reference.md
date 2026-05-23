@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-23T15:00:21.690599+00:00
-source_hash: 8bd8cc535fccde713e960fad2b1ad134f8610ef75f44845a840dfbd2e438853e
+generated_at: 2026-05-23T15:23:17.087987+00:00
+source_hash: 82f32c163679d9108687682ce676ff1f4f1242f118d1e8295e480bcbcb749660
 status: generated
 ---
 
@@ -128,6 +128,7 @@ status: generated
 | `gui_get_spec_status()` | — | `sidecar/attune_gui/mcp/tools.py` |
 | `gui_list_living_docs()` | — | `sidecar/attune_gui/mcp/tools.py` |
 | `gui_get_living_doc()` | — | `sidecar/attune_gui/mcp/tools.py` |
+| `gui_set_spec_status()` | — | `sidecar/attune_gui/mcp/tools.py` |
 | `get_dispatch()` | Tool-name → async handler. Imported by :mod:`.server`. | `sidecar/attune_gui/mcp/tools.py` |
 | `list_features()` | Return the feature names from ``<help_dir>/features.yaml``. | `sidecar/attune_gui/routes/choices.py` |
 | `read_file()` | Return raw file contents (UTF-8) plus the `manual` frontmatter flag for `.md` files. | `sidecar/attune_gui/routes/cowork_files.py` |
@@ -523,7 +524,7 @@ status: generated
 | `test_config_command_set_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unset_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unknown_action_returns_2()` | — | `sidecar/tests/test_main.py` |
-| `test_app_initializes_with_phase2_tool_registry()` | — | `sidecar/tests/test_mcp_server.py` |
+| `test_app_initializes_with_full_tool_registry()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_unknown_tool_returns_error_envelope()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_server_name_is_attune_gui()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_main_entry_point_is_callable()` | — | `sidecar/tests/test_mcp_server.py` |
@@ -538,6 +539,12 @@ status: generated
 | `test_get_spec_status_returns_most_advanced()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_spec_status_explicit_phase()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_spec_status_rejects_invalid_phase()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_set_spec_status_persists_to_disk()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_set_spec_status_rejects_invalid_status()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_set_spec_status_rejects_invalid_phase()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_set_spec_status_rejects_invalid_feature()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_set_spec_status_unknown_feature()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_set_spec_status_missing_phase_file()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_list_living_docs_returns_docs()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_living_doc_reads_file_content()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_living_doc_rejects_malformed_id()` | — | `sidecar/tests/test_mcp_tools.py` |

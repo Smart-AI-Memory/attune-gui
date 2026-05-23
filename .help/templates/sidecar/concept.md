@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: concept
-generated_at: 2026-05-23T15:00:21.678404+00:00
-source_hash: 8bd8cc535fccde713e960fad2b1ad134f8610ef75f44845a840dfbd2e438853e
+generated_at: 2026-05-23T15:23:17.077441+00:00
+source_hash: 82f32c163679d9108687682ce676ff1f4f1242f118d1e8295e480bcbcb749660
 status: generated
 ---
 
