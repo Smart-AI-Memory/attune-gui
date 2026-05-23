@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-23T02:46:21.744668+00:00
-source_hash: a2c72dd4b6cdbbe7e957643478bb58cc655c07347338265610ee6a93ae6d8a1d
+generated_at: 2026-05-23T12:15:13.906507+00:00
+source_hash: d509f940912ab837e49bab6ed81c03a030572fdec5475967ceae86389dc3dc11
 status: generated
 ---
 
@@ -30,6 +30,7 @@ status: generated
 | `DocEntry` | — | `sidecar/attune_gui/living_docs_store.py` |
 | `ReviewItem` | — | `sidecar/attune_gui/living_docs_store.py` |
 | `LivingDocsStore` | — | `sidecar/attune_gui/living_docs_store.py` |
+| `AttuneGuiMCPServer` | MCP application for attune-gui. | `sidecar/attune_gui/mcp/server.py` |
 | `ErrorDetail` | — | `sidecar/attune_gui/models.py` |
 | `ErrorResponse` | — | `sidecar/attune_gui/models.py` |
 | `HealthResponse` | — | `sidecar/attune_gui/models.py` |
@@ -120,6 +121,8 @@ status: generated
 | `get_registry()` | Return the process-global JobRegistry, creating it on first call. | `sidecar/attune_gui/jobs.py` |
 | `get_store()` | Return the process-global LivingDocsStore singleton, creating it on first call. | `sidecar/attune_gui/living_docs_store.py` |
 | `main()` | CLI entry point: parse args, pick a port, print SIDECAR_URL, run uvicorn. | `sidecar/attune_gui/main.py` |
+| `create_server()` | — | `sidecar/attune_gui/mcp/server.py` |
+| `main()` | — | `sidecar/attune_gui/mcp/server.py` |
 | `list_features()` | Return the feature names from ``<help_dir>/features.yaml``. | `sidecar/attune_gui/routes/choices.py` |
 | `read_file()` | Return raw file contents (UTF-8) plus the `manual` frontmatter flag for `.md` files. | `sidecar/attune_gui/routes/cowork_files.py` |
 | `render_file()` | Render a Markdown file (or raw text) to an HTML fragment for the preview pane. | `sidecar/attune_gui/routes/cowork_files.py` |
@@ -514,6 +517,10 @@ status: generated
 | `test_config_command_set_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unset_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unknown_action_returns_2()` | — | `sidecar/tests/test_main.py` |
+| `test_app_initializes_with_zero_tools()` | — | `sidecar/tests/test_mcp_server.py` |
+| `test_unknown_tool_returns_error_envelope()` | — | `sidecar/tests/test_mcp_server.py` |
+| `test_server_name_is_attune_gui()` | — | `sidecar/tests/test_mcp_server.py` |
+| `test_main_entry_point_is_callable()` | — | `sidecar/tests/test_mcp_server.py` |
 | `clear_pipeline_cache()` | Reset the module-level pipeline cache between tests. | `sidecar/tests/test_rag_workspace.py` |
 | `test_none_workspace_uses_default_key()` | No workspace → pipeline stored under the empty-Path sentinel. | `sidecar/tests/test_rag_workspace.py` |
 | `test_workspace_without_templates_falls_back_to_default_corpus()` | Workspace exists but has no .help/templates/ → AttuneHelpCorpus fallback. | `sidecar/tests/test_rag_workspace.py` |

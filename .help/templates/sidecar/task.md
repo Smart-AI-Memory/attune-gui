@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: task
-generated_at: 2026-05-23T02:46:21.740063+00:00
-source_hash: a2c72dd4b6cdbbe7e957643478bb58cc655c07347338265610ee6a93ae6d8a1d
+generated_at: 2026-05-23T12:15:13.901628+00:00
+source_hash: d509f940912ab837e49bab6ed81c03a030572fdec5475967ceae86389dc3dc11
 status: generated
 ---
 

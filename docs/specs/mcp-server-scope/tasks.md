@@ -2,13 +2,13 @@
 
 ## Phase 1 — Scaffold
 
-- [ ] **1.1** Add `mcp>=0.9.0` to `[project.optional-dependencies].mcp`
+- [x] **1.1** Add `mcp>=0.9.0` to `[project.optional-dependencies].mcp`
       in pyproject.toml (mirror attune-help / attune-author pattern)
-- [ ] **1.2** Create `sidecar/attune_gui/mcp/__init__.py` and
+- [x] **1.2** Create `sidecar/attune_gui/mcp/__init__.py` and
       `sidecar/attune_gui/mcp/server.py`
-- [ ] **1.3** Add `attune-gui-mcp = "attune_gui.mcp.server:main"`
+- [x] **1.3** Add `attune-gui-mcp = "attune_gui.mcp.server:main"`
       to `[project.scripts]`
-- [ ] **1.4** Start server on stdio per the MCP server pattern
+- [x] **1.4** Start server on stdio per the MCP server pattern
       used by sibling packages
 
 ## Phase 2 — Implement core tools

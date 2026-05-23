@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **MCP server — Phase 1 scaffold.** New `attune-gui-mcp` console
+  script boots a stdio MCP server (named `attune-gui`) with an
+  empty tool registry. SDK lives behind a new `mcp` optional
+  dependency (`pip install 'attune-gui[mcp]'`); importing
+  `attune_gui` without the extra still works. Mirrors the
+  `attune-help` / `attune-author` stdio pattern so one Claude
+  Code config block covers the family. Phase 2 populates the
+  registry with `gui_list_specs` / `gui_get_spec` /
+  `gui_get_spec_status` / `gui_list_living_docs` /
+  `gui_get_living_doc`. See
+  [docs/specs/mcp-server-scope/](docs/specs/mcp-server-scope/).
+
 ## [0.7.1] — 2026-05-22
 
 Maintenance release. Templates page now agrees with `attune-author status` on what "stale" means (content drift, not file mtime), and the `_editor_dep` 503-guard is gone now that `attune-rag>=0.1.18` ships the editor submodule. Closes the [templates-staleness-alignment](specs/templates-staleness-alignment/) spec (reconciled — the cache layer the design proposed was punted; see [tasks.md](specs/templates-staleness-alignment/tasks.md) for why).
