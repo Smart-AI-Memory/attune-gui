@@ -47,10 +47,10 @@
             </td>
             <td class="dim">{{ t.tags|join(', ') if t.tags else '—' }}</td>
             <td>
-              {% if t.staleness == 'fresh' %}<span class="badge ok">fresh</span>
-              {% elif t.staleness == 'stale' %}<span class="badge warn">stale</span>
-              {% elif t.staleness == 'very-stale' %}<span class="badge danger">very stale</span>
-              {% else %}<span class="badge dim">unknown</span>{% endif %}
+              {% if t.staleness == 'fresh' %}<span class="badge ok" title="Up to date — running maintain would not change this file.">fresh</span>
+              {% elif t.staleness == 'stale' %}<span class="badge warn" title="Running maintain would regenerate this file.">stale</span>
+              {% elif t.staleness == 'manual' %}<span class="badge dim" title="Hand-authored; not subject to regeneration.">manual</span>
+              {% else %}<span class="badge dim" title="Freshness check unavailable — attune-author not loaded.">unknown</span>{% endif %}
             </td>
             <td>
               <label class="switch" title="Toggle manual maintenance">
