@@ -144,7 +144,7 @@ async def page_templates(request: Request, filter: str = "all") -> HTMLResponse:
     elif filter == "generated":
         items = [t for t in items if not t["manual"]]
     elif filter == "stale":
-        items = [t for t in items if t["staleness"] in ("stale", "very-stale")]
+        items = [t for t in items if t["staleness"] == "stale"]
 
     # Resolve `templates_root` to a registered corpus once per page so
     # the row link can deep-link into the schema-driven /editor instead
