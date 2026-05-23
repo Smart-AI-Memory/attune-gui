@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-23T12:15:13.906507+00:00
-source_hash: d509f940912ab837e49bab6ed81c03a030572fdec5475967ceae86389dc3dc11
+generated_at: 2026-05-23T15:00:21.690599+00:00
+source_hash: 8bd8cc535fccde713e960fad2b1ad134f8610ef75f44845a840dfbd2e438853e
 status: generated
 ---
 
@@ -123,6 +123,12 @@ status: generated
 | `main()` | CLI entry point: parse args, pick a port, print SIDECAR_URL, run uvicorn. | `sidecar/attune_gui/main.py` |
 | `create_server()` | — | `sidecar/attune_gui/mcp/server.py` |
 | `main()` | — | `sidecar/attune_gui/mcp/server.py` |
+| `gui_list_specs()` | — | `sidecar/attune_gui/mcp/tools.py` |
+| `gui_get_spec()` | — | `sidecar/attune_gui/mcp/tools.py` |
+| `gui_get_spec_status()` | — | `sidecar/attune_gui/mcp/tools.py` |
+| `gui_list_living_docs()` | — | `sidecar/attune_gui/mcp/tools.py` |
+| `gui_get_living_doc()` | — | `sidecar/attune_gui/mcp/tools.py` |
+| `get_dispatch()` | Tool-name → async handler. Imported by :mod:`.server`. | `sidecar/attune_gui/mcp/tools.py` |
 | `list_features()` | Return the feature names from ``<help_dir>/features.yaml``. | `sidecar/attune_gui/routes/choices.py` |
 | `read_file()` | Return raw file contents (UTF-8) plus the `manual` frontmatter flag for `.md` files. | `sidecar/attune_gui/routes/cowork_files.py` |
 | `render_file()` | Render a Markdown file (or raw text) to an HTML fragment for the preview pane. | `sidecar/attune_gui/routes/cowork_files.py` |
@@ -517,10 +523,25 @@ status: generated
 | `test_config_command_set_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unset_unknown_key_returns_2()` | — | `sidecar/tests/test_main.py` |
 | `test_config_command_unknown_action_returns_2()` | — | `sidecar/tests/test_main.py` |
-| `test_app_initializes_with_zero_tools()` | — | `sidecar/tests/test_mcp_server.py` |
+| `test_app_initializes_with_phase2_tool_registry()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_unknown_tool_returns_error_envelope()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_server_name_is_attune_gui()` | — | `sidecar/tests/test_mcp_server.py` |
 | `test_main_entry_point_is_callable()` | — | `sidecar/tests/test_mcp_server.py` |
+| `specs_root()` | Isolated specs root containing one well-formed spec ``alpha``. | `sidecar/tests/test_mcp_tools.py` |
+| `workspace_with_doc()` | Workspace with one living-docs file at .help/templates/alpha/concept.md. | `sidecar/tests/test_mcp_tools.py` |
+| `app()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_list_specs_returns_configured_specs()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_list_specs_with_no_roots_returns_empty()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_spec_returns_phase_contents()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_spec_rejects_invalid_slug()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_spec_unknown_feature_errors()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_spec_status_returns_most_advanced()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_spec_status_explicit_phase()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_spec_status_rejects_invalid_phase()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_list_living_docs_returns_docs()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_living_doc_reads_file_content()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_living_doc_rejects_malformed_id()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_living_doc_unknown_id_errors()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `clear_pipeline_cache()` | Reset the module-level pipeline cache between tests. | `sidecar/tests/test_rag_workspace.py` |
 | `test_none_workspace_uses_default_key()` | No workspace → pipeline stored under the empty-Path sentinel. | `sidecar/tests/test_rag_workspace.py` |
 | `test_workspace_without_templates_falls_back_to_default_corpus()` | Workspace exists but has no .help/templates/ → AttuneHelpCorpus fallback. | `sidecar/tests/test_rag_workspace.py` |
@@ -585,7 +606,7 @@ status: generated
 | `test_require_client_token_rejects_wrong_token()` | — | `sidecar/tests/test_security.py` |
 | `test_origin_guard_allows_missing_origin()` | No Origin header (curl, server-to-server) is allowed. | `sidecar/tests/test_security.py` |
 | `test_origin_guard_allows_localhost_forms()` | — | `sidecar/tests/test_security.py` |
-| `test_origin_guard_allows_ipv6_loopback()` | Documents the IPv6-loopback regression. Remove xfail once parser is fixed. | `sidecar/tests/test_security.py` |
+| `test_origin_guard_allows_ipv6_loopback()` | IPv6 loopback origins must pass the localhost guard. | `sidecar/tests/test_security.py` |
 | `test_origin_guard_rejects_non_localhost()` | — | `sidecar/tests/test_security.py` |
 | `test_origin_guard_rejects_malformed_origin()` | An Origin without ://host parses to a bad_origin error. | `sidecar/tests/test_security.py` |
 | `test_pipeline_for_caches_per_workspace()` | — | `sidecar/tests/test_services_rag_pipeline.py` |
