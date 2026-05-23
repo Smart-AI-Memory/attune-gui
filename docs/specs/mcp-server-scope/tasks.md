@@ -46,11 +46,20 @@ Each tool:
 
 ## Phase 4 — Integration test
 
-- [ ] **4.1** Test that starts the MCP server, queries
-      `gui_list_specs`, and asserts the result matches the
-      FastAPI route's response on the same data
-- [ ] **4.2** Same for `gui_get_spec` against a known fixture
-      spec
+- [x] **4.1** In-process parity test: `gui_list_specs` via
+      `AttuneGuiMCPServer.call_tool` returns the same `specs`
+      and `specs_roots` lists as `GET /api/cowork/specs` on
+      the same isolated specs root. (Stdio-subprocess spawn
+      was reinterpreted as in-process dispatch — the
+      surface-parity guarantee is the same and the test is
+      lighter; tracked in
+      `sidecar/tests/test_mcp_integration.py`.)
+- [x] **4.2** `gui_get_spec` returns disk-truth content for
+      every phase file, and the FastAPI listing references
+      the same most-advanced phase + status. Plus a bonus
+      round-trip through `gui_set_spec_status` (Phase 3) that
+      flips status via MCP and asserts the FastAPI listing
+      reflects the change.
 
 ## Phase 5 — Docs
 
