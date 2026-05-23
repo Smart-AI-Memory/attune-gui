@@ -1,8 +1,21 @@
 # attune-gui Improvements — Refined Plan
 
-**Status:** Draft (pending review)
-**Branch:** `claude/youthful-poincare-a23b2e`
+**Status:** Closed — all four initiatives shipped
+**Branch:** `claude/youthful-poincare-a23b2e` (original)
 **Predecessor:** v0.5.2 baseline
+**Closed:** 2026-05-23
+
+## Closure summary
+
+| Initiative | Outcome | PR |
+|---|---|---|
+| A1 — TODO marker on editor-dep guard | Shipped (pre-spec) | — |
+| A2 — Drop editor-dep guard | Shipped: `_editor_dep.py` deleted, six callsites switched to top-level `attune_rag.editor` imports, pin bumped to `>=0.1.18` | [#36](https://github.com/Smart-AI-Memory/attune-gui/pull/36) |
+| B — Persist living-docs queue + scores | Shipped: JSON at `~/.attune-gui/living_docs.json`, atomic writes, schema-versioned, graceful missing/corrupt handling | [#19](https://github.com/Smart-AI-Memory/attune-gui/pull/19) |
+| C — Config consolidation + CLI | Shipped: typed loader [`config.py`](../../sidecar/attune_gui/config.py), `attune-gui config list/get/set/unset` CLI, both consumers route through loader, 23 tests | [#19](https://github.com/Smart-AI-Memory/attune-gui/pull/19) |
+| D — Frontend boundary docs | Shipped: README "Frontend boundary" section + CHANGELOG entry codifying SPA-for-editor / Jinja-for-everything-else | [#19](https://github.com/Smart-AI-Memory/attune-gui/pull/19) |
+
+No follow-up tracking — original plan landed without scope changes.
 
 ---
 
@@ -97,30 +110,37 @@ A2 is parked until upstream attune-rag ships the editor submodule.
 
 ## 5. Tasks
 
-<task id="D">
+<task id="D" status="done" pr="19">
   <name>Document frontend boundary (Initiative D)</name>
   <objective>Codify the existing implicit rule: editor = Vite SPA, everything else = Jinja. Add a "Frontend architecture" section to README and a CHANGELOG entry. No code changes.</objective>
   <files>README.md, CHANGELOG.md</files>
   <risks>None — pure documentation.</risks>
 </task>
 
-<task id="A1">
+<task id="A1" status="done">
   <name>Mark editor-backend guard for removal (Initiative A1)</name>
   <objective>Add a clear TODO marker in _editor_dep.py and a CHANGELOG note flagging the cleanup waiting on upstream attune_rag.editor publication. Do NOT remove the guard yet — A2 is parked.</objective>
   <files>sidecar/attune_gui/_editor_dep.py, CHANGELOG.md</files>
   <risks>None — documentation only.</risks>
 </task>
 
-<task id="B">
+<task id="A2" status="done" pr="36">
+  <name>Drop editor-backend guard once upstream ships (Initiative A2)</name>
+  <objective>Pin attune-rag >=0.1.18, replace six require_editor_submodule() callsites with top-level imports, delete _editor_dep.py and its tests.</objective>
+  <files>sidecar/attune_gui/_editor_dep.py (deleted), sidecar/attune_gui/routes/editor_*.py, pyproject.toml</files>
+  <risks>None realized — clean cutover.</risks>
+</task>
+
+<task id="B" status="done" pr="19">
   <name>Persist living-docs review queue and quality scores (Initiative B)</name>
   <objective>Add JSON-file persistence to living_docs_store.py for the review queue and quality scores. Doc registry stays in-memory. Atomic writes, schema-versioned, graceful handling of missing/corrupt file. Unit tests for load/save and corruption recovery.</objective>
   <files>sidecar/attune_gui/living_docs_store.py, sidecar/tests/test_living_docs_store.py (new or extended)</files>
   <risks>State migration — first run after upgrade will see no persisted file (empty start, expected). Concurrent writes from a single asyncio loop are not a concern; a stray second process would race, but that's not a supported topology. Atomic replace mitigates partial writes.</risks>
 </task>
 
-<task id="C">
+<task id="C" status="done" pr="19">
   <name>Config consolidation + CLI (Initiative C)</name>
   <objective>Introduce a typed config loader at ~/.attune-gui/config.json, fold in corpora_registry and specs_root (currently env-only), add `attune-gui config --list / --get / --set` subcommand, document precedence (env > file > default).</objective>
-  <files>sidecar/attune_gui/workspace.py (or new config.py), sidecar/attune_gui/main.py, sidecar/attune_gui/editor_corpora.py, sidecar/attune_gui/routes/cowork_specs.py, README.md, sidecar/tests/test_config.py (new)</files>
+  <files>sidecar/attune_gui/config.py (new), sidecar/attune_gui/main.py, sidecar/attune_gui/editor_corpora.py, sidecar/attune_gui/routes/cowork_specs.py, README.md, sidecar/tests/test_config.py (new, 23 tests)</files>
   <risks>Backwards compatibility — existing users have a workspace key in the JSON and may have the env vars set. Loader must accept both old shape and new, env vars must keep working as overrides. Test the migration path explicitly.</risks>
 </task>
