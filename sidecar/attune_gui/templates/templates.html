@@ -49,7 +49,6 @@
             <td>
               {% if t.staleness == 'fresh' %}<span class="badge ok">fresh</span>
               {% elif t.staleness == 'stale' %}<span class="badge warn">stale</span>
-              {% elif t.staleness == 'very-stale' %}<span class="badge danger">very stale</span>
               {% else %}<span class="badge dim">unknown</span>{% endif %}
             </td>
             <td>

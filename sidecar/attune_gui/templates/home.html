@@ -25,10 +25,10 @@
         <div class="kpi-label">Fresh ratio</div>
         <div class="kpi-value">{{ "%.0f%%"|format(summary.templates.fresh_ratio * 100) }}</div>
         <div class="kpi-foot">
-          {% if summary.templates.stale + summary.templates.very_stale == 0 %}
+          {% if summary.templates.stale == 0 %}
             all generated templates fresh
           {% else %}
-            {{ summary.templates.stale + summary.templates.very_stale }} stale of {{ summary.templates.fresh + summary.templates.stale + summary.templates.very_stale }}
+            {{ summary.templates.stale }} stale of {{ summary.templates.fresh + summary.templates.stale }}
           {% endif %}
         </div>
       </a>

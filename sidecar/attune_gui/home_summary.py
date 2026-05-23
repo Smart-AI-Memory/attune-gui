@@ -28,12 +28,11 @@ class TemplateKpi:
     generated: int
     fresh: int
     stale: int
-    very_stale: int
 
     @property
     def fresh_ratio(self) -> float:
         """Fraction of generated templates that are fresh (0.0 to 1.0)."""
-        denom = self.fresh + self.stale + self.very_stale
+        denom = self.fresh + self.stale
         return (self.fresh / denom) if denom else 1.0
 
 
@@ -136,14 +135,12 @@ def _build_template_kpi(items: list[dict[str, Any]]) -> TemplateKpi:
     generated = total - manual
     fresh = sum(1 for t in items if t.get("staleness") == "fresh")
     stale = sum(1 for t in items if t.get("staleness") == "stale")
-    very_stale = sum(1 for t in items if t.get("staleness") == "very-stale")
     return TemplateKpi(
         total=total,
         manual=manual,
         generated=generated,
         fresh=fresh,
         stale=stale,
-        very_stale=very_stale,
     )
 
 

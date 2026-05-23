@@ -84,15 +84,14 @@ def test_template_kpi_counts_manual_vs_generated():
         {"manual": True, "staleness": "fresh"},
         {"manual": False, "staleness": "fresh"},
         {"manual": False, "staleness": "stale"},
-        {"manual": False, "staleness": "very-stale"},
+        {"manual": False, "staleness": "stale"},
     ]
     kpi = _build_template_kpi(items)
     assert kpi.total == 4
     assert kpi.manual == 1
     assert kpi.generated == 3
     assert kpi.fresh == 2
-    assert kpi.stale == 1
-    assert kpi.very_stale == 1
+    assert kpi.stale == 2
     # 2 fresh out of 4 with staleness => 50%
     assert kpi.fresh_ratio == pytest.approx(0.5)
 
