@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-14T13:07:35.997027+00:00
-source_hash: 43602ea53f0e5b79ddaad20853717644b6860bd3776d913da73a0ed8a8701c13
+generated_at: 2026-05-23T02:46:21.744668+00:00
+source_hash: a2c72dd4b6cdbbe7e957643478bb58cc655c07347338265610ee6a93ae6d8a1d
 status: generated
 ---
 
@@ -82,7 +82,6 @@ status: generated
 
 | Function | Description | File |
 |----------|-------------|------|
-| `require_editor_submodule()` | Import ``attune_rag.editor.<name>`` or raise an HTTP 503. | `sidecar/attune_gui/_editor_dep.py` |
 | `atomic_write()` | Write ``text`` to ``target`` atomically; return the new mtime. | `sidecar/attune_gui/_fs.py` |
 | `create_app()` | Build the FastAPI app with origin-guard, CORS, and all routers wired. | `sidecar/attune_gui/app.py` |
 | `get_command()` | Return the CommandSpec for ``name``, or None if it isn't registered. | `sidecar/attune_gui/commands.py` |
@@ -143,7 +142,7 @@ status: generated
 | `create_spec()` | Create a new feature directory with a starter ``requirements.md``. | `sidecar/attune_gui/routes/cowork_specs.py` |
 | `add_phase()` | Bootstrap the next phase file (``design.md`` or ``tasks.md``). | `sidecar/attune_gui/routes/cowork_specs.py` |
 | `update_status()` | Rewrite the ``**Status**:`` line in the named phase file. | `sidecar/attune_gui/routes/cowork_specs.py` |
-| `list_templates()` | List `.help/templates/*.md` for the active workspace, with frontmatter and mtime. | `sidecar/attune_gui/routes/cowork_templates.py` |
+| `list_templates()` | List `.help/templates/*.md` for the active workspace. | `sidecar/attune_gui/routes/cowork_templates.py` |
 | `list_corpora()` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
 | `set_active()` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
 | `register()` | — | `sidecar/attune_gui/routes/editor_corpus.py` |
@@ -264,6 +263,8 @@ status: generated
 | `test_spec_with_no_phase_files_handled()` | — | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_root_env_var_wins()` | — | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_root_falls_back_to_workspace()` | — | `sidecar/tests/test_cowork_specs.py` |
+| `test_specs_root_falls_back_to_workspace_docs_specs()` | Workspaces that keep specs at ``docs/specs/`` (attune-rag, attune-ai layout) | `sidecar/tests/test_cowork_specs.py` |
+| `test_specs_root_prefers_specs_over_docs_specs()` | If a workspace has both ``specs/`` and ``docs/specs/``, ``specs/`` wins — | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_root_walks_up_from_cwd()` | If env + workspace miss, walk up from cwd until 'specs/' is found. | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_root_returns_none_when_nothing_found()` | — | `sidecar/tests/test_cowork_specs.py` |
 | `token()` | — | `sidecar/tests/test_cowork_specs_authoring.py` |
@@ -288,7 +289,7 @@ status: generated
 | `test_update_status_inserts_when_no_status_line()` | — | `sidecar/tests/test_cowork_specs_authoring.py` |
 | `test_update_status_requires_token()` | — | `sidecar/tests/test_cowork_specs_authoring.py` |
 | `test_templates_lists_with_metadata()` | — | `sidecar/tests/test_cowork_templates.py` |
-| `test_templates_staleness_thresholds()` | — | `sidecar/tests/test_cowork_templates.py` |
+| `test_templates_staleness_reflects_content_drift()` | The route's `staleness` value comes from attune-author's content-drift check. | `sidecar/tests/test_cowork_templates.py` |
 | `test_templates_empty_when_no_root()` | — | `sidecar/tests/test_cowork_templates.py` |
 | `test_templates_root_prefers_help_templates_subdir()` | — | `sidecar/tests/test_cowork_templates.py` |
 | `test_templates_root_falls_back_to_help()` | — | `sidecar/tests/test_cowork_templates.py` |
@@ -312,9 +313,6 @@ status: generated
 | `test_active_endpoint_404s_unknown_id()` | — | `sidecar/tests/test_editor_corpus.py` |
 | `test_resolve_endpoint()` | — | `sidecar/tests/test_editor_corpus.py` |
 | `test_resolve_endpoint_404s_unowned()` | — | `sidecar/tests/test_editor_corpus.py` |
-| `test_returns_module_when_present()` | — | `sidecar/tests/test_editor_dep.py` |
-| `test_returns_submodule_when_present()` | — | `sidecar/tests/test_editor_dep.py` |
-| `test_raises_503_when_missing()` | Simulate the PyPI scenario where attune_rag.editor doesn't ship. | `sidecar/tests/test_editor_dep.py` |
 | `test_read_bundle_assets_returns_sentinel_when_manifest_missing()` | No manifest = developer hasn't run `make build-editor`. Return sentinels | `sidecar/tests/test_editor_pages.py` |
 | `test_read_bundle_assets_returns_hashed_filenames_from_manifest()` | With a valid manifest, return the hashed JS + CSS filenames. | `sidecar/tests/test_editor_pages.py` |
 | `test_read_bundle_assets_prefers_explicit_style_entry()` | If the manifest has a separate style.css entry, prefer it over main.ts.css. | `sidecar/tests/test_editor_pages.py` |
@@ -388,6 +386,17 @@ status: generated
 | `test_rename_apply_rolls_back_on_failure()` | If a mid-stream rename fails, earlier files are restored. | `sidecar/tests/test_editor_ws.py` |
 | `test_rename_preview_unknown_corpus()` | — | `sidecar/tests/test_editor_ws.py` |
 | `test_rename_apply_collision_returns_409()` | — | `sidecar/tests/test_editor_ws.py` |
+| `test_template_path_preview_includes_moves()` | — | `sidecar/tests/test_editor_ws.py` |
+| `test_template_path_apply_moves_file_and_reports_affected()` | — | `sidecar/tests/test_editor_ws.py` |
+| `test_template_path_preview_missing_source_returns_400()` | — | `sidecar/tests/test_editor_ws.py` |
+| `test_template_path_preview_escapes_root_returns_400()` | — | `sidecar/tests/test_editor_ws.py` |
+| `test_template_path_preview_collision_returns_409()` | — | `sidecar/tests/test_editor_ws.py` |
+| `test_dict_detail_4xx_preserves_extra_keys()` | Routes can attach structured context (e.g. ``owning_path``) | `sidecar/tests/test_errors.py` |
+| `test_string_detail_wraps_to_message_with_null_code()` | — | `sidecar/tests/test_errors.py` |
+| `test_5xx_strips_extras_to_sanitize()` | 5xx responses must not leak structured context — only the | `sidecar/tests/test_errors.py` |
+| `test_5xx_with_no_useful_detail_returns_sanitized_envelope()` | — | `sidecar/tests/test_errors.py` |
+| `test_normalize_detail_dict_missing_message_defaults_to_empty_string()` | — | `sidecar/tests/test_errors.py` |
+| `test_dict_detail_extras_preserved_across_4xx_codes()` | — | `sidecar/tests/test_errors.py` |
 | `app()` | — | `sidecar/tests/test_errors_envelope.py` |
 | `client()` | — | `sidecar/tests/test_errors_envelope.py` |
 | `test_2xx_responses_are_unchanged()` | — | `sidecar/tests/test_errors_envelope.py` |
