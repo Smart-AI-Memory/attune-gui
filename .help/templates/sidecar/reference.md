@@ -1,8 +1,8 @@
 ---
 feature: sidecar
 depth: reference
-generated_at: 2026-05-23T15:26:20.594051+00:00
-source_hash: 278c82dcb0488307aba1af37c2e2b49ddd2ba1b93775befbe9147bf96965936d
+generated_at: 2026-05-23T15:38:15.246052+00:00
+source_hash: a1d71c4c13ab81ddb75e5a3c1d6096e69128d047613aaee8b3ccf4f65d356a74
 status: generated
 ---
 
@@ -271,6 +271,8 @@ status: generated
 | `test_specs_skips_dot_dirs()` | — | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_returns_empty_when_no_root()` | — | `sidecar/tests/test_cowork_specs.py` |
 | `test_spec_with_no_phase_files_handled()` | — | `sidecar/tests/test_cowork_specs.py` |
+| `test_status_regex_accepts_both_markdown_emphasis_styles()` | Pre-fix bug: _STATUS_VALUE_RE only matched ``**Status**:`` (colon | `sidecar/tests/test_cowork_specs.py` |
+| `test_status_regex_rejects_malformed_lines()` | The looser regex must still reject lines that aren't valid | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_root_env_var_wins()` | — | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_root_falls_back_to_workspace()` | — | `sidecar/tests/test_cowork_specs.py` |
 | `test_specs_root_falls_back_to_workspace_docs_specs()` | Workspaces that keep specs at ``docs/specs/`` (attune-rag, attune-ai layout) | `sidecar/tests/test_cowork_specs.py` |
@@ -541,6 +543,7 @@ status: generated
 | `test_get_spec_returns_phase_contents()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_spec_rejects_invalid_slug()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_spec_unknown_feature_errors()` | — | `sidecar/tests/test_mcp_tools.py` |
+| `test_get_spec_reads_colon_inside_status_format()` | Confidence test for the loosened ``_STATUS_VALUE_RE`` — the common | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_spec_status_returns_most_advanced()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_spec_status_explicit_phase()` | — | `sidecar/tests/test_mcp_tools.py` |
 | `test_get_spec_status_rejects_invalid_phase()` | — | `sidecar/tests/test_mcp_tools.py` |

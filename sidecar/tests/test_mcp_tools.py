@@ -112,6 +112,27 @@ async def test_get_spec_unknown_feature_errors(app, specs_root) -> None:
     assert "'nope' not found" in result["error"]
 
 
+@pytest.mark.asyncio
+async def test_get_spec_reads_colon_inside_status_format(app, tmp_path, monkeypatch) -> None:
+    """Confidence test for the loosened ``_STATUS_VALUE_RE`` — the common
+    ``**Status:**`` (colon inside asterisks) format must read correctly
+    through the MCP path, not just the FastAPI route."""
+    root = tmp_path / "specs"
+    feat = root / "colon-inside"
+    feat.mkdir(parents=True)
+    # The format that real specs in this repo overwhelmingly use:
+    (feat / "requirements.md").write_text(
+        "# colon-inside\n\n**Status:** Closed — done\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("ATTUNE_SPECS_ROOT", str(root))
+
+    result = await app.call_tool(
+        "gui_get_spec_status", {"feature": "colon-inside", "phase": "requirements"}
+    )
+    assert result["success"] is True
+    assert result["status"] == "Closed"
+
+
 # ---------------------------------------------------------------------------
 # gui_get_spec_status
 # ---------------------------------------------------------------------------

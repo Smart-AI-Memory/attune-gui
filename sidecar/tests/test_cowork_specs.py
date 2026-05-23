@@ -114,6 +114,64 @@ def test_spec_with_no_phase_files_handled(
     assert s["status"] is None
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("# Spec\n\n**Status**: approved\n", "approved"),  # colon outside
+        ("# Spec\n\n**Status:** approved\n", "approved"),  # colon inside (the common form)
+        ("# Spec\n\n**Status:** Closed — final\n", "Closed"),  # dashed phrase, common in real specs
+        ("# Spec\n  **Status:** pending\n", "pending"),  # indented
+    ],
+)
+def test_status_regex_accepts_both_markdown_emphasis_styles(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    source: str,
+    expected: str,
+) -> None:
+    """Pre-fix bug: _STATUS_VALUE_RE only matched ``**Status**:`` (colon
+    outside). Real specs in the repo overwhelmingly use ``**Status:**``
+    (colon inside), which was silently returning ``None``. Both forms
+    must now parse to the same status value."""
+    specs_root = tmp_path / "specs"
+    feat = specs_root / "alpha"
+    feat.mkdir(parents=True)
+    (feat / "requirements.md").write_text(source)
+
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [specs_root])
+
+    body = client.get("/api/cowork/specs", headers={"Origin": "http://localhost:5173"}).json()
+    alpha = next(s for s in body["specs"] if s["feature"] == "alpha")
+    assert alpha["status"] == expected
+
+
+@pytest.mark.parametrize(
+    "bad_source",
+    [
+        "# Spec\n\n**Status:\n",  # missing trailing **:
+        "# Spec\n\n**Status: approved\n",  # missing closing **
+        "# Spec\n\n**Statuss**: approved\n",  # double-s typo
+        "# Spec\n\n## Status: approved\n",  # heading, not bold
+    ],
+)
+def test_status_regex_rejects_malformed_lines(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, bad_source: str
+) -> None:
+    """The looser regex must still reject lines that aren't valid
+    bold-Status declarations."""
+    specs_root = tmp_path / "specs"
+    feat = specs_root / "alpha"
+    feat.mkdir(parents=True)
+    (feat / "requirements.md").write_text(bad_source)
+
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [specs_root])
+
+    body = client.get("/api/cowork/specs", headers={"Origin": "http://localhost:5173"}).json()
+    alpha = next(s for s in body["specs"] if s["feature"] == "alpha")
+    assert alpha["status"] is None
+
+
 # ---------------------------------------------------------------------------
 # _specs_root resolution
 # ---------------------------------------------------------------------------

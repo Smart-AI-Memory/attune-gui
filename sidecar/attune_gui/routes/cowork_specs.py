@@ -35,8 +35,15 @@ from attune_gui.workspace import get_workspace
 
 router = APIRouter(prefix="/api/cowork", tags=["cowork-specs"])
 
-_STATUS_RE = re.compile(r"^\s*\*\*Status\*\*:.*$", re.MULTILINE)
-_STATUS_VALUE_RE = re.compile(r"\*\*Status\*\*:\s*(\S+)")
+# Match both `**Status**:` (colon outside asterisks) and `**Status:**`
+# (colon inside asterisks). Both are valid markdown for the same intent
+# and both appear in the wild across specs in this repo — `**Status:**`
+# is actually the more common form. The old regex only matched the
+# colon-outside variant, silently returning ``None`` for ~7 of every 8
+# specs in the dashboard's Status column and in the MCP
+# ``gui_get_spec_status`` tool.
+_STATUS_RE = re.compile(r"^\s*\*\*Status(?:\*\*:|:\*\*).*$", re.MULTILINE)
+_STATUS_VALUE_RE = re.compile(r"\*\*Status(?:\*\*:|:\*\*)\s*(\S+)")
 _PHASE_FILES = ("requirements.md", "design.md", "tasks.md")
 _PHASE_LABELS = {
     "requirements.md": "Requirements",
