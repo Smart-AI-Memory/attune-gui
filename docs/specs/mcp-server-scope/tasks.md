@@ -15,15 +15,18 @@
 
 For each:
 
-- [ ] **2.1** `gui_list_specs` — wrap existing
+- [x] **2.1** `gui_list_specs` — wrap existing
       `routes/cowork_specs.py` GET handler
-- [ ] **2.2** `gui_get_spec` — wrap existing per-spec read
-- [ ] **2.3** `gui_get_spec_status` — extract `**Status**:`
-      line from a phase file
-- [ ] **2.4** `gui_list_living_docs` — wrap existing
+- [x] **2.2** `gui_get_spec` — wrap existing per-spec read
+      (returns content of all present phase files)
+- [x] **2.3** `gui_get_spec_status` — extract `**Status**:`
+      line from a phase file. *Inherits a pre-existing regex bug
+      in `_STATUS_VALUE_RE` that misses the common `**Status:**`
+      format; tracked separately.*
+- [x] **2.4** `gui_list_living_docs` — wrap existing
       living-docs listing route
-- [ ] **2.5** `gui_get_living_doc` — wrap existing
-      living-doc content read
+- [x] **2.5** `gui_get_living_doc` — wrap existing
+      living-doc content read (with path-traversal guard)
 
 Each tool:
 - Has a clear schema (input + output)

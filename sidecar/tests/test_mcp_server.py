@@ -1,8 +1,7 @@
-"""Phase 1 scaffold smoke tests for the attune-gui MCP server.
+"""Server-level smoke tests for the attune-gui MCP server.
 
-Phase 1 ships an empty tool registry; these tests verify the boot path
-works and the empty-registry error envelope is correct. Phase 2 will
-add per-tool dispatch tests as the five read-mostly tools land.
+Verifies the boot path, server identity, and error-envelope contract.
+Per-tool behavior is covered in ``test_mcp_tools.py``.
 """
 
 from __future__ import annotations
@@ -10,11 +9,17 @@ from __future__ import annotations
 import pytest
 
 
-def test_app_initializes_with_zero_tools() -> None:
+def test_app_initializes_with_phase2_tool_registry() -> None:
     from attune_gui.mcp.server import create_server
 
     app = create_server()
-    assert app.tools == {}
+    assert set(app.tools) == {
+        "gui_list_specs",
+        "gui_get_spec",
+        "gui_get_spec_status",
+        "gui_list_living_docs",
+        "gui_get_living_doc",
+    }
 
 
 @pytest.mark.asyncio
