@@ -43,10 +43,11 @@ async def layer_health() -> dict[str, Any]:
     Python than the venv that has the package), so the interpreter path
     makes the situation self-diagnosing.
     """
+    vi = sys.version_info
     return {
         "layers": {key: _probe(pkg) for key, pkg in _PACKAGES},
         "interpreter": sys.executable,
-        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "python_version": f"{vi.major}.{vi.minor}.{vi.micro}",
     }
 
 
