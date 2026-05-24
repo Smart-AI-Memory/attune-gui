@@ -36,8 +36,6 @@ clean-editor:
 
 # Regenerate living-docs templates for the root .help/ corpus.
 # Calls Anthropic for polish — costs $$ on stale features.
-# Sidecar corpus (sidecar/.help/) is deferred and not maintained here;
-# see docs/specs/living-docs-regen-automation/ for the rationale.
 regen-templates:
 	uv run attune-author regenerate --help-dir .help
 
