@@ -209,7 +209,13 @@ async def test_build_home_summary_composes_all_sources():
             "templates_root": "/fake/help",
         }
     )
-    fake_layers = AsyncMock(return_value={"layers": {"ai": {"importable": True, "version": "9"}}})
+    fake_layers = AsyncMock(
+        return_value={
+            "layers": {"ai": {"importable": True, "version": "9"}},
+            "interpreter": "/fake/.venv/bin/python",
+            "python_version": "3.11.7",
+        }
+    )
     fake_corpus = AsyncMock(
         return_value={"manifest_path": "/fake/help/features.yaml", "feature_count": 4}
     )
@@ -241,6 +247,8 @@ async def test_build_home_summary_composes_all_sources():
     assert summary.manifest_path == "/fake/help/features.yaml"
     assert len(summary.family) == 1
     assert summary.family[0].package == "attune-ai"
+    assert summary.family_interpreter == "/fake/.venv/bin/python"
+    assert summary.family_python_version == "3.11.7"
     assert len(summary.recent_jobs) == 1
     assert summary.recent_jobs[0].name == "demo.run"
     assert len(summary.sparkline) == 7
