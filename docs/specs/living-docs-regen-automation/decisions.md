@@ -122,6 +122,37 @@ If they forget, CI tells them in the same PR run.
 ## Phase outline (when this spec is approved)
 
 - **Phase 1** — Inventory the exact regen commands and write `make regen-all`.
+  **Status: shipped via #61.**
 - **Phase 2** — Add the CI job, gated on relevant paths; verify it fails
   intentionally on a stale-artifact PR before flipping it to required.
+  **Status: blocked.** See "Phase 2 blockers" below.
 - **Phase 3** — README update; make the contract official.
+
+## Phase 2 blockers (discovered 2026-05-23)
+
+Phase 2 implementation attempt surfaced two foundational issues:
+
+1. **attune-author regen vs. staleness check disagree on source_hash.**
+   Running `attune-author regenerate` writes a new `source_hash` into the
+   template frontmatter, but immediately running `attune-author regenerate
+   --dry-run` (or `status`) still reports the same feature as stale. The
+   loop never reaches a fixed point. Likely cause: regen hashes a
+   budget-truncated source view (see `ground_truth.budget: dropped X to
+   fit budget` log lines), while the staleness check hashes the full
+   source set. Until this is fixed upstream, "fail-if-stale" has no
+   meaningful signal — every PR would fail forever.
+
+2. **Spec premise conflicts with CI policy.** This spec originally
+   proposed `make regen-all` + `git diff --exit-code` in CI. That
+   requires `ANTHROPIC_API_KEY` in CI for polish. But the existing
+   workflow (`.github/workflows/tests.yml:38-46`) has an **explicit
+   guard** that fails CI if `ANTHROPIC_API_KEY` is set in the default
+   suite, to prevent non-`@live`-marked tests from leaking real API
+   calls. The `--dry-run` workaround (no API needed) was the obvious
+   alternative, but it's blocked by issue #1.
+
+**Phase 2 stays parked until the upstream attune-author bug is fixed.**
+Tracking: a chip was filed to debug + fix attune-author's hash
+mismatch. Once that lands and attune-gui can pin a fixed release,
+Phase 2 design needs a small refresh — likely `--dry-run` as the CI
+signal (no API key needed, no policy conflict).
