@@ -175,6 +175,30 @@ uv run pytest                # 124 tests, ~2s
 uv run ruff check .          # lint
 ```
 
+### Stacked pull requests
+
+If PR B was opened on top of PR A's branch and A has since merged to
+main, B will show conflicts against main even though your own commits
+are clean. The conflicts are A's commits, now reachable from main via
+the merge, replaying against themselves.
+
+Fix it by replaying only your commits onto main with
+`git rebase --onto main <old-base-sha> <branch>`. `<old-base-sha>` is
+the tip of A's branch at the moment you forked B — find it with
+`git merge-base <branch> <A-branch>` while A's branch still exists
+locally, or read it from the PR's "compare" base on github.com before
+the branch is deleted.
+
+```bash
+# B = feature/b, was stacked on feature/a (now merged + deleted)
+git fetch origin
+old_base=$(git merge-base feature/b origin/main~1)  # or paste the SHA
+git rebase --onto origin/main "$old_base" feature/b
+```
+
+Then force-push with lease — never plain `--force`:
+`git push --force-with-lease`.
+
 ## Architecture
 
 ```
