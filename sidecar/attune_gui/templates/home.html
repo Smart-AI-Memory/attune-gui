@@ -123,6 +123,13 @@
 
   <section class="section">
     <h2 class="section-title">Family snapshot</h2>
+    {% if summary.family_interpreter %}
+      <p class="meta-line">
+        Probed under
+        <code title="Dashboard process interpreter. A 'Not installed' result usually means this Python differs from the venv where the package lives.">{{ summary.family_interpreter }}</code>
+        {% if summary.family_python_version %}(Python {{ summary.family_python_version }}){% endif %}
+      </p>
+    {% endif %}
     <div class="grid grid-4">
       {% for v in summary.family %}
         <article class="card layer-card {% if v.importable %}ok{% else %}danger{% endif %}">

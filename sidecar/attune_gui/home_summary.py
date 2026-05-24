@@ -84,6 +84,8 @@ class HomeSummary:
     sparkline_points: str = ""  # SVG polyline points string ("" = no data)
     recent_jobs: list[RecentJob] = field(default_factory=list)
     family: list[FamilyVersion] = field(default_factory=list)
+    family_interpreter: str | None = None  # sys.executable of dashboard process
+    family_python_version: str | None = None  # e.g. "3.11.7"
     workspace_path: str | None = None
     manifest_path: str | None = None
     feature_count: int = 0
@@ -236,9 +238,13 @@ async def build_home_summary() -> HomeSummary:
         logger.debug("home: cowork_templates.list_templates failed; using empty list")
 
     layers: dict[str, dict[str, Any]] = {}
+    interpreter: str | None = None
+    python_version: str | None = None
     try:
         layer_data = await cowork_health.layer_health()
         layers = layer_data.get("layers", {})
+        interpreter = layer_data.get("interpreter")
+        python_version = layer_data.get("python_version")
     except Exception:  # noqa: BLE001
         logger.debug("home: cowork_health.layer_health failed; using empty list")
 
@@ -277,6 +283,8 @@ async def build_home_summary() -> HomeSummary:
         sparkline_points=points,
         recent_jobs=recent,
         family=family,
+        family_interpreter=interpreter,
+        family_python_version=python_version,
         workspace_path=workspace_path,
         manifest_path=manifest_path,
         feature_count=feature_count,

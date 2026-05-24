@@ -26,6 +26,18 @@ def test_layers_returns_all_known_packages(client: TestClient) -> None:
         assert "version" in info
 
 
+def test_layers_includes_interpreter_diagnostic(client: TestClient) -> None:
+    """A 'not installed' result is usually env-mismatch; the response surfaces
+    the interpreter so the dashboard is self-diagnosing."""
+    r = client.get("/api/cowork/layers", headers={"Origin": "http://localhost:5173"})
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body["interpreter"], str) and body["interpreter"]
+    assert isinstance(body["python_version"], str)
+    # "3.11.7" style
+    assert body["python_version"].count(".") == 2
+
+
 def test_layers_handles_missing_package(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

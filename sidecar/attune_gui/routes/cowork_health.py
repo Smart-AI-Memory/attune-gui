@@ -10,6 +10,7 @@ so a missing optional dep never crashes the dashboard.
 from __future__ import annotations
 
 import importlib.metadata as ilm
+import sys
 from typing import Any
 
 from fastapi import APIRouter
@@ -35,8 +36,18 @@ def _probe(pkg: str) -> dict[str, Any]:
 
 @router.get("/layers")
 async def layer_health() -> dict[str, Any]:
-    """Return version + importability for each attune layer."""
-    return {"layers": {key: _probe(pkg) for key, pkg in _PACKAGES}}
+    """Return version + importability for each attune layer.
+
+    Also surfaces the interpreter probing for metadata — a "not installed"
+    result is usually an env-mismatch (dashboard running under a different
+    Python than the venv that has the package), so the interpreter path
+    makes the situation self-diagnosing.
+    """
+    return {
+        "layers": {key: _probe(pkg) for key, pkg in _PACKAGES},
+        "interpreter": sys.executable,
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+    }
 
 
 @router.get("/corpus")
