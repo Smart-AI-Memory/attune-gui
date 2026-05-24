@@ -7,6 +7,7 @@ EDITOR_FRONTEND := editor-frontend
 EDITOR_OUTPUT := sidecar/attune_gui/static/editor
 
 .PHONY: build-editor lint-editor typecheck-editor dev-editor test-editor clean-editor install-editor
+.PHONY: regen-templates regen-all
 
 install-editor:
 	cd $(EDITOR_FRONTEND) && npm install
@@ -32,3 +33,17 @@ dev-editor:
 clean-editor:
 	rm -rf $(EDITOR_OUTPUT)
 	rm -rf $(EDITOR_FRONTEND)/node_modules
+
+# Regenerate living-docs templates for the root .help/ corpus.
+# Calls Anthropic for polish — costs $$ on stale features.
+# Sidecar corpus (sidecar/.help/) is deferred and not maintained here;
+# see docs/specs/living-docs-regen-automation/ for the rationale.
+regen-templates:
+	uv run attune-author regenerate --help-dir .help
+
+# Single command to flush every generated artifact a PR can drift:
+# living-docs templates + editor bundle. Run before pushing source
+# changes to sidecar/** or editor-frontend/src/**.
+regen-all: regen-templates build-editor
+	@echo ""
+	@echo "regen-all complete. Verify with: git status"
