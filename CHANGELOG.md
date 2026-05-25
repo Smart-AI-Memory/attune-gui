@@ -5,6 +5,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+Work in progress for the next release. Add entries here as
+changes land, not at tag time.
+
+## [0.8.0] — 2026-05-25
+
+Bundles the MCP server work (Phases 1–5, completed across PRs #49–#56) with the spec-status parser fix (PR #57), the living-docs regen automation Phase 1 (PRs #60, #61, #62, #63), the home interpreter snapshot improvement (PR #59), the stacked-rebase README note (PR #58), and a routine `attune-rag` cap widen to admit the freshly-released 0.2.0. Triggered by the cap widen — the rest had been queued on `main` waiting for a release.
+
+### Changed
+
+- **Widen `attune-rag` core pin: `>=0.1.22,<0.2` →
+  `>=0.1.22,<0.3`.** Unblocks fresh installs of `attune-gui`
+  alongside [attune-rag 0.2.0](https://pypi.org/project/attune-rag/0.2.0/)
+  (released 2026-05-25 as the first SemVer-binding cut — purely
+  additive: new `attune_rag.measure_corpus` public module + new
+  `load_aliases_from_file` / `DirectoryCorpus(extra_aliases_file=...)`).
+  None of the `attune_rag` surfaces consumed by `attune_gui`
+  (`RagPipeline`, `DirectoryCorpus`, `QueryExpander`,
+  `attune_rag.editor.*`) changed across 0.1.x → 0.2.0, so this
+  is a pin widen only with no code changes. Cap raised one minor
+  rather than open-ended so the next breaking attune-rag bump
+  still requires explicit re-validation.
+
 ### Fixed
 
 - **`**Status:**` (colon-inside-asterisks) format now parses
