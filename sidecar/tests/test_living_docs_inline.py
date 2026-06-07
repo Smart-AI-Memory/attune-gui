@@ -159,9 +159,11 @@ def test_rows_endpoint_pending_review_state(client, workspace, monkeypatch):
     with patch.object(store, "_git_diff_summary", return_value="1 line"):
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
-            store.add_to_queue("auth/concept", "manual", workspace)
-        )
+        # asyncio.run() creates and tears down its own loop, so this test
+        # is robust to ordering — get_event_loop() raises "no current event
+        # loop" under py3.10+ when an earlier test left none set (surfaces
+        # under pytest-randomly's shuffled order).
+        asyncio.run(store.add_to_queue("auth/concept", "manual", workspace))
 
     r = client.get("/api/living-docs/rows")
     assert r.status_code == 200
