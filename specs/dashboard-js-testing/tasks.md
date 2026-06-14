@@ -10,14 +10,16 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 0 | Branch off current `main` (post-#67) | pending | the inline `batchProgress` IIFE must exist in `living_docs.html` to extract |
-| 1 | Create `static_cw/batch-panel.js` — pure `isTerminal` / `batchView` / `shouldClose` (+ `TERMINAL`) | pending | DOM-free, `window`-free; exact logic lifted from the current inline IIFE |
-| 2 | Create `static_cw/batch-panel.test.js` — 7 pure-logic cases | pending | colocated; `import { … } from './batch-panel.js'` |
-| 3 | Extend `editor-frontend/vitest.config.ts` include glob | pending | add `"../sidecar/attune_gui/static_cw/**/*.test.js"` |
-| 4 | Rewrite the inline panel script as `<script type="module">` glue | pending | imports `batchView`/`shouldClose`; DOM-apply only, no branching; behavior byte-equivalent |
-| 5 | Run Vitest — dashboard tests pass **and** editor tests still pass | pending | `cd editor-frontend && npm test`; confirm both globs collected |
-| 6 | Live re-verify the Living Docs page | pending | preview: `GET /api/batch/status/stream` → 200, panel hidden on no-batch, no console errors — identical to today |
-| 7 | Pattern doc: "Testing dashboard JS" | pending | short page (extract pure fn → module → Vitest); cite batch-panel as the example; note the other 7 inline blocks follow this |
+| 0 | Branch off current `main` (post-#67) | done | `feat/dashboard-js-testing` off `fdea8ce` |
+| 1 | Create `static_cw/batch-panel.js` — pure `isTerminal` / `batchView` / `shouldClose` (+ `TERMINAL`) | done | DOM-free; logic lifted verbatim from the inline IIFE |
+| 2 | Create `static_cw/batch-panel.test.js` — 7 pure-logic cases | done | 14 assertions (it.each expands); colocated |
+| 3 | Extend `editor-frontend/vitest.config.ts` include glob | done | added `../sidecar/attune_gui/static_cw/**/*.test.js` |
+| 4 | Rewrite the inline panel script as `<script type="module">` glue | done | imports `batchView`/`shouldClose`; DOM-apply only |
+| 5 | Run Vitest — dashboard tests pass **and** editor tests still pass | done | 107 passed (10 files); editor `src/**` still collected |
+| 6 | Live re-verify the Living Docs page | done | `/cw-static/batch-panel.js` 200, SSE 200, panel hidden on no-batch, no console errors |
+| 7 | Pattern doc: "Testing dashboard JS" | done | `static_cw/README.md` (colocated) |
+
+> Shipped — all tasks complete; behavior-preserving, verified live.
 
 ## Testing strategy
 
