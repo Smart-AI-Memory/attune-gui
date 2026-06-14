@@ -131,8 +131,8 @@ cover it.
 
 ## Phase 2: Design
 
-**Status**: draft — see [`design.md`](design.md)
+**Status**: approved (2026-06-14) — see [`design.md`](design.md)
 
 ## Phase 3: Tasks
 
-**Status**: not started
+**Status**: approved (2026-06-14) — see [`tasks.md`](tasks.md)

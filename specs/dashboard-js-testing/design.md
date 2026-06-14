@@ -3,7 +3,7 @@
 > Phase 2 design for `specs/dashboard-js-testing/`. Read
 > `requirements.md` first. Single layer: **attune-gui**.
 
-**Status**: draft
+**Status**: approved (2026-06-14) — tasks: [`tasks.md`](tasks.md)
 
 ---
 
