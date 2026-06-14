@@ -7,7 +7,7 @@
 
 ## Phase 1: Requirements
 
-**Status**: draft
+**Status**: approved (2026-06-14)
 
 ### Problem statement
 
@@ -42,11 +42,13 @@ cover it.
   `sidecar/attune_gui/static_cw/` (served as-is via the existing
   `/cw-static` mount — no bundler, no build artifacts), loaded from
   templates via `<script type="module">`.
-- A **root-level Vitest setup** that discovers and runs
-  `static_cw/**/*.test.js`, plus CI wiring so it runs on every PR (the
-  current `frontend (Vitest)` job is scoped to `editor-frontend/` only;
-  a root `package.json` with `"test": "vitest run"` already exists but
-  is not wired to CI).
+- A **Vitest path that covers `static_cw/**/*.test.js`** and runs on
+  every PR. Today Vitest lives **only** in `editor-frontend/` (its
+  `package.json` + `vitest.config.ts`), and the `frontend (Vitest)` CI
+  job is scoped to that directory — there is **no** root `package.json`.
+  The design decides whether to extend the editor-frontend project to
+  cover the dashboard modules or stand up a separate root project (see
+  design Tradeoffs).
 - **Reference implementation: the batch panel.** Extract
   `batchProgress`'s pure functions (`renderState(frame)`, `isTerminal`,
   progress %, reconnect decision) from `living_docs.html` into a tested
@@ -107,7 +109,7 @@ cover it.
 | Does `StaticFiles` serve `.js` with the right `text/javascript` MIME for `type="module"`? | Verify in design; Starlette `StaticFiles` infers MIME from extension — `.js` should be correct. Add a smoke check. |
 | No build step — how do modules import each other? | Native ES `import` from `/cw-static/*.js`. Keep the dependency graph flat (one module per panel + a tiny shared util) so no bundler is needed. |
 | Vitest runs in Node, but modules target the browser. | Author pure functions free of DOM/`window` so they import cleanly under Vitest. DOM glue stays in the inline shim, out of the tested module. |
-| Will the existing `frontend (Vitest)` CI job pick these up? | No — it's `working-directory: editor-frontend`. Design must add/extend a job for root-level `static_cw` tests (or broaden the existing one). |
+| Will the existing `frontend (Vitest)` CI job pick these up? | No — it's `working-directory: editor-frontend`, and there is no root `package.json`. Design must either broaden the editor-frontend Vitest project (include `../sidecar/.../static_cw/**/*.test.js`) or stand up a separate root project + CI job. |
 | CSP / `type="module"` interaction with the origin guard? | Module scripts are same-origin from `/cw-static`; no inline-script CSP change. Confirm no regression in design. |
 | Does extraction risk load-order bugs (inline scripts run immediately; modules are deferred)? | `type="module"` is deferred by spec. Confirm the batch panel doesn't depend on synchronous execution against already-parsed DOM; it attaches on load, so deferral is fine. Flag any block that relies on sync timing. |
 
@@ -129,7 +131,7 @@ cover it.
 
 ## Phase 2: Design
 
-**Status**: not started
+**Status**: draft — see [`design.md`](design.md)
 
 ## Phase 3: Tasks
 
