@@ -23,6 +23,22 @@
     </div>
   </section>
 
+  <section class="section" id="batch-section" hidden>
+    <h2 class="section-title">Batch progress</h2>
+    <div class="card">
+      <div class="qbar">
+        <div class="qbar-head">
+          <span id="batch-label">Waiting…</span>
+          <span id="batch-counts" class="dim small"></span>
+        </div>
+        <div class="qbar-track">
+          <div id="batch-fill" class="qbar-fill accent" style="width: 0%"></div>
+        </div>
+      </div>
+      <div id="batch-detail" class="dim small" style="margin-top: .4rem"></div>
+    </div>
+  </section>
+
   <section class="section">
     <h2 class="section-title">Health</h2>
     <div class="grid grid-4">
@@ -341,5 +357,55 @@
       AttuneUI.toast(`Scan failed: ${e.message}`, 'danger');
     }
   });
+
+  // ── Batch progress (SSE, observe-only) ────────────────────────────────────
+  // Streams GET /api/batch/status/stream. The server sends one frame per poll
+  // and closes after a none/error/terminal frame; we es.close() on those so the
+  // browser does not auto-reconnect into a none → close → reconnect loop. New
+  // batches started later are picked up on the next page load.
+  (function batchProgress() {
+    const section = document.getElementById('batch-section');
+    if (!section || typeof EventSource === 'undefined') return;
+    const label = document.getElementById('batch-label');
+    const counts = document.getElementById('batch-counts');
+    const fill = document.getElementById('batch-fill');
+    const detail = document.getElementById('batch-detail');
+
+    const TERMINAL = ['ended', 'canceled', 'expired'];
+    const isTerminal = (f) => TERMINAL.includes(f.processing_status) || !!f.ended_at;
+
+    function render(frame) {
+      if (frame.state === 'none') { section.hidden = true; return; }
+      section.hidden = false;
+      if (frame.state === 'error') {
+        label.textContent = 'Status unavailable';
+        counts.textContent = '';
+        detail.textContent = frame.detail || 'retry';
+        return;
+      }
+      const c = frame.request_counts || {};
+      const total = frame.request_count || 0;
+      const done = (c.succeeded || 0) + (c.errored || 0) + (c.canceled || 0) + (c.expired || 0);
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      fill.style.width = pct + '%';
+      counts.textContent = total ? `${done}/${total}` : '';
+      if (isTerminal(frame)) {
+        label.textContent = `Completed — ${c.succeeded || 0} succeeded, ${c.errored || 0} errored`;
+      } else {
+        label.textContent = frame.processing_status || 'processing';
+      }
+      detail.textContent = frame.batch_id ? `batch ${frame.batch_id}` : '';
+    }
+
+    const es = new EventSource('/api/batch/status/stream');
+    es.onmessage = (ev) => {
+      let frame;
+      try { frame = JSON.parse(ev.data); } catch { return; }
+      render(frame);
+      // Server's last frame for these states — close to suppress reconnect.
+      if (frame.state !== 'pending' || isTerminal(frame)) es.close();
+    };
+    // Transient drops: let the browser auto-reconnect (no handler needed).
+  })();
 </script>
 {% endblock %}

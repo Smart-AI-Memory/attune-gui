@@ -15,7 +15,7 @@ Sidebar nav with seven pages, each consuming the existing JSON API:
 | **Templates** | Markdown templates with mtime staleness, tags, and a manual-pin toggle |
 | **Specs** | Feature specs in `specs/` with phase + status badges. **+ New spec** bootstraps from `TEMPLATE.md`; **+ Design / + Tasks** inline; status dropdown in Preview |
 | **Summaries** | Inline-editable `summaries.json` with overwrite warning |
-| **Living Docs** | Workspace editor, scan trigger, document health, review queue, RAG quality bars |
+| **Living Docs** | Workspace editor, scan trigger, document health, review queue, RAG quality bars, live batch-status panel |
 | **Commands** | Run any registered command from a card grid (RAG queries, regen, maintain, …) |
 | **Jobs** | Job history with per-feature progress, last-output column, Cancel button, auto-refresh |
 
@@ -154,6 +154,16 @@ attune-gui config unset specs_root                   # remove a key
 `config set workspace` validates that the path is a real directory; the
 others trust you. Workspace can also be set via **Living Docs →
 Workspace** in the UI — both surfaces write to the same file.
+
+### Batch-status panel
+
+When you run an attune-author maintenance batch from the CLI
+(`attune-author regenerate --batch`, checked with `--status`), the
+**Living Docs** page shows a live **Batch progress** panel — queued →
+in-progress (n/N) → complete — streamed over Server-Sent Events from
+`GET /api/batch/status/stream`. The panel is observe-only (it does not
+start a batch) and hides itself when no batch is pending. Set
+`ATTUNE_GUI_BATCH_POLL_SECS` (default `30`) to change the poll cadence.
 
 ## Development
 
