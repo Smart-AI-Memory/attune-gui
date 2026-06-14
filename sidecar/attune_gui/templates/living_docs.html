@@ -168,7 +168,12 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script type="module">
+  // Pure poll decision (shouldKeepPolling / cadence) lives in the tested
+  // module static_cw/living-docs-poller.js; the timer/DOM/visibility glue
+  // stays here. See specs/living-docs-poller-testing.
+  import { shouldKeepPolling, POLL_INTERVAL_MS } from '/cw-static/living-docs-poller.js';
+
   // ── Polling ───────────────────────────────────────────────────────────────
   // Recursive setTimeout (not setInterval) so a hidden tab fully pauses
   // instead of waking every 1.5s to no-op.
@@ -197,12 +202,12 @@
     try {
       const data = await AttuneUI.api('/api/living-docs/rows');
       _applyRows(data.rows);
-      if (!data.rows.some(r => r.computed_state === 'regenerating')) {
+      if (!shouldKeepPolling(data.rows)) {
         _stopPoll();
         return;
       }
     } catch (_) { /* transient — keep polling */ }
-    _scheduleNextPoll(1500);
+    _scheduleNextPoll(POLL_INTERVAL_MS);
   }
 
   document.addEventListener('visibilitychange', () => {

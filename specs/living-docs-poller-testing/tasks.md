@@ -10,12 +10,14 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 0 | Branch off `feat/dashboard-js-testing` (#68 infra) | pending | needs the Vitest include glob + static_cw README pattern |
-| 1 | Create `static_cw/living-docs-poller.js` — `shouldKeepPolling(rows)` + `POLL_INTERVAL_MS` | pending | pure, DOM-free; defensive over non-array / missing `computed_state` |
-| 2 | Create `static_cw/living-docs-poller.test.js` — 5 cases | pending | true/false/empty/defensive + interval constant |
-| 3 | Convert the poller `<script>` block to `<script type="module">`; import the module | pending | replace inline `.some(...)` → `shouldKeepPolling`, `1500` → `POLL_INTERVAL_MS`; all other glue unchanged |
-| 4 | Run Vitest — new tests + batch-panel + editor suites all green | pending | `cd editor-frontend && npm test` |
-| 5 | Live re-verify Living Docs | pending | module 200, page renders, poll start/stop unchanged, no console errors |
+| 0 | Branch off `feat/dashboard-js-testing` (#68 infra) | done | `feat/living-docs-poller-testing` |
+| 1 | Create `static_cw/living-docs-poller.js` — `shouldKeepPolling(rows)` + `POLL_INTERVAL_MS` | done | pure, DOM-free; defensive over non-array / missing `computed_state` |
+| 2 | Create `static_cw/living-docs-poller.test.js` — 5 cases | done | 6 cases (defensive split); colocated |
+| 3 | Convert the poller `<script>` block to `<script type="module">`; import the module | done | inline `.some(...)` → `shouldKeepPolling`; `1500` → `POLL_INTERVAL_MS`; glue unchanged |
+| 4 | Run Vitest — new tests + batch-panel + editor suites all green | done | 113 passed (11 files) |
+| 5 | Live re-verify Living Docs | done | poller module 200, page intact, 2 module scripts, batch SSE still 200, no console errors |
+
+> Shipped — all tasks complete; behavior-preserving, verified live.
 
 ## Testing strategy
 
