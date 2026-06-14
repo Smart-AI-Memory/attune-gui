@@ -9,7 +9,7 @@
 
 ## Phase 1: Requirements
 
-**Status**: draft
+**Status**: approved (2026-06-14)
 
 ### Problem statement
 
@@ -118,8 +118,8 @@ panel, and migrating it applies the pattern established in
 
 ## Phase 2: Design
 
-**Status**: not started
+**Status**: approved (2026-06-14) — see [`design.md`](design.md)
 
 ## Phase 3: Tasks
 
-**Status**: not started
+**Status**: approved (2026-06-14) — see [`tasks.md`](tasks.md)
