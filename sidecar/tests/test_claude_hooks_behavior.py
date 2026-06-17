@@ -40,6 +40,18 @@ def _run_hook(
     # carries either, security_guard would exit 0 instead of blocking.
     env.pop("ATTUNE_SDK_SUBPROCESS", None)
     env["CLAUDE_CODE_ENTRYPOINT"] = "cli"
+    # Strip pytest-cov's subprocess markers so the spawned hook does not
+    # auto-start coverage. Under `--cov` (gui CI uses branch=true) the
+    # subprocess would write a statement-only data file that can't combine
+    # with the parent's branch data ("Can't combine statement coverage data
+    # with branch data"). The hooks aren't part of the coverage source anyway.
+    for _cov_var in (
+        "COV_CORE_SOURCE",
+        "COV_CORE_CONFIG",
+        "COV_CORE_DATAFILE",
+        "COVERAGE_PROCESS_START",
+    ):
+        env.pop(_cov_var, None)
     if env_overrides is not None:
         env.update(env_overrides)
     return subprocess.run(  # noqa: S603 — inputs are sys.executable + a vendored hook path, fully trusted
