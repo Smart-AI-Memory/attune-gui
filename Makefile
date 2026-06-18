@@ -13,7 +13,7 @@ EDITOR_OUTPUT := sidecar/attune_gui/static/editor
 # attune umbrella workspace). Byte-identical copies of attune-ai canonical;
 # the drift-guard test enforces it. Re-sync after an upstream change.
 ATTUNE_AI_ROOT ?= ../attune-ai
-HOOK_FILES = security_guard.py format_on_save.py compact_warning.py spec_orient.py _state.py _resume_prompt.py _transcript_size.py _sdk_gate.py
+HOOK_FILES = security_guard.py format_on_save.py compact_warning.py spec_orient.py _state.py _resume_prompt.py _transcript_size.py _sdk_gate.py spec_audit.py
 
 install-editor:
 	cd $(EDITOR_FRONTEND) && npm install
