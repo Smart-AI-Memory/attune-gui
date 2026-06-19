@@ -157,3 +157,62 @@ def test_regen_inputs_raises_for_unbound(tmp_path: Path) -> None:
 def test_unknown_corpus_raises_lookup(tmp_path: Path) -> None:
     with pytest.raises(LookupError):
         provenance.resolve_provenance("nope", "x.md")
+
+
+def test_path_escape_raises_value_error(tmp_path: Path) -> None:
+    root, help_dir = _build_project(tmp_path)
+    _make_template(help_dir)
+    with pytest.raises(ValueError):
+        provenance.resolve_provenance(_register(root), "../escape.md")
+
+
+def test_manifest_cache_is_reused_on_second_call(tmp_path: Path) -> None:
+    """Second resolve for the same help_dir hits the cache (mtime unchanged)."""
+    root, help_dir = _build_project(tmp_path)
+    tmpl = _make_template(help_dir, hash_value=_current_hash(help_dir))
+    cid, rel = _register(root), _rel(root, tmpl)
+    provenance._MANIFEST_CACHE.clear()
+    provenance.resolve_provenance(cid, rel)  # populates the cache
+    assert str(help_dir) in provenance._MANIFEST_CACHE
+    res = provenance.resolve_provenance(cid, rel)  # cache hit
+    assert res.status == "fresh"
+
+
+def test_help_dir_resolved_via_nested_dot_help(tmp_path: Path) -> None:
+    """A template outside .help still binds via an ancestor's .help/features.yaml."""
+    root = tmp_path / "proj"
+    help_dir = root / ".help"
+    _write(
+        help_dir / "features.yaml",
+        'version: 1\nfeatures:\n  auth:\n    description: Auth\n    files: ["src/auth/**"]\n',
+    )
+    _write(root / "src" / "auth" / "login.py", "def login():\n    return True\n")
+    tmpl = _write(
+        root / "docs" / "auth-guide.md",
+        _template_text(feature="auth", hash_field="source_hash", hash_value="000"),
+    )
+    res = provenance.resolve_provenance(_register(root), _rel(root, tmpl))
+    assert res.bound is True
+    assert res.feature == "auth"
+    assert res.status in {"fresh", "stale"}
+
+
+def test_unbound_when_no_features_yaml_anywhere(tmp_path: Path) -> None:
+    root = tmp_path / "loose"
+    tmpl = _write(
+        root / "notes" / "page.md",
+        _template_text(feature="auth", hash_field="source_hash", hash_value="000"),
+    )
+    res = provenance.resolve_provenance(_register(root), _rel(root, tmpl))
+    assert res.status == "unbound"
+    assert "features.yaml" in (res.reason or "")
+
+
+def test_parse_frontmatter_edge_cases() -> None:
+    pf = provenance._parse_frontmatter
+    assert pf("no frontmatter here") == {}  # no leading ---
+    assert pf("---") == {}  # no newline after opener
+    assert pf("---\nkey: value\nbody with no close") == {}  # no closing ---
+    assert pf("---\n: : bad: yaml: [\n---\n") == {}  # YAMLError
+    assert pf("---\n- a\n- b\n---\n") == {}  # parses to a list, not a dict
+    assert pf("---\nfeature: auth\n---\nbody") == {"feature": "auth"}
