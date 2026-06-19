@@ -28,6 +28,7 @@ from attune_gui.routes import (  # noqa: F401
     editor_health,
     editor_lint,
     editor_pages,
+    editor_provenance,
     editor_schema,
     editor_template,
     editor_ws,
@@ -91,6 +92,7 @@ def create_app() -> FastAPI:
     app.include_router(editor_lint.router)
     app.include_router(editor_schema.router)
     app.include_router(editor_template.router)
+    app.include_router(editor_provenance.router)
     app.include_router(editor_ws.router)
 
     # ---- Template editor HTML shell -----------------------------------------
