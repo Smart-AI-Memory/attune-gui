@@ -50,7 +50,8 @@ def corpus(tmp_path: Path) -> tuple[str, str, Path]:
     _write(root / "src" / "auth" / "login.py", "def login():\n    return True\n")
     tmpl = _write(
         help_dir / "templates" / "auth" / "concept.md",
-        "---\ntype: concept\nname: Auth\nfeature: auth\nsource_hash: stale000\ndepth: concept\n---\n\nbody\n",
+        "---\ntype: concept\nname: Auth\nfeature: auth\n"
+        "source_hash: stale000\ndepth: concept\n---\n\nbody\n",
     )
     cid = editor_corpora.register("Test", str(root)).id
     return cid, str(tmpl.relative_to(root)), help_dir

@@ -43,7 +43,8 @@ def _build_project(
     help_dir = root / ".help"
     _write(
         help_dir / "features.yaml",
-        f'version: 1\nfeatures:\n  {feature}:\n    description: Auth\n    files: ["{files_glob}"]\n',
+        f"version: 1\nfeatures:\n  {feature}:\n"
+        f'    description: Auth\n    files: ["{files_glob}"]\n',
     )
     if create_source:
         _write(root / "src" / "auth" / "login.py", "def login():\n    return True\n")
