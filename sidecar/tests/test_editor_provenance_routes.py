@@ -164,3 +164,53 @@ def test_regenerate_unbound_409(client: TestClient, tmp_path: Path) -> None:
     )
     assert r.status_code == 409
     assert r.json()["detail"]["code"] == "not_regenerable"
+
+
+# -- error mapping on both routes -----------------------------------
+
+
+def test_provenance_path_escape_400(client: TestClient, corpus) -> None:
+    cid, _rel, _ = corpus
+    r = client.get(f"/api/corpus/{cid}/template/provenance", params={"path": "../escape.md"})
+    assert r.status_code == 400
+
+
+def test_regenerate_unknown_corpus_404(client: TestClient, corpus) -> None:
+    _cid, rel, _ = corpus
+    r = client.post("/api/corpus/nope/template/regenerate", json={"path": rel})
+    assert r.status_code == 404
+
+
+def test_regenerate_missing_template_404(client: TestClient, corpus) -> None:
+    cid, _rel, _ = corpus
+    r = client.post(
+        f"/api/corpus/{cid}/template/regenerate",
+        json={"path": ".help/templates/auth/ghost.md"},
+    )
+    assert r.status_code == 404
+
+
+def test_regenerate_path_escape_400(client: TestClient, corpus) -> None:
+    cid, _rel, _ = corpus
+    r = client.post(f"/api/corpus/{cid}/template/regenerate", json={"path": "../escape.md"})
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_executor_raises_on_unknown_feature(corpus) -> None:
+    """The executor raises ValueError when the feature vanished from the manifest."""
+    from attune_gui.jobs import Job, JobContext
+    from attune_gui.routes import editor_provenance
+
+    _cid, _rel, help_dir = corpus
+    ctx = JobContext(Job(id="t", name="template.regenerate", args={}))
+    with pytest.raises(ValueError, match="not in manifest"):
+        await editor_provenance._regenerate_template_executor(
+            {
+                "help_dir": str(help_dir),
+                "project_root": str(help_dir.parent),
+                "feature": "ghost",
+                "depth": "concept",
+            },
+            ctx,
+        )
