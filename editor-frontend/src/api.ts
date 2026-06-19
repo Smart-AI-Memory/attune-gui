@@ -128,6 +128,33 @@ export interface CorpusListResponse {
   corpora: CorpusEntry[];
 }
 
+export type ProvenanceStatus = "fresh" | "stale" | "unbound" | "sources_missing";
+
+export interface Provenance {
+  bound: boolean;
+  status: ProvenanceStatus;
+  feature: string | null;
+  stored_hash: string | null;
+  current_hash: string | null;
+  depth: string | null;
+  generated_at: string | null;
+  source_files: string[];
+  source_globs: string[];
+  can_regenerate: boolean;
+  reason: string | null;
+}
+
+export type JobStatus = "pending" | "running" | "completed" | "errored" | "cancelled";
+
+export interface JobInfo {
+  id: string;
+  name: string;
+  status: JobStatus;
+  error: string | null;
+  args: Record<string, unknown>;
+  output_lines?: string[];
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -223,6 +250,33 @@ export class EditorApi {
       body: JSON.stringify(body),
     });
     return this.parse<SaveResponse>(res);
+  }
+
+  async getProvenance(corpusId: string, relPath: string): Promise<Provenance> {
+    const url =
+      `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/template/provenance` +
+      `?path=${encodeURIComponent(relPath)}`;
+    const res = await fetch(url, { method: "GET" });
+    return this.parse<Provenance>(res);
+  }
+
+  async regenerateTemplate(corpusId: string, path: string): Promise<JobInfo> {
+    const url = `${this.base}/api/corpus/${encodeURIComponent(corpusId)}/template/regenerate`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Attune-Client": this.sessionToken,
+      },
+      body: JSON.stringify({ path }),
+    });
+    return this.parse<JobInfo>(res);
+  }
+
+  async getJob(jobId: string): Promise<JobInfo> {
+    const url = `${this.base}/api/jobs/${encodeURIComponent(jobId)}`;
+    const res = await fetch(url, { method: "GET" });
+    return this.parse<JobInfo>(res);
   }
 
   async lint(

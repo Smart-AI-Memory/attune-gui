@@ -13,6 +13,7 @@ import { EditorApi, ApiError } from "./api";
 import { TemplateDocument } from "./document-model";
 import { mountEditor, type MountedEditor } from "./editor";
 import { renderFrontmatterForm } from "./frontmatter-form";
+import { mountProvenancePanel } from "./provenance-panel";
 import { attuneLinter } from "./lint";
 import { renderDiagnosticsStrip } from "./diagnostics-strip";
 import { attuneCompletions } from "./autocomplete";
@@ -51,6 +52,8 @@ interface Layout {
   advisoryBanner: HTMLElement;
   banner: HTMLElement;
   formSidebar: HTMLElement;
+  provenanceHost: HTMLElement;
+  formMount: HTMLElement;
   editorPane: HTMLElement;
   diagnostics: HTMLElement;
   saveBtn: HTMLButtonElement;
@@ -107,6 +110,15 @@ function buildLayout(root: HTMLElement): Layout {
   const formSidebar = document.createElement("aside");
   formSidebar.className = "attune-editor-sidebar";
 
+  // Provenance/staleness panel sits above the frontmatter form. It lives
+  // in its own host so the form's `innerHTML = ""` re-render never wipes it.
+  const provenanceHost = document.createElement("div");
+  provenanceHost.className = "attune-prov-host";
+  const formMount = document.createElement("div");
+  formMount.className = "attune-fm-mount";
+  formSidebar.appendChild(provenanceHost);
+  formSidebar.appendChild(formMount);
+
   const editorPane = document.createElement("section");
   editorPane.className = "attune-editor-pane";
 
@@ -134,6 +146,8 @@ function buildLayout(root: HTMLElement): Layout {
     advisoryBanner,
     banner,
     formSidebar,
+    provenanceHost,
+    formMount,
     editorPane,
     diagnostics,
     saveBtn,
@@ -275,6 +289,8 @@ async function bootstrap(): Promise<void> {
     suppressFormRefresh = false;
     ui.status.textContent = `${statusVerb} · base ${hash}`;
     refreshSaveButton();
+    // A reload may be the result of a regenerate — re-check staleness.
+    provenancePanel.refresh();
   }
 
   let activeRenameModal: { close(): void } | null = null;
@@ -349,7 +365,15 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  const form = renderFrontmatterForm(ui.formSidebar, {
+  const provenancePanel = mountProvenancePanel({
+    host: ui.provenanceHost,
+    api,
+    corpusId: boot.corpusId,
+    relPath: boot.relPath,
+    onToast: (msg, kind) => showToast(ui.toast, msg, kind),
+  });
+
+  const form = renderFrontmatterForm(ui.formMount, {
     doc,
     schema,
     onChange: () => {
