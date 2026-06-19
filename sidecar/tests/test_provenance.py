@@ -16,13 +16,8 @@ from attune_gui import editor_corpora, provenance
 
 
 @pytest.fixture(autouse=True)
-def _isolated_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(
-        editor_corpora,
-        "_REGISTRY_PATH",
-        tmp_path / ".attune" / "corpora.json",
-        raising=False,
-    )
+def _clear_manifest_cache() -> None:
+    # Registry isolation is handled globally by conftest._isolated_corpora_registry.
     provenance._MANIFEST_CACHE.clear()
 
 

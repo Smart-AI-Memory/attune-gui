@@ -10,7 +10,7 @@ their scope is genuinely test-suite-specific.
 from __future__ import annotations
 
 import pytest
-from attune_gui import living_docs_store
+from attune_gui import editor_corpora, living_docs_store
 from attune_gui.app import create_app
 from fastapi.testclient import TestClient
 
@@ -28,6 +28,20 @@ def _isolated_living_docs_state(tmp_path, monkeypatch):
         "_DEFAULT_STATE_PATH",
         tmp_path / "living_docs.json",
     )
+
+
+@pytest.fixture(autouse=True)
+def _isolated_corpora_registry(tmp_path, monkeypatch):
+    """Redirect the editor corpora registry to a tmp file.
+
+    Without this, any test that calls ``editor_corpora.register()`` writes
+    to the developer's real ``~/.attune/corpora.json``. The per-file
+    ``monkeypatch.setattr(editor_corpora, "_REGISTRY_PATH", ...)`` used
+    before was a silent no-op — that attribute does not exist; the path is
+    resolved by ``editor_corpora._registry_path()``. Patch the resolver.
+    """
+    registry = tmp_path / "corpora.json"
+    monkeypatch.setattr(editor_corpora, "_registry_path", lambda: registry)
 
 
 @pytest.fixture

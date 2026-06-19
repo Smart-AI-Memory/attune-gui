@@ -9,15 +9,7 @@ from attune_gui import editor_corpora
 from attune_gui.app import create_app
 from fastapi.testclient import TestClient
 
-
-@pytest.fixture(autouse=True)
-def _isolated_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(
-        editor_corpora,
-        "_REGISTRY_PATH",
-        tmp_path / ".attune" / "corpora.json",
-        raising=False,
-    )
+# Registry isolation is handled globally by conftest._isolated_corpora_registry.
 
 
 @pytest.fixture
