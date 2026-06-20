@@ -18,8 +18,6 @@ def _isolated_portfile(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return portfile
 
 
-
-
 # -- helpers --------------------------------------------------------
 
 
