@@ -18,8 +18,6 @@ from fastapi.testclient import TestClient
 HDR = {"Origin": "http://localhost:5173"}
 
 
-
-
 @pytest.fixture
 def token(client: TestClient) -> str:
     return client.get("/api/session/token", headers=HDR).json()["token"]

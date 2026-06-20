@@ -21,8 +21,6 @@ from fastapi.testclient import TestClient
 HDR = {"Origin": "http://localhost:5173"}
 
 
-
-
 def _write_manifest(root: Path, features: list[str]) -> Path:
     """Drop a minimal `features.yaml` under ``root/.help/``."""
     help_dir = root / ".help"

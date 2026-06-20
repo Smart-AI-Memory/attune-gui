@@ -45,6 +45,7 @@ dev = [
     "pytest-cov>=5.0,<7.0",
     "httpx>=0.27,<1.0",
     "ruff>=0.5,<1.0",
+    "pre-commit>=3.5",
     "build>=1.0,<2.0",
     "twine>=5.0,<7.0",
 ]
@@ -94,6 +95,11 @@ ignore = [
     "S105",  # possible hardcoded password — fine for fake tokens in fixtures
     "S106",
 ]
+# Dev-loop tooling, not shipped code (CI lints only sidecar/). The
+# flake8-bandit (S) rules — subprocess calls, /tmp paths, urllib opens —
+# are expected here and would only add noise.
+"scripts/*" = ["S"]
+".claude/hooks/*" = ["S"]
 
 [tool.pytest.ini_options]
 testpaths = ["sidecar/tests"]
