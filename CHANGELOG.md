@@ -8,6 +8,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Work in progress for the next release. Add entries here as
 changes land, not at tag time.
 
+## [0.9.0] — 2026-06-22
+
+The Living Docs dashboard becomes interactive and testable. This
+release ships live batch-status streaming, a poll-driven state
+machine for regeneration, an editor staleness/regenerate panel, and
+a front-end test harness (ES modules + Vitest) for the dashboard
+JS — the 13 commits that had queued on `main` since v0.8.0. No
+breaking changes; the public route and MCP surfaces are unchanged.
+
+### Added
+
+- **Editor staleness panel + regenerate button (#73).** The
+  `/editor` view now surfaces a hash-based staleness indicator and a
+  one-click regenerate control, so authors can see when a doc has
+  drifted from its source and refresh it inline.
+- **Living Docs poll-driven state machine (#71).** Regeneration
+  status is now tracked by a testable state machine (the
+  `_project_doc_state` keystone + smart polling), patching rows in
+  place instead of reloading — `regenerating > pending-review >
+  errored > stale > current` priority.
+- **Testable batch panel (#68).** The batch-progress panel was
+  extracted to an ES module with Vitest coverage, decoupling the
+  dashboard JS from inline scripts.
+- **Live batch-status SSE in Living Docs (#67).** Batch
+  regeneration progress now streams over Server-Sent Events into the
+  Living Docs batch panel.
+
+### Fixed
+
+- **Editor corpora registry test isolation (#75).** The editor
+  corpora registry is now genuinely isolated between tests, closing
+  cross-test state leakage.
+
+### Changed
+
+- **Docs: staleness + regenerate panel (#76).** Documented the new
+  editor staleness/regenerate panel (task 8b).
+- **Test hardening.** Home-dir leak guard for
+  `~/.attune/corpora.json` and `~/.attune-gui/` (#77); provenance
+  error/edge-branch coverage to 100% patch (#74).
+- **CI / dev tooling.** Pre-commit parity with attune-ai (#78);
+  vendored `spec-status-integrity` hook from the attune-ai canonical
+  (#72); Claude Code session hooks + drift-guard, Phase 4 (#70);
+  codecov coverage upload (#65); archived completed/superseded specs
+  (#66).
+
 ## [0.8.0] — 2026-05-25
 
 Bundles the MCP server work (Phases 1–5, completed across PRs #49–#56) with the spec-status parser fix (PR #57), the living-docs regen automation Phase 1 (PRs #60, #61, #62, #63), the home interpreter snapshot improvement (PR #59), the stacked-rebase README note (PR #58), and a routine `attune-rag` cap widen to admit the freshly-released 0.2.0. Triggered by the cap widen — the rest had been queued on `main` waiting for a release.
