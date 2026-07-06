@@ -44,6 +44,7 @@ def specs_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
         "### Implementation order\n\n_TODO_\n"
     )
     monkeypatch.setattr(cowork_specs, "_specs_root", lambda: root)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [root])
     return root
 
 
@@ -253,6 +254,36 @@ def test_update_status_rejects_invalid_value(
         token,
     )
     assert r.status_code == 400
+
+
+def test_update_status_writes_to_the_root_the_spec_lives_in(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, token: str
+) -> None:
+    """Federated roots: a spec surfaced from a secondary root must be
+    updatable, not 404 against the highest-priority root.
+
+    Regression: listing scans all roots but update targeted ``roots[0]``
+    only, so any spec outside the first root silently 404'd on status
+    change.
+    """
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    primary.mkdir()
+    secondary.mkdir()
+    _seed_feature(secondary, "in-second-root", ["requirements.md"])
+    monkeypatch.setattr(cowork_specs, "_specs_root", lambda: primary)
+    monkeypatch.setattr(cowork_specs, "_specs_roots", lambda: [primary, secondary])
+
+    r = _put_token(
+        client,
+        "/api/cowork/specs/in-second-root/requirements/status",
+        {"status": "complete"},
+        token,
+    )
+
+    assert r.status_code == 200
+    text = (secondary / "in-second-root" / "requirements.md").read_text()
+    assert "**Status**: complete" in text
 
 
 def test_update_status_inserts_when_no_status_line(
