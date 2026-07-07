@@ -74,6 +74,8 @@ def test_corpus_returns_null_when_no_workspace(
         "template_count": 0,
         "summaries_present": False,
         "has_help_dir": False,
+        "manifest_path": None,
+        "feature_count": 0,
     }
 
 
@@ -110,3 +112,53 @@ def test_corpus_no_help_dir(
     assert body["has_help_dir"] is False
     assert body["template_count"] == 0
     assert body["summaries_present"] is False
+    assert body["manifest_path"] is None
+    assert body["feature_count"] == 0
+
+
+def test_corpus_finds_manifest_under_help_dir(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Workspace is a project root: manifest lives at .help/features.yaml."""
+    help_dir = tmp_path / ".help"
+    help_dir.mkdir()
+    (help_dir / "features.yaml").write_text("version: 1\nfeatures:\n  alpha: {}\n  beta: {}\n")
+
+    monkeypatch.setattr(cowork_health, "get_workspace", lambda: tmp_path)
+
+    r = client.get("/api/cowork/corpus", headers={"Origin": "http://localhost:5173"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["manifest_path"] == str(help_dir / "features.yaml")
+    assert body["feature_count"] == 2
+
+
+def test_corpus_finds_manifest_at_workspace_root(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Workspace pointed directly at a .help-style dir holding features.yaml."""
+    (tmp_path / "features.yaml").write_text("version: 1\nfeatures:\n  solo: {}\n")
+
+    monkeypatch.setattr(cowork_health, "get_workspace", lambda: tmp_path)
+
+    r = client.get("/api/cowork/corpus", headers={"Origin": "http://localhost:5173"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["manifest_path"] == str(tmp_path / "features.yaml")
+    assert body["feature_count"] == 1
+
+
+def test_corpus_unparseable_manifest_reports_path_with_zero_count(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    help_dir = tmp_path / ".help"
+    help_dir.mkdir()
+    (help_dir / "features.yaml").write_text("features: [unclosed")
+
+    monkeypatch.setattr(cowork_health, "get_workspace", lambda: tmp_path)
+
+    r = client.get("/api/cowork/corpus", headers={"Origin": "http://localhost:5173"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["manifest_path"] == str(help_dir / "features.yaml")
+    assert body["feature_count"] == 0

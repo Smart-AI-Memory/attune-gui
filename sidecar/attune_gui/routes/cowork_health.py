@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import importlib.metadata as ilm
 import sys
+from pathlib import Path
 from typing import Any
 
+import yaml
 from fastapi import APIRouter
 
 from attune_gui.workspace import get_workspace
@@ -51,6 +53,25 @@ async def layer_health() -> dict[str, Any]:
     }
 
 
+def _probe_manifest(ws: Path) -> tuple[str | None, int]:
+    """Locate features.yaml under the workspace and count its features.
+
+    Checks ``<ws>/.help/features.yaml`` first (project-root workspace),
+    then ``<ws>/features.yaml`` (workspace pointed directly at a .help dir).
+    """
+    for candidate in (ws / ".help" / "features.yaml", ws / "features.yaml"):
+        if not candidate.is_file():
+            continue
+        try:
+            data = yaml.safe_load(candidate.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError):
+            return str(candidate), 0
+        features = data.get("features") if isinstance(data, dict) else None
+        count = len(features) if isinstance(features, dict) else 0
+        return str(candidate), count
+    return None, 0
+
+
 @router.get("/corpus")
 async def corpus_health() -> dict[str, Any]:
     """Return current workspace, template count, and summaries.json presence."""
@@ -61,6 +82,8 @@ async def corpus_health() -> dict[str, Any]:
             "template_count": 0,
             "summaries_present": False,
             "has_help_dir": False,
+            "manifest_path": None,
+            "feature_count": 0,
         }
 
     help_dir = ws / ".help"
@@ -71,9 +94,13 @@ async def corpus_health() -> dict[str, Any]:
         templates_root = help_dir / "templates" if (help_dir / "templates").is_dir() else help_dir
         template_count = sum(1 for _ in templates_root.rglob("*.md"))
 
+    manifest_path, feature_count = _probe_manifest(ws)
+
     return {
         "workspace": str(ws),
         "template_count": template_count,
         "summaries_present": summaries.is_file(),
         "has_help_dir": help_dir.is_dir(),
+        "manifest_path": manifest_path,
+        "feature_count": feature_count,
     }

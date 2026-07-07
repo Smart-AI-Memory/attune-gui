@@ -111,6 +111,34 @@ def test_manifest_malformed_returns_400(client: TestClient, tmp_path: Path) -> N
     assert r.json()["detail"]["code"] == "manifest_malformed"
 
 
+def test_manifest_yaml_syntax_error_returns_400(client: TestClient, tmp_path: Path) -> None:
+    help_dir = tmp_path / ".help"
+    help_dir.mkdir()
+    # Unclosed flow sequence -> yaml.YAMLError from safe_load.
+    (help_dir / "features.yaml").write_text("features: [unclosed\n", encoding="utf-8")
+    r = client.get(
+        "/api/author/features",
+        params={"help_dir": str(help_dir)},
+        headers=HDR,
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "manifest_malformed"
+
+
+def test_manifest_without_features_key_returns_empty(client: TestClient, tmp_path: Path) -> None:
+    help_dir = tmp_path / ".help"
+    help_dir.mkdir()
+    # Mapping document with no `features:` key -> empty choice list.
+    (help_dir / "features.yaml").write_text("version: 1\n", encoding="utf-8")
+    r = client.get(
+        "/api/author/features",
+        params={"help_dir": str(help_dir)},
+        headers=HDR,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["choices"] == []
+
+
 def test_choicesurl_present_in_author_generate_schema(client: TestClient) -> None:
     """Regression: the dashboard form relies on this extension to
     populate the `feature` datalist. If it goes missing, the field

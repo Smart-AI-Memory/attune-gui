@@ -25,6 +25,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import yaml
 from fastapi import APIRouter, HTTPException, Query, status
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,9 @@ async def list_features(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "manifest_missing", "message": str(exc)},
         ) from exc
-    except ValueError as exc:
+    except (ValueError, yaml.YAMLError) as exc:
+        # load_manifest raises ValueError for schema problems but lets
+        # yaml parse errors escape; both are a malformed manifest here.
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "manifest_malformed", "message": str(exc)},
