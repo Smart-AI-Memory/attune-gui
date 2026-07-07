@@ -167,6 +167,22 @@ def _specs_root() -> Path | None:
     return roots[0] if roots else None
 
 
+def _root_for_feature(feature: str) -> Path | None:
+    """Return the federated root that actually contains ``<feature>/``.
+
+    Listing scans every root (:func:`_specs_roots`), so a spec surfaced
+    from a secondary root can be selected in the dashboard. Write
+    endpoints must target the root that spec *lives in* — not the
+    highest-priority root (:func:`_specs_root`) — or the mutation 404s
+    against a path that doesn't exist there. Returns the first matching
+    root in priority order, or ``None`` if no root holds the feature.
+    """
+    for root in _specs_roots():
+        if (root / feature).is_dir():
+            return root
+    return None
+
+
 def _template_path() -> Path | None:
     """Return the path to TEMPLATE.md if it exists alongside the specs root."""
     root = _specs_root()
@@ -372,13 +388,11 @@ async def add_phase(feature: str, body: AddPhaseRequest) -> dict[str, Any]:
             detail="Requirements is created automatically by POST /api/cowork/specs.",
         )
 
-    root = _specs_root()
+    root = _root_for_feature(feature)
     if root is None:
-        raise HTTPException(status_code=404, detail="Specs root not found.")
+        raise HTTPException(status_code=404, detail=f"Spec {feature!r} not found.")
 
     feat_dir = root / feature
-    if not feat_dir.is_dir():
-        raise HTTPException(status_code=404, detail=f"Spec {feature!r} not found.")
 
     # Enforce ordering: design requires requirements, tasks requires design.
     prereqs = {"design": "requirements.md", "tasks": "design.md"}
@@ -426,9 +440,9 @@ async def update_status(
         raise HTTPException(status_code=422, detail="Body must include `status` (string).")
     _validate_status(status)
 
-    root = _specs_root()
+    root = _root_for_feature(feature)
     if root is None:
-        raise HTTPException(status_code=404, detail="Specs root not found.")
+        raise HTTPException(status_code=404, detail=f"Spec {feature!r} not found in any spec root.")
 
     target = root / feature / f"{phase}.md"
     if not target.is_file():
