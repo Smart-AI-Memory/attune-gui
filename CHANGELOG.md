@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Work in progress for the next release. Add entries here as
 changes land, not at tag time.
 
+## [0.9.1] — 2026-07-07
+
+Patch release: the dashboard's staleness readings are trustworthy
+again. No breaking changes; route and MCP surfaces are unchanged.
+
 ### Fixed
 
 - **False-stale staleness readings — attune-author pin bumped to
@@ -27,6 +32,15 @@ changes land, not at tag time.
   `features.yaml`.** `load_manifest` lets `yaml.YAMLError` escape;
   the endpoint now maps it to the documented 400
   `manifest_malformed` response.
+- **Spec status/phase wrote to the wrong root for federated
+  specs.** Authoring endpoints now write `status`/`phase` updates to
+  the root the spec actually lives in, not the primary specs root
+  (#81).
+- **`/api/author/features` crashed against attune-help ≥0.11
+  (removed `manifest` module).** First rerouted through
+  attune-author (#80), then superseded by reading `features.yaml`
+  directly (#82) — the endpoint no longer depends on either
+  package's manifest loader.
 
 ## [0.9.0] — 2026-06-22
 
