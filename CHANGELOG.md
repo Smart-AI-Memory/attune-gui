@@ -23,6 +23,10 @@ changes land, not at tag time.
   never returned those keys (the gap was masked by a mocked test).
   The probe now locates `features.yaml` under `<ws>/.help/` (or the
   workspace root itself) and counts the manifest's features.
+- **`/api/author/features` 500'd on a syntactically-broken
+  `features.yaml`.** `load_manifest` lets `yaml.YAMLError` escape;
+  the endpoint now maps it to the documented 400
+  `manifest_malformed` response.
 
 ## [0.9.0] — 2026-06-22
 
