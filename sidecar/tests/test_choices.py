@@ -125,9 +125,7 @@ def test_manifest_yaml_syntax_error_returns_400(client: TestClient, tmp_path: Pa
     assert r.json()["detail"]["code"] == "manifest_malformed"
 
 
-def test_manifest_without_features_key_returns_empty(
-    client: TestClient, tmp_path: Path
-) -> None:
+def test_manifest_without_features_key_returns_empty(client: TestClient, tmp_path: Path) -> None:
     help_dir = tmp_path / ".help"
     help_dir.mkdir()
     # Mapping document with no `features:` key -> empty choice list.
