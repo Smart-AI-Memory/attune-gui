@@ -74,17 +74,19 @@ async def list_features(
     if project_path:
         help_dir = str(Path(project_path).expanduser().resolve() / ".help")
     # Lazy-import the manifest loader so cold-start stays fast and
-    # the dependency on attune-help stays optional at import time.
+    # the dependency on attune-author stays optional at import time.
+    # (Moved from attune_help.manifest in attune-help 0.11.0; the
+    # attune_help shim was removed in 0.12.0.)
     try:
-        from attune_help.manifest import load_manifest  # noqa: PLC0415
+        from attune_author.manifest import load_manifest  # noqa: PLC0415
     except ImportError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "code": "missing_dep",
                 "message": (
-                    f"attune-help isn't installed: {exc}. Install with "
-                    "`pip install attune-help`."
+                    f"attune-author isn't installed: {exc}. Install with "
+                    "`pip install attune-author`."
                 ),
             },
         ) from exc
