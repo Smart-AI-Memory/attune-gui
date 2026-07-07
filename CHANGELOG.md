@@ -8,6 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Work in progress for the next release. Add entries here as
 changes land, not at tag time.
 
+### Fixed
+
+- **False-stale staleness readings — attune-author pin bumped to
+  `>=0.23,<0.24`.** attune-author ≤0.22.0 silently dropped
+  `status: manual` from features.yaml and hash-resolved every
+  feature's source globs to empty, so the dashboard reported every
+  template stale ("296 stale of 296" against a fully-fresh corpus).
+  0.23.0 fixes the underlying bug; the dashboard now agrees with
+  `attune-author status` (0 stale, manual features excluded).
+- **Workspace card always said "no features.yaml found ·
+  Features: 0".** `home_summary` read `manifest_path` /
+  `feature_count` from `/api/cowork/corpus`, but `corpus_health()`
+  never returned those keys (the gap was masked by a mocked test).
+  The probe now locates `features.yaml` under `<ws>/.help/` (or the
+  workspace root itself) and counts the manifest's features.
+
 ## [0.9.0] — 2026-06-22
 
 The Living Docs dashboard becomes interactive and testable. This
