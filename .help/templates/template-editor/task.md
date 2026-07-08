@@ -3,88 +3,131 @@ type: task
 name: template-editor-task
 feature: template-editor
 depth: task
-generated_at: 2026-05-23T11:23:11.945592+00:00
-source_hash: ec1d4153a8e6969223933f4de93941bb8c47c96c480b5a3605f822a911923af1
+generated_at: 2026-06-23T04:13:38.188486+00:00
+source_hash: 407c7dc6dcfaefcca257d93599116ce8bf9cd491c25de410e9dd8361366327ef
 status: generated
 ---
 
 # Work with the template editor
 
-Use the template editor when you need to create or modify attune-help-style markdown templates through the sidecar's `/editor` interface, with schema-validated frontmatter, live lint feedback, and per-hunk saves.
+Use the template editor when you need to open, edit, and save attune-help markdown templates through the sidecar UI at `/editor`, with schema-validated frontmatter, live lint feedback, per-hunk saving, and cross-corpus rename support.
 
 ## Prerequisites
 
-- The attune-gui sidecar is running and a portfile is readable via `read_portfile()` in `attune_gui.editor_sidecar`
-- At least one corpus directory is registered and accessible via `list_corpora()` in `attune_gui.editor_corpora`
-- You have a valid bearer token (stored in `PortfileData.token`) to authenticate requests to `/healthz`
+- The `attune-gui` sidecar is installed and running.
+- At least one corpus directory is registered in `~/.attune/corpora.json`.
+- You have read access to the corpus path you want to edit.
 
 ## Register a corpus
 
-Before editing templates, the editor needs to know which directory contains them.
+Before you can open a template, the editor must know which directory to load it from.
 
-1. Call `register(name, path)` from `attune_gui.editor_corpora`, passing the corpus display name and its absolute directory path.
+1. Call `register()` from `attune_gui.editor_corpora`, passing a display name and an absolute path to a corpus directory:
 
    ```python
    from attune_gui.editor_corpora import register
-   entry = register("My Templates", "/path/to/templates")
+
+   entry = register("My Corpus", "/abs/path/to/corpus", kind="source")
+   print(entry.id)   # use this id in subsequent calls
    ```
 
-   `register` raises `ValueError` if the path is not an existing directory. On success it returns a `CorpusEntry` with fields `id`, `name`, `path`, `kind`, and `warn_on_edit`.
+   `register()` raises `ValueError` if the path is not an existing directory.
 
-2. Call `set_active(entry.id)` to make this corpus the default in the UI.
+2. Confirm the entry was saved by calling `load_registry()` and checking that your corpus appears in `Registry.corpora`:
+
+   ```python
+   from attune_gui.editor_corpora import load_registry
+
+   reg = load_registry()
+   print([c.name for c in reg.corpora])
+   ```
+
+## Set the active corpus
+
+1. Call `set_active()` with the corpus `id` returned by `register()`:
 
    ```python
    from attune_gui.editor_corpora import set_active
-   set_active(entry.id)
+
+   active = set_active(entry.id)
+   print(active.name)
    ```
 
-   `set_active` raises `KeyError` if the corpus ID is not in the registry.
+   `set_active()` raises `KeyError` if the corpus id is not recognised. Call `list_corpora()` to inspect all registered ids.
 
-3. Call `save_registry(load_registry())` to persist the change to `~/.attune/corpora.json`.
+2. Verify the change by calling `get_active()` and confirming it returns the expected `CorpusEntry`:
 
    ```python
-   from attune_gui.editor_corpora import load_registry, save_registry
-   save_registry(load_registry())
-   ```
+   from attune_gui.editor_corpora import get_active
 
-**Verify:** Call `get_active()` — it should return the `CorpusEntry` you just registered.
+   assert get_active().id == entry.id
+   ```
 
 ## Open and edit a template
 
-1. Navigate to `/editor?corpus=<corpus_id>&path=<relative_path>` in your browser. The `editor_page` route renders the editor UI for that corpus and path.
+1. Navigate to `/editor?corpus=<corpus_id>&path=<relative_path>` in your browser. The editor page is served by `editor_page()` in `routes.editor_pages`.
 
-2. Edit the frontmatter fields in the schema-driven form. The form validates against the schema served by `template_schema()` (`routes.editor_schema`).
+2. Edit the frontmatter fields in the schema-driven form. The form schema is served by `template_schema()` in `routes.editor_schema`.
 
-3. Edit the markdown body in the CodeMirror 6 editor. Lint diagnostics appear automatically; they are powered by `lint(corpus_id, req)` in `routes.editor_lint`. Tag and alias suggestions come from `autocomplete(corpus_id, kind, prefix)`.
+3. Edit the markdown body in the CodeMirror panel. Lint diagnostics appear automatically; they are provided by `lint()` in `routes.editor_lint`.
 
-4. When you are ready to save, open the save modal. It shows a per-hunk diff produced by `diff_template(corpus_id, req)` (`routes.editor_template`). Review each hunk, then confirm.
+4. Use tag and alias autocomplete as you type. Completions are provided by `autocomplete()` in `routes.editor_lint` and respect the `prefix` you have typed.
 
-5. Click **Save** to call `save_template(corpus_id, req)`. The route returns a `SaveResponse` confirming the write.
+## Save a template
 
-**Verify:** After saving, call `get_template` (`routes.editor_template`) with the same `corpus_id` and `path`. The returned `TemplateResponse` should reflect your changes. Alternatively, confirm that `EditorSession.matches_base()` returns `True` after reloading the session with `EditorSession.load(abs_path)`.
+1. Click **Save** to open the per-hunk save modal. The diff is computed by `diff_template()` in `routes.editor_template`, which returns a `DiffResponse` containing `HunkModel` objects.
 
-## Handle a file-changed conflict
+2. Select the hunks you want to keep, then confirm. The editor calls `save_template()` in `routes.editor_template` with a `SaveRequest` and receives a `SaveResponse`.
 
-If the file on disk changes while you are editing, the WebSocket endpoint `corpus_ws` (`routes.editor_ws`) pushes a `file_changed` event to the browser.
-
-1. Call `EditorSession.next_event()` to read the incoming event from the session.
-2. The editor enters three-way merge conflict mode automatically. Resolve each conflict in the diff gutter.
-3. Save the resolved content using `save_template`.
-
-**Verify:** After saving, `EditorSession.current_disk_hash()` should match `hash_text` applied to the saved file content (`attune_gui.editor_session`).
+3. If another process edited the file while you were working, the WebSocket connection (`corpus_ws` in `routes.editor_ws`) pushes a `file_changed` event. The editor enters three-way merge conflict mode. Resolve each conflict and save again.
 
 ## Rename a template across corpora
 
-1. In the editor UI, open the rename modal. It calls `rename_preview(corpus_id, req)` (`routes.editor_ws`) to show all files that reference the current template.
-2. Review the preview. If the changes are correct, confirm to call `rename_apply(corpus_id, req)`.
+1. Use the rename modal to preview the impact of a rename before applying it. The preview is provided by `rename_preview()` in `routes.editor_ws`.
 
-**Verify:** `rename_apply` returns a dict summarising the files updated. Check that every path listed now contains the new name.
+2. After reviewing the affected files, apply the rename with `rename_apply()` in `routes.editor_ws`.
 
-## Switch corpora with unsaved edits
+## Start and stop an editor session programmatically
 
-The corpus switcher checks for unsaved edits before switching. If `EditorSession.matches_base()` returns `False`, the UI displays an unsaved-edits guard dialog.
+If you are driving the editor from Python rather than a browser, use `EditorSession` from `attune_gui.editor_session`:
 
-1. Save or discard your current edits.
-2. Select the target corpus in the switcher. The switcher calls `set_active` with the new corpus ID.
+1. Load a session for a file:
 
-**Verify:** `get_active()` returns the newly selected `CorpusEntry`.
+   ```python
+   from pathlib import Path
+   from attune_gui.editor_session import EditorSession
+
+   session = EditorSession.load(Path("/abs/path/to/template.md"))
+   session.start()
+   ```
+
+2. Push draft text as the user types:
+
+   ```python
+   session.update_draft(new_text)
+   ```
+
+3. Check whether the in-memory draft still matches the on-disk file:
+
+   ```python
+   in_sync = session.matches_base()
+   ```
+
+4. Poll for file-system events:
+
+   ```python
+   event = session.next_event()
+   ```
+
+5. Stop the session when done:
+
+   ```python
+   session.stop()
+   ```
+
+## Verify the editor is working
+
+- `GET /healthz?token=<token>` returns `{"status": "ok"}`. This endpoint is served by `healthz()` in `routes.editor_health`.
+- `list_corpora()` returns a non-empty list containing your registered corpus.
+- `get_active()` returns the `CorpusEntry` you set with `set_active()`.
+- `resolve_path()` returns a `(CorpusEntry, relative_path)` tuple for any absolute path inside a registered corpus directory, confirming the registry is consistent.

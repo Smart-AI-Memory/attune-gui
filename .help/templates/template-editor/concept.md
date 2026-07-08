@@ -3,39 +3,52 @@ type: concept
 name: template-editor-concept
 feature: template-editor
 depth: concept
-generated_at: 2026-05-23T11:23:11.938567+00:00
-source_hash: ec1d4153a8e6969223933f4de93941bb8c47c96c480b5a3605f822a911923af1
+generated_at: 2026-06-23T04:13:38.182237+00:00
+source_hash: 407c7dc6dcfaefcca257d93599116ce8bf9cd491c25de410e9dd8361366327ef
 status: generated
 ---
 
 # Template Editor
 
-The template editor is a browser-based editing environment, served at `/editor` by the attune-gui sidecar, that lets you read, edit, lint, and save attune-help markdown templates without leaving the tool.
+The template editor is a browser-based CodeMirror 6 environment, served at `/editor` by the attune-gui sidecar, for authoring and refactoring attune-help-style markdown templates without requiring a Node.js installation on the user's machine.
 
 ## What the editor does
 
-The editor combines a CodeMirror 6 text surface with server-side intelligence. As you type, the sidecar runs debounced lint checks (via `lint` in `routes.editor_lint`) and returns `DiagnosticModel` annotations inline. Tag and alias autocomplete fires against the active corpus so you can reference existing vocabulary without switching windows. A schema-driven frontmatter form — backed by the `template_schema` route — validates the YAML header before you save.
+The editor bundles everything needed to work with a corpus of templates in one place:
 
-Saving is surgical: a diff of your draft against the on-disk file is computed by `diff_template`, and a per-hunk modal lets you choose which changes to write. If the file changes on disk while your tab is open, a WebSocket push from `corpus_ws` triggers a 3-way merge conflict view rather than silently overwriting your work.
+- A schema-driven frontmatter form that validates fields as you type
+- Debounced server-side lint with tag and alias autocomplete (up to 500 results, configurable via the `limit` query parameter)
+- A per-hunk save modal backed by `diff_template` and `save_template`
+- 3-way merge conflict mode triggered by `file_changed` pushes over the WebSocket at `corpus_ws`
+- Cross-corpus rename refactoring via `rename_preview` and `rename_apply`
+- A corpus switcher with an unsaved-edits guard
+- A directory picker for registering new corpora
 
-Rename refactoring works across corpora: `rename_preview` shows you every affected reference before `rename_apply` commits the change.
+The frontend is pre-bundled with Vite and TypeScript into `sidecar/attune_gui/static/editor/`, so PyPI consumers don't need Node.
 
-## The four runtime layers
+## Core data model
 
-Understanding how the pieces fit together makes the editor's behavior predictable.
+Three dataclasses form the backbone of the editor's runtime state.
 
-**1. Corpus registry** — A `Registry` object (an in-memory snapshot of `~/.attune/corpora.json`) holds the list of `CorpusEntry` records. Each `CorpusEntry` carries an `id`, a human-readable `name`, a filesystem `path`, a `kind` (`'source'` by default), and a `warn_on_edit` flag that triggers an advisory banner when you open files in that corpus. You register a new corpus with `register(name, path)` and switch the active one with `set_active(corpus_id)`. The corpus switcher in the UI guards against switching away with unsaved edits.
+**`Registry`** is the in-memory snapshot of `~/.attune/corpora.json`. It holds an optional `active` corpus ID and the full list of `CorpusEntry` objects. You load it with `load_registry()` and write it back with `save_registry(reg)`, which creates `~/.attune/` if it doesn't exist yet.
 
-**2. Editor session** — Each open tab corresponds to one `EditorSession`, keyed to an `(abs_path, corpus)` pair. When a tab opens, `EditorSession.load(abs_path)` reads the file, stores `base_text` and a 16-character `base_hash` (SHA-256 prefix from `hash_text`), and starts a background poller at `poll_interval` (default `0.1` seconds). Calling `update_draft(text)` records your in-progress edits as `draft_text`. `matches_base()` tells the session — and the UI — whether your draft diverges from what was on disk when the tab loaded. `next_event()` surfaces file-change notifications to the WebSocket layer.
+**`CorpusEntry`** represents a single registered corpus. Its fields tell the editor where to find the files (`path`), how to label it (`name`, `id`), what role it plays (`kind`, defaulting to `'source'`), and whether to warn the user before any edit (`warn_on_edit`). You register a new corpus with `register(name, path)`, which raises `ValueError` if the path is not a directory. You switch the active corpus with `set_active(corpus_id)`, which raises `KeyError` if the ID is unknown.
 
-**3. Sidecar portfile** — The sidecar process advertises its `pid`, `port`, and `token` by writing a `PortfileData` record via `write_portfile`. Consumers call `read_portfile()` to discover the running instance and authenticate requests. `is_portfile_stale()` checks whether the recorded PID is still alive (`is_pid_alive`), so a crashed sidecar doesn't leave a phantom portfile. The `portfile_context` context manager handles the full write-then-delete lifecycle. The `/healthz` route requires the same `token`, giving clients a lightweight liveness check.
+**`EditorSession`** tracks the state of a single open tab — one `(corpus, path)` pair. It stores the text that was on disk when the tab opened (`base_text`, `base_hash`) and the current unsaved content (`draft_text`). Call `update_draft(text)` whenever the user types. Call `matches_base()` to decide whether the unsaved-edits guard should fire before a corpus switch. The session also polls the file on disk at `poll_interval` (default 0.1 s) and emits events you read with `next_event()` — this is what feeds the 3-way merge conflict mode when another process writes the file.
 
-**4. HTTP and WebSocket routes** — The corpus routes (`routes.editor_corpus`) expose `list_corpora`, `set_active`, `register`, and `resolve` as JSON endpoints. The template routes (`routes.editor_template`) expose `get_template`, `diff_template`, and `save_template`. Lint and autocomplete live in `routes.editor_lint`. Real-time file-change events and rename operations flow over the WebSocket route in `routes.editor_ws`.
+## Sidecar lifecycle
 
-## When the `warn_on_edit` flag matters
+The editor runs inside the attune-gui sidecar process. Startup and shutdown are coordinated through a portfile — a small file containing the sidecar's `pid`, `port`, and `token` (see `PortfileData`). The `portfile_context` context manager writes the portfile on entry and deletes it on exit, so a stale portfile from a crashed process is detectable via `is_portfile_stale()` and `is_pid_alive(pid)`. The `/healthz` route requires the same `token` stored in the portfile, which prevents stale clients from talking to a restarted sidecar.
 
-When you call `register` with `warn_on_edit=True`, or when the registry file already records that flag for a corpus, the editor displays a persistent advisory banner on every file in that corpus. This is useful for corpora that are generated or otherwise managed outside the editor — the banner signals that manual edits may be overwritten by an upstream process.
+## How the pieces connect
 
-## Static asset delivery
+When you open a template in the browser, the following chain runs:
 
-The frontend (TypeScript + Vite) is pre-bundled into `sidecar/attune_gui/static/editor/` and shipped inside the PyPI package. PyPI consumers do not need Node.js installed; the sidecar serves the compiled assets directly from `routes.editor_pages`.
+1. The frontend calls `editor_page` to render the shell, then fetches `get_template(corpus_id, path)` to populate the editor.
+2. An `EditorSession` is created for the tab. The session's background poller watches the file on disk.
+3. The WebSocket at `corpus_ws` forwards `file_changed` events from the session to the browser, triggering the merge UI when disk content diverges from `base_hash`.
+4. As you edit, the browser sends text to `lint(corpus_id, req)` for diagnostics and to `autocomplete` for tag or alias suggestions.
+5. When you save, `diff_template` computes the hunks shown in the save modal, and `save_template` writes the accepted changes to disk.
+6. A rename operation calls `rename_preview` first (shows affected files), then `rename_apply` to commit.
+
+The corpus switcher in the toolbar calls `set_active(corpus_id)` and re-runs this chain for the new corpus. `resolve_path(abs_path)` lets the editor identify which registered corpus owns any given file path, which is used when opening a template from an external file picker.
