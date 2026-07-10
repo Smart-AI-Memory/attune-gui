@@ -293,14 +293,11 @@ async def _exec_rag_query(args: dict[str, Any], ctx: JobContext) -> dict[str, An
 
 
 async def _exec_author_generate(args: dict[str, Any], ctx: JobContext) -> dict[str, Any]:
-    from pathlib import Path
-
     from attune_author.generator import generate_feature_templates  # noqa: PLC0415
     from attune_author.manifest import load_manifest  # noqa: PLC0415
 
     feature = args["feature"]
-    help_dir = Path(args.get("help_dir", ".help")).resolve()
-    project_root = Path(args.get("project_root", ".")).resolve()
+    project_root, help_dir = _resolve_project_paths(args)
     depths = args.get("depths") or None
     all_kinds = bool(args.get("all_kinds", False))
     overwrite = bool(args.get("overwrite", False))
