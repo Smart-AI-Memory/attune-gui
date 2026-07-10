@@ -436,3 +436,52 @@ class TestAuthorProxies:
             )
 
         assert invalidated == []
+
+
+# ---------------------------------------------------------------------------
+# author.generate — workspace resolution (regression)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorGenerateWorkspaceResolution:
+    """Regression: ``author.generate`` resolved its default ``.help`` against
+    the sidecar's cwd instead of the configured workspace, so jobs launched
+    from a cwd without a manifest errored with
+    ``No features.yaml in <cwd>/.help`` even when a workspace was set.
+    It must route through ``_resolve_project_paths`` like the other
+    author commands."""
+
+    @pytest.mark.asyncio
+    async def test_generate_uses_configured_workspace(
+        self, ctx: FakeJobContext, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from attune_gui.commands import _exec_author_generate
+
+        ws = tmp_path / "proj"
+        (ws / ".help").mkdir(parents=True)
+        (ws / ".help" / "features.yaml").write_text("features: {}\n")
+        monkeypatch.setenv("ATTUNE_WORKSPACE", str(ws))
+
+        captured: dict[str, Path] = {}
+
+        def fake_load_manifest(help_dir: Path) -> SimpleNamespace:
+            captured["help_dir"] = Path(help_dir)
+            return SimpleNamespace(features={})
+
+        with patch("attune_author.manifest.load_manifest", fake_load_manifest):
+            with pytest.raises(ValueError, match="not in manifest"):
+                await _exec_author_generate({"feature": "nope"}, ctx)  # type: ignore[arg-type]
+
+        assert captured["help_dir"] == ws / ".help"
+
+    @pytest.mark.asyncio
+    async def test_generate_errors_without_workspace_or_path(
+        self, ctx: FakeJobContext, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from attune_gui.commands import _exec_author_generate
+
+        monkeypatch.delenv("ATTUNE_WORKSPACE", raising=False)
+        monkeypatch.setattr("attune_gui.workspace.get_workspace", lambda: None)
+
+        with pytest.raises(ValueError, match="no workspace configured"):
+            await _exec_author_generate({"feature": "x"}, ctx)  # type: ignore[arg-type]
