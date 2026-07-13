@@ -4,7 +4,7 @@
 > Single layer: **attune-gui**. Branch off current `main` (batch panel
 > from attune-gui#67 must be present in the tree).
 
-**Status**: approved (2026-06-14)
+**Status**: complete (2026-06-17) — shipped in attune-gui#68 (batch-panel ES module + Vitest, tasks 0–7 done, verified live); #67 was the prerequisite panel
 
 ## Implementation order
 
